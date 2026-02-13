@@ -216,6 +216,34 @@ theorem tendsto_self_mul_const_pow_of_lt_one {r : ℝ} (hr : 0 ≤ r) (h'r : r <
     Tendsto (fun n ↦ n * r ^ n : ℕ → ℝ) atTop (𝓝 0) := by
   simpa only [pow_one] using tendsto_pow_const_mul_const_pow_of_lt_one 1 hr h'r
 
+/-- If `0 ≤ r < 1`, then eventually `n ^ k * r ^ n < 1`.
+This converts the tendency from `tendsto_pow_const_mul_const_pow_of_lt_one` to
+an explicit bound, useful for summability proofs. -/
+theorem eventually_pow_const_mul_const_pow_lt_one (k : ℕ) {r : ℝ} (hr : 0 ≤ r) (h'r : r < 1) :
+    ∀ᶠ n : ℕ in atTop, (n : ℝ) ^ k * r ^ n < 1 :=
+  (tendsto_order.mp (tendsto_pow_const_mul_const_pow_of_lt_one k hr h'r)).2 1 one_pos
+
+/-- If `n ^ k * q ^ n < 1` eventually and `m ≤ k`, then `n ^ m * q ^ n`
+is eventually bounded by `r ^ n` for any `r > q` with `q < 1`. This is useful
+for showing that polynomial growth is dominated by exponential decay. -/
+theorem eventually_pow_mul_pow_le_of_lt {k m : ℕ} {r q : ℝ} (hkm : m ≤ k) (hq : 0 ≤ q) (hq1 : q < 1)
+    (hr : q < r) (h : ∀ᶠ n : ℕ in atTop, (n : ℝ) ^ k * q ^ n < 1) :
+    ∀ᶠ n : ℕ in atTop, (n : ℝ) ^ m * q ^ n ≤ r ^ n := by
+  have hr_pos : 0 < r := lt_of_le_of_lt hq hr
+  have hqr_nonneg : 0 ≤ q / r := div_nonneg hq (le_of_lt hr_pos)
+  have hqr_lt : q / r < 1 := (div_lt_one hr_pos).mpr hr
+  have : Tendsto (fun n : ℕ => (n : ℝ) ^ m * (q / r) ^ n : ℕ → ℝ) atTop (𝓝 0) :=
+    tendsto_pow_const_mul_const_pow_of_lt_one m hqr_nonneg hqr_lt
+  filter_upwards [(tendsto_order.mp this).2 1 one_pos] with n hn
+  have key : q ^ n = (q / r) ^ n * r ^ n := by
+    rw [div_pow, div_mul_cancel₀]
+    exact pow_ne_zero n (ne_of_gt hr_pos)
+  le_of_lt <| calc (n : ℝ) ^ m * q ^ n
+      = (n : ℝ) ^ m * ((q / r) ^ n * r ^ n) := by rw [key]
+    _ = ((n : ℝ) ^ m * (q / r) ^ n) * r ^ n := by ring
+    _ < 1 * r ^ n := mul_lt_mul_of_pos_right hn (pow_pos hr_pos n)
+    _ = r ^ n := one_mul _
+
 /-- In a normed ring, the powers of an element x with `‖x‖ < 1` tend to zero. -/
 theorem tendsto_pow_atTop_nhds_zero_of_norm_lt_one {R : Type*} [SeminormedRing R] {x : R}
     (h : ‖x‖ < 1) :

@@ -237,6 +237,19 @@ theorem cpow_conj (x : ℂ) (n : ℂ) (hx : x.arg ≠ π) : x ^ conj n = conj (c
 lemma natCast_add_one_cpow_ne_zero (n : ℕ) (z : ℂ) : (n + 1 : ℂ) ^ z ≠ 0 :=
   mt (cpow_eq_zero_iff ..).mp fun H ↦ by norm_cast at H; exact H.1
 
+/-- The norm of a positive natural number raised to a complex power equals
+the real power with the real part of the exponent. -/
+lemma abs_natCast_cpow (n : ℕ) [NeZero n] (s : ℂ) :
+    abs ((n : ℂ) ^ s) = (n : ℝ) ^ s.re := by
+  rw [cpow_def_of_ne_zero (Nat.cast_ne_zero.mpr (NeZero.ne n)), abs_exp,
+    ← ofReal_natCast n, log_ofReal_re (Nat.cast_pos.mpr (NeZero.pos n)),
+    ofReal_log (Nat.cast_pos.mpr (NeZero.pos n)), re_ofReal_mul, mul_comm]
+
+/-- The norm of z^n divided by n^s equals |z|^n times n^(-Re(s)). -/
+lemma abs_div_natCast_cpow {z : ℂ} {s : ℂ} (n : ℕ) [NeZero n] :
+    abs (z ^ n / (n : ℂ) ^ s) = abs z ^ n * (n : ℝ) ^ (-s.re) := by
+  rw [map_div₀, abs_natCast_cpow n s, abs_pow, div_eq_mul_inv, rpow_neg (Nat.cast_pos.mpr (NeZero.pos n)).le]
+
 end Complex
 
 -- section Tactics
