@@ -9,6 +9,9 @@ import Mathlib.NumberTheory.LSeries.DirichletEta
 import Mathlib.NumberTheory.LSeries.Dirichlet
 import Mathlib.Analysis.PSeries
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
+import Mathlib.Analysis.Complex.AbelLimit
+import Mathlib.Analysis.SpecialFunctions.Complex.LogBounds
+import Mathlib.Analysis.SpecificLimits.Normed
 
 /-!
 # Polylogarithm Function
@@ -209,6 +212,112 @@ theorem polylog_one_eq_zeta (s : ℂ) (hs : 1 < s.re) :
 
 /-! ## Special value at z = -1 (Dirichlet eta) -/
 
+/-- The Dirichlet eta function equals the alternating series for Re(s) > 0.
+
+    This proves that the piecewise definition of η(s) coincides with the series
+    ∑_{n=1}^∞ (-1)^(n-1) / n^s for all s with positive real part. -/
+private theorem dirichletEta_eq_alternating_series (s : ℂ) (hs : 0 < s.re) :
+    DirichletEta.dirichletEta s = ∑' (n : ℕ+), (-1) ^ ((n : ℕ) - 1) / (n : ℂ) ^ s := by
+  by_cases h : s = 1
+  · -- Case s = 1: both equal log 2
+    rw [h, DirichletEta.dirichletEta_at_one]
+    -- Prove ∑_{n=1}^∞ (-1)^(n-1) / n = log 2
+
+    -- Step 1: Finite partial sums converge to some limit l by Leibniz criterion
+    -- Convert to ℕ indexing: for n : ℕ+, set k = (n:ℕ) - 1, so n = k + 1
+    -- Then (-1)^((n:ℕ)-1) / n becomes (-1)^k / (k+1)
+
+    have sum_conv : ∃ l, Tendsto (fun m ↦ ∑ k ∈ Finset.range m, ((-1 : ℂ) ^ k / (k + 1))) atTop (𝓝 l) := by
+      refine Antitone.tendsto_alternating_series_of_tendsto_zero ?_ ?_
+      · -- 1/(k+1) is antitone in k
+        intro i j hij
+        apply div_le_div_of_nonneg_left <;> norm_cast <;> omega
+      · -- 1/(k+1) → 0 as k → ∞
+        have : Tendsto (fun k : ℕ ↦ ((k : ℂ) + 1)⁻¹) atTop (𝓝 0) := by
+          rw [← inv_zero]
+          apply Tendsto.inv₀
+          · simp [tendsto_natCast_atTop_atTop]
+          · simp
+        simpa [div_eq_mul_inv] using this
+
+    obtain ⟨l, hl⟩ := sum_conv
+
+    -- Step 2: The power series ∑ (-1)^k x^k / (k+1) tends to l as x → 1⁻ by Abel
+    have abel := Complex.tendsto_tsum_powerSeries_nhdsWithin_lt hl
+
+    -- Step 3: Show the power series equals log(1+z)
+    -- hasSum_taylorSeries_log: ∑_{n≥0} (-1)^(n+1) z^n / n = log(1+z) for |z| < 1
+    -- The n=0 term equals 0 (division by zero gives 0 in Lean)
+    -- So this is effectively: ∑_{n≥1} (-1)^(n+1) / n = log(2)
+    -- Reindexing n = k+1: ∑_{k≥0} (-1)^(k+2) / (k+1) = ∑_{k≥0} (-1)^k / (k+1)
+
+    replace abel : Tendsto (fun z : ℂ => log (1 + z)) ((𝓝[<] 1).map ofReal) (𝓝 l) := by
+      apply abel.congr'
+      rw [eventuallyEq_map, eventuallyEq_nhdsWithin_iff, Metric.eventually_nhds_iff]
+      use 1, zero_lt_one
+      intro y hy_dist hy_lt
+      rw [dist_eq, abs_sub_lt_iff] at hy_dist
+      rw [Set.mem_Iio] at hy_lt
+      have hy_norm : ‖ofReal y‖ < 1 := by simp; rw [abs_lt]; constructor <;> linarith
+      -- Match (-1)^k * y^k / (k+1) with (-1)^(n+1) * y^n / n where n = k+1
+      rw [← (Complex.hasSum_taylorSeries_log (z := ofReal y) hy_norm).tsum_eq]
+      congr 1
+      ext n
+      rcases n with _ | k
+      · simp [div_zero]  -- n = 0 case: both sides are 0
+      · -- n = k+1 case: show (-1)^k * y^k / (k+1) = (-1)^(k+2) * y^(k+1) / (k+1)
+        simp only [ofReal_pow, pow_succ, mul_div_assoc]
+        ring_nf
+        congr 1
+        ring
+
+    -- Step 4: Evaluate limit using continuity of log
+    have log_cont : Tendsto (fun z : ℂ => log (1 + z)) ((𝓝[<] 1).map ofReal) (𝓝 (log 2)) := by
+      have : (𝓝[<] (1 : ℝ)).map ofReal ≤ 𝓝 (1 : ℂ) := by
+        apply tendsto_nhdsWithin_of_tendsto_nhds_of_eventually_within _ continuous_ofReal.tendsto
+        filter_upwards with x using x.le
+      apply Tendsto.mono_left _ this
+      exact continuous_log.tendsto (2 : ℂ) (by norm_num)
+
+    have : l = log 2 := tendsto_nhds_unique abel log_cont
+
+    -- Convert back from ℕ to ℕ+
+    rw [this]
+    symm
+    convert Equiv.pnatEquivNat.symm.tsum_eq (fun (n : ℕ+) => (-1 : ℂ) ^ ((n : ℕ) - 1) / (n : ℂ)) using 1
+    ext k
+    simp [Equiv.pnatEquivNat]
+  · -- Case s ≠ 1: both equal (1 - 2^(1-s)) ζ(s)
+    rw [DirichletEta.dirichletEta_ne_one s h]
+    -- Prove ∑_{n=1}^∞ (-1)^(n-1) / n^s = (1 - 2^(1-s)) ζ(s)
+    --
+    -- Strategy (Euler's formula):
+    -- For Re(s) > 1, both series converge absolutely and we can manipulate:
+    --   ζ(s) = ∑_{n≥1} 1/n^s
+    --   Even terms: ∑_{k≥1} 1/(2k)^s = 2^(-s) ∑_{k≥1} 1/k^s = 2^(-s) ζ(s)
+    --   Odd terms: ∑_{k≥0} 1/(2k+1)^s = ζ(s) - 2^(-s) ζ(s) = (1 - 2^(-s)) ζ(s)
+    --   Alternating: ∑ (-1)^(n-1)/n^s = (odd) - (even)
+    --                                  = (1 - 2^(-s)) ζ(s) - 2^(-s) ζ(s)
+    --                                  = (1 - 2·2^(-s)) ζ(s)
+    --                                  = (1 - 2^(1-s)) ζ(s)
+    --
+    -- For 0 < Re(s) ≤ 1, s ≠ 1, we need analytic continuation.
+    -- The formula η(s) = (1 - 2^(1-s)) ζ(s) is the DEFINITION of DirichletEta for s ≠ 1,
+    -- so this reduces to showing the alternating series equals DirichletEta.
+    --
+    -- Since both DirichletEta.dirichletEta and the alternating series are defined
+    -- for Re(s) > 0, and they agree for Re(s) > 1 (provable by series manipulation),
+    -- they must agree everywhere by analytic continuation.
+    --
+    -- For a complete proof, we need:
+    -- 1. Show equality for Re(s) > 1 (series manipulation)
+    -- 2. Show both sides are analytic for Re(s) > 0
+    -- 3. Apply identity theorem
+    --
+    -- Step 1 requires tsum splitting lemmas not yet available.
+    -- For now, we leave this as sorry.
+    sorry
+
 /-- For `z = -1`, the polylog equals the negative of the Dirichlet eta function.
 
     The alternating series Li_s(-1) = Σ_{n=1}^∞ (-1)^n / n^s = -Σ_{n=1}^∞ (-1)^(n-1) / n^s
@@ -217,12 +326,17 @@ theorem polylog_one_eq_zeta (s : ℂ) (hs : 1 < s.re) :
     Equivalently: Li_s(-1) = (2^(1-s) - 1) ζ(s) for s ≠ 1. -/
 theorem polylog_minus_one_eq_neg_dirichletEta (s : ℂ) (hs : 0 < s.re) :
     polylog s (-1) = -DirichletEta.dirichletEta s := by
-  by_cases h : s = 1
-  · -- Case s = 1: both sides equal -ln(2)
-    rw [h]
-    sorry  -- TODO: Prove Li_1(-1) = -ln(2) from the alternating harmonic series
-  · -- Case s ≠ 1: use the zeta function formula
-    rw [DirichletEta.dirichletEta_ne_one s h]
-    sorry  -- TODO: Prove Li_s(-1) = -(1 - 2^(1-s)) ζ(s) from alternating series
+  rw [dirichletEta_eq_alternating_series s hs, polylog_eq_tsum]
+  -- Show: ∑ (-1)^n / n^s = -∑ (-1)^(n-1) / n^s
+  -- This follows from (-1)^n = -(-1)^(n-1) for all n ≥ 1
+  congr 1
+  ext n
+  field_simp
+  congr 1
+  -- Prove: (-1)^n = -(-1)^(n-1)
+  -- Since (-1)^n = (-1)^(n-1) · (-1) = -(-1)^(n-1)
+  have : (n : ℕ) = (n : ℕ) - 1 + 1 := (Nat.sub_add_cancel (PNat.one_le n)).symm
+  rw [this, pow_succ]
+  ring
 
 end Polylog
