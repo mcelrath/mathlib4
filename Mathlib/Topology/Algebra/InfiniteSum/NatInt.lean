@@ -201,6 +201,38 @@ theorem tprod_even_mul_odd {f : ℕ → M} (he : Multipliable fun k ↦ f (2 * k
     (∏' k, f (2 * k)) * ∏' k, f (2 * k + 1) = ∏' k, f k :=
   (he.hasProd.even_mul_odd ho.hasProd).tprod_eq.symm
 
+/-- Split product starting at 1 into even and odd terms.
+For k ∈ ℕ, we have 2*(k+1) ∈ {2,4,6,...} and 2*k+1 ∈ {1,3,5,...},
+which together cover {n+1 | n ∈ ℕ}. -/
+@[to_additive /-- Split sum starting at 1 into even and odd terms.
+For k ∈ ℕ, we have 2*(k+1) ∈ {2,4,6,...} and 2*k+1 ∈ {1,3,5,...},
+which together cover {n+1 | n ∈ ℕ}. -/]
+theorem HasProd.even_mul_odd_succ {f : ℕ → M} (he : HasProd (fun k ↦ f (2 * (k + 1))) m)
+    (ho : HasProd (fun k ↦ f (2 * k + 1)) m') :
+    HasProd (fun n ↦ f (n + 1)) (m * m') := by
+  -- Apply even_mul_odd: the even terms f(2k+1) and odd terms f(2*(k+1))
+  -- cover all f(n+1) for n ≥ 0
+  rw [mul_comm]
+  refine HasProd.even_mul_odd ?_ ?_
+  · simpa only [two_mul, add_assoc] using ho
+  · simpa only [two_mul, add_assoc, add_comm 1] using he
+
+/-- Multipliability version of `HasProd.even_mul_odd_succ`. -/
+@[to_additive /-- Summability version of `HasSum.even_add_odd_succ`. -/]
+theorem Multipliable.even_mul_odd_succ {f : ℕ → M}
+    (he : Multipliable fun k ↦ f (2 * (k + 1)))
+    (ho : Multipliable fun k ↦ f (2 * k + 1)) :
+    Multipliable (fun n ↦ f (n + 1)) :=
+  (he.hasProd.even_mul_odd_succ ho.hasProd).multipliable
+
+/-- Concrete tprod equality for products starting at 1. -/
+@[to_additive /-- Concrete tsum equality for sums starting at 1. -/]
+theorem tprod_even_mul_odd_succ {f : ℕ → M}
+    (he : Multipliable fun k ↦ f (2 * (k + 1)))
+    (ho : Multipliable fun k ↦ f (2 * k + 1)) :
+    (∏' k, f (2 * (k + 1))) * (∏' k, f (2 * k + 1)) = ∏' n, f (n + 1) :=
+  (he.hasProd.even_mul_odd_succ ho.hasProd).tprod_eq.symm
+
 end ContinuousMul
 
 end tprod
