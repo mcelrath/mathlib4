@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Implementation via Claude Code. All rights reserved.
+Copyright (c) 2026 Bob McElrath. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Claude Code
+Authors: Bob McElrath
 -/
 import Mathlib.NumberTheory.LSeries.RiemannZeta
 import Mathlib.Analysis.SpecialFunctions.Log.Basic

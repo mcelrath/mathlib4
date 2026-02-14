@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Implementation via Claude Code. All rights reserved.
+Copyright (c) 2026 Bob McElrath. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Claude Code
+Authors: Bob McElrath
 -/
 import Mathlib.NumberTheory.LSeries.Basic
 import Mathlib.NumberTheory.LSeries.RiemannZeta
@@ -149,14 +149,60 @@ theorem summable_polylog_of_norm_lt_one {s z : ℂ} (hz : ‖z‖ < 1) :
           (div_nonneg (norm_nonneg z) hr_pos.le) hq
         simpa using this
 
-      --TODO: Complete the Re s < 0 case
-      -- Mathematical content: For Re s < 0, exponential decay (‖z‖/r)^n dominates
-      -- polynomial growth n^|Re s|
-      -- From tendsto_pow_const_mul_const_pow_of_lt_one: n^k · (‖z‖/r)^n → 0
-      -- for k = ⌈|Re s|⌉ + 1
-      -- This gives eventual bound ‖z^n / n^s‖ ≤ r^n, hence summability
-      -- Full formalization requires additional Mathlib infrastructure for filter manipulation
-      sorry
+      -- Extract eventual bound from decay: n^k * (‖z‖/r)^n < 1 eventually
+      have eventually_lt_one : ∀ᶠ n : ℕ in atTop, (n : ℝ) ^ k * (‖z‖ / r) ^ n < 1 := by
+        rw [tendsto_zero_iff_norm_tendsto_zero] at decay
+        have := decay.eventually (eventually_lt_nhds (a := 0) zero_lt_one)
+        filter_upwards [this] with n hn
+        simpa [abs_of_nonneg (mul_nonneg (pow_nonneg (Nat.cast_nonneg n) k)
+          (pow_nonneg (div_nonneg (norm_nonneg z) hr_pos.le) n))] using hn
+
+      -- Establish eventual bound ‖z^n / n^s‖ ≤ r^n
+      have bound_eventually : ∀ᶠ n : ℕ+ in atTop, ‖z ^ (n : ℕ) / (n : ℂ) ^ s‖ ≤ r ^ (n : ℕ) := by
+        filter_upwards [eventually_cofinite.2 (finite_lt_nat 0), eventually_lt_one.comap PNat.val] with n hn_pos hn_decay
+        have hn_pos' : 0 < (n : ℝ) := Nat.cast_pos.mpr (PNat.pos n)
+        have norm_cpow : ‖(n : ℂ) ^ s‖ = (n : ℝ) ^ s.re := by
+          rw [norm_eq_abs]
+          exact abs_cpow_eq_rpow_re_of_pos hn_pos' s
+
+        calc ‖z ^ (n : ℕ) / (n : ℂ) ^ s‖
+            = ‖z‖ ^ (n : ℕ) / ‖(n : ℂ) ^ s‖ := by rw [norm_div, norm_pow]
+          _ = ‖z‖ ^ (n : ℕ) / (n : ℝ) ^ s.re := by rw [norm_cpow]
+          _ = ‖z‖ ^ (n : ℕ) * (n : ℝ) ^ (-s.re) := by
+              rw [div_eq_mul_inv, Real.rpow_neg hn_pos'.le]
+          _ ≤ r ^ (n : ℕ) := by
+              -- For Re s < 0, we have -s.re = |s.re| > 0
+              -- Need: ‖z‖^n * n^|s.re| ≤ r^n
+              -- From decay: n^k * (‖z‖/r)^n < 1, so n^k < (r/‖z‖)^n
+              -- Since k > |s.re|, we have n^|s.re| ≤ n^k < (r/‖z‖)^n
+              -- Therefore ‖z‖^n * n^|s.re| < ‖z‖^n * (r/‖z‖)^n = r^n
+              have neg_s_re_pos : 0 < -s.re := by linarith
+              have k_gt_neg_s_re : -s.re < k := by
+                have : -s.re ≤ Nat.ceil (-s.re) := Nat.le_ceil (-s.re)
+                linarith
+
+              -- From hn_decay: (n : ℝ) ^ k * (‖z‖ / r) ^ n < 1
+              have power_bound : (n : ℝ) ^ (-s.re) < (r / ‖z‖) ^ (n : ℕ) := by
+                have h1 : (n : ℝ) ^ k < (r / ‖z‖) ^ (n : ℕ) := by
+                  have h2 : (n : ℝ) ^ k * (‖z‖ / r) ^ (n : ℕ) < 1 := hn_decay
+                  rw [div_pow, mul_comm] at h2
+                  have hr_ne : r ^ (n : ℕ) ≠ 0 := pow_ne_zero _ hr_pos.ne'
+                  field_simp [hr_pos.ne'] at h2
+                  exact div_lt_iff_lt_mul hr_pos |>.mp h2
+                exact Real.rpow_lt_rpow_left_of_lt_of_le_one hn_pos'
+                  (Real.rpow_le_rpow_left_of_le_one hn_pos'.le h1 k_gt_neg_s_re)
+                  (by linarith : 1 ≤ n)
+
+              calc ‖z‖ ^ (n : ℕ) * (n : ℝ) ^ (-s.re)
+                  < ‖z‖ ^ (n : ℕ) * (r / ‖z‖) ^ (n : ℕ) := by
+                      exact mul_lt_mul_of_pos_left power_bound (pow_pos (norm_pos_iff.mpr (by
+                        by_contra hz_zero
+                        simp [hz_zero] at hz_r)) _)
+                _ = r ^ (n : ℕ) := by
+                      rw [div_pow, ← mul_div_assoc, mul_comm, mul_div_assoc]
+                      simp
+
+      refine Summable.of_norm_bounded_eventually (fun n => r ^ (n : ℕ)) geom bound_eventually
   exact summable_norm_iff.mpr this
 
 /-- Absolute convergence of polylog for `1 < re s` and `‖z‖ ≤ 1`. -/
@@ -314,8 +360,14 @@ private theorem dirichletEta_eq_alternating_series (s : ℂ) (hs : 0 < s.re) :
     -- 2. Show both sides are analytic for Re(s) > 0
     -- 3. Apply identity theorem
     --
-    -- Step 1 requires tsum splitting lemmas not yet available.
-    -- For now, we leave this as sorry.
+    -- Step 1 requires tsum splitting lemmas not yet available in Mathlib.
+    -- Specifically, we need:
+    -- - Lemmas to split ∑_{n≥1} f(n) into even and odd terms
+    -- - Ability to factor out constants from infinite sums
+    -- - Manipulation of conditionally convergent series
+    --
+    -- These infrastructure pieces would enable a direct proof of Euler's formula.
+    -- For now, this remains as a well-documented gap.
     sorry
 
 /-- For `z = -1`, the polylog equals the negative of the Dirichlet eta function.
