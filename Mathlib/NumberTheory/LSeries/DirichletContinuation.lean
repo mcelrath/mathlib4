@@ -215,6 +215,18 @@ lemma Odd.gammaFactor_def {χ : DirichletCharacter ℂ N} (hχ : χ.Odd) (s : �
     gammaFactor χ s = Gammaℝ (s + 1) := by
   simp [gammaFactor, hχ.not_even]
 
+/-- If two Dirichlet characters have the same parity, their gamma factors are equal. -/
+lemma gammaFactor_eq_of_even_iff {M : ℕ} {χ : DirichletCharacter ℂ N} {ψ : DirichletCharacter ℂ M}
+    (h : χ.Even ↔ ψ.Even) (s : ℂ) : gammaFactor χ s = gammaFactor ψ s := by
+  unfold gammaFactor
+  split_ifs with h1 h2 h2 <;> [rfl; exact absurd (h.mp h1) h2; exact absurd (h.mpr h2) h1; rfl]
+
+/-- The ratio of gamma factors of same-parity characters is 1. -/
+lemma gammaFactor_div_gammaFactor_eq_one {M : ℕ} {χ : DirichletCharacter ℂ N}
+    {ψ : DirichletCharacter ℂ M} (h : χ.Even ↔ ψ.Even) (s : ℂ)
+    (hs : gammaFactor ψ s ≠ 0) : gammaFactor χ s / gammaFactor ψ s = 1 := by
+  rw [gammaFactor_eq_of_even_iff h, div_self hs]
+
 end gammaFactor
 
 /--

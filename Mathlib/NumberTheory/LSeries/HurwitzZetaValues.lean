@@ -7,6 +7,7 @@ module
 
 public import Mathlib.NumberTheory.ZetaValues
 public import Mathlib.NumberTheory.LSeries.RiemannZeta
+public import Mathlib.NumberTheory.LSeries.ZMod
 
 /-!
 # Special values of Hurwitz and Riemann zeta functions
@@ -241,3 +242,44 @@ theorem riemannZeta_neg_nat_eq_bernoulli (k : ℕ) :
   rw [riemannZeta_neg_nat_eq_bernoulli', bernoulli, Rat.cast_mul, Rat.cast_pow, Rat.cast_neg,
     Rat.cast_one, ← neg_one_mul, ← mul_assoc, pow_succ, ← mul_assoc, ← mul_pow, neg_one_mul (-1),
     neg_neg, one_pow, one_mul]
+
+/-!
+## Values of L-functions at negative integers
+
+We extend `hurwitzZeta_neg_nat` to give values of `ZMod.LFunction` at negative integers in terms
+of Bernoulli polynomials.
+-/
+
+section LFunctionValues
+
+open ZMod Polynomial
+
+variable {N : ℕ} [NeZero N]
+
+private lemma toAddCircle_val_div_mem_Icc (j : ZMod N) :
+    (j.val / N : ℝ) ∈ Icc (0 : ℝ) 1 :=
+  mem_Icc.mpr ⟨by positivity,
+    (div_le_one (Nat.cast_pos.mpr <| NeZero.pos _)).mpr <| Nat.cast_le.mpr (val_lt j).le⟩
+
+/-- Values of `ZMod.LFunction` at strictly negative integers, in terms of Bernoulli polynomials.
+
+For `k ≠ 0`, we have `L(Φ, -k) = -N^k / (k + 1) * ∑ j, Φ(j) * B_{k+1}(j/N)`.
+This extends `hurwitzZeta_neg_nat` to L-functions of functions on `ZMod N`. -/
+theorem ZMod.LFunction_neg_nat {k : ℕ} (Φ : ZMod N → ℂ) (hk : k ≠ 0) :
+    LFunction Φ (-(k : ℂ)) = -(N : ℂ) ^ (k : ℕ) / ((k : ℂ) + 1) *
+      ∑ j : ZMod N, Φ j * ((Polynomial.bernoulli (k + 1)).map (algebraMap ℚ ℂ)).eval
+        ((j.val / N : ℝ) : ℂ) := by
+  simp only [LFunction, toAddCircle_apply]
+  simp_rw [hurwitzZeta_neg_nat hk (toAddCircle_val_div_mem_Icc _)]
+  rw [show (-(k : ℂ)) = ↑(-(k : ℤ)) from by push_cast; ring]
+  rw [show -(↑(-(k : ℤ)) : ℂ) = ↑(k : ℤ) from by push_cast; ring]
+  rw [cpow_intCast, zpow_natCast]
+  simp_rw [show ∀ x : ZMod N, Φ x * (-1 / ((k : ℂ) + 1) *
+    ((Polynomial.bernoulli (k + 1)).map (algebraMap ℚ ℂ)).eval ((x.val / N : ℝ) : ℂ)) =
+    -1 / ((k : ℂ) + 1) * (Φ x *
+    ((Polynomial.bernoulli (k + 1)).map (algebraMap ℚ ℂ)).eval ((x.val / N : ℝ) : ℂ))
+    from fun x => by ring]
+  rw [← Finset.mul_sum, ← mul_assoc]
+  ring
+
+end LFunctionValues
