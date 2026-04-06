@@ -399,6 +399,11 @@ theorem LFunction_ne_zero_of_one_le_re ⦃s : ℂ⦄ (hχs : χ ≠ 1 ∨ s ≠ 
   hs.eq_or_lt.casesOn (fun hs ↦ LFunction_ne_zero_of_re_eq_one χ hs.symm hχs)
     fun hs ↦ LFunction_eq_LSeries χ hs ▸ LSeries_ne_zero_of_one_lt_re χ hs
 
+/-- If `χ` is a Dirichlet character, then `L(χ, s)` does not vanish for `s.re > 1`. -/
+theorem LFunction_ne_zero_of_re_gt_one (s : ℂ) (hs : 1 < s.re) :
+    LFunction χ s ≠ 0 :=
+  LFunction_eq_LSeries χ hs ▸ LSeries_ne_zero_of_one_lt_re χ hs
+
 -- Interesting special case:
 variable {χ} in
 /-- The L-function of a nontrivial Dirichlet character does not vanish at `s = 1`. -/
