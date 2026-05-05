@@ -537,7 +537,117 @@ theorem exists_split_factorization_of_absNorm_pow {p : ℕ} (hp : p.Prime)
     (hsplit : Ideal.span ({(p : 𝓞 K)} : Set (𝓞 K)) = 𝔭₁ * 𝔭₂)
     {k : ℕ} {I : Ideal (𝓞 K)} (hI : Ideal.absNorm I = p ^ k) :
     ∃ a ≤ k, I = 𝔭₁ ^ a * 𝔭₂ ^ (k - a) := by
-  sorry
+  classical
+  -- Setup: 𝔭ᵢ are nonzero primes (so prime in the UFM `Ideal (𝓞 K)`).
+  have h𝔭₁_ne : 𝔭₁ ≠ ⊥ := fun h => by
+    rw [h, Ideal.absNorm_bot] at hN₁; exact hp.ne_zero hN₁.symm
+  have h𝔭₂_ne : 𝔭₂ ≠ ⊥ := fun h => by
+    rw [h, Ideal.absNorm_bot] at hN₂; exact hp.ne_zero hN₂.symm
+  have h𝔭₁_prime : Prime 𝔭₁ := Ideal.prime_of_isPrime h𝔭₁_ne h𝔭₁
+  have h𝔭₂_prime : Prime 𝔭₂ := Ideal.prime_of_isPrime h𝔭₂_ne h𝔭₂
+  have h12 : ¬ Associated 𝔭₁ 𝔭₂ := fun h => hne (by
+    simpa using normalize_eq_normalize_iff_associated.mpr h)
+  -- I is nonzero: absNorm I = p^k ≠ 0.
+  have hI_ne : I ≠ ⊥ := by
+    intro h
+    rw [h, Ideal.absNorm_bot] at hI
+    exact (pow_ne_zero k hp.ne_zero) hI.symm
+  -- Step 1: I divides ⟨p⟩ ^ k = (𝔭₁ * 𝔭₂) ^ k.
+  -- Because (absNorm I : 𝓞 K) ∈ I, so the principal ideal ⟨p^k⟩ ≤ I, i.e. I ∣ ⟨p^k⟩.
+  have hpk_mem : ((p : 𝓞 K) ^ k) ∈ I := by
+    have := Ideal.absNorm_mem I
+    rw [hI] at this
+    exact_mod_cast this
+  have hI_dvd_pk : I ∣ Ideal.span ({(p : 𝓞 K) ^ k} : Set (𝓞 K)) := by
+    rw [Ideal.dvd_iff_le, Ideal.span_le, Set.singleton_subset_iff]
+    exact hpk_mem
+  -- Rewrite ⟨p^k⟩ = ⟨p⟩^k = (𝔭₁ * 𝔭₂)^k.
+  have hspan_pow : Ideal.span ({(p : 𝓞 K) ^ k} : Set (𝓞 K)) = (𝔭₁ * 𝔭₂) ^ k := by
+    rw [← hsplit, Ideal.span_singleton_pow]
+  rw [hspan_pow, mul_pow] at hI_dvd_pk
+  -- Step 2: pass to normalized factors.
+  have hpk_ne : (𝔭₁ ^ k * 𝔭₂ ^ k : Ideal (𝓞 K)) ≠ 0 :=
+    mul_ne_zero (pow_ne_zero _ h𝔭₁_ne) (pow_ne_zero _ h𝔭₂_ne)
+  have hfac_le :
+      UniqueFactorizationMonoid.normalizedFactors I ≤
+        UniqueFactorizationMonoid.normalizedFactors (𝔭₁ ^ k * 𝔭₂ ^ k) :=
+    (UniqueFactorizationMonoid.dvd_iff_normalizedFactors_le_normalizedFactors hI_ne hpk_ne).mp
+      hI_dvd_pk
+  -- Compute normalizedFactors of the RHS: k • {𝔭₁} + k • {𝔭₂}.
+  have hRHS :
+      UniqueFactorizationMonoid.normalizedFactors (𝔭₁ ^ k * 𝔭₂ ^ k) =
+        k • ({𝔭₁} : Multiset (Ideal (𝓞 K))) + k • ({𝔭₂} : Multiset (Ideal (𝓞 K))) := by
+    rw [UniqueFactorizationMonoid.normalizedFactors_mul (pow_ne_zero _ h𝔭₁_ne)
+          (pow_ne_zero _ h𝔭₂_ne),
+        UniqueFactorizationMonoid.normalizedFactors_pow,
+        UniqueFactorizationMonoid.normalizedFactors_pow,
+        UniqueFactorizationMonoid.normalizedFactors_irreducible h𝔭₁_prime.irreducible,
+        UniqueFactorizationMonoid.normalizedFactors_irreducible h𝔭₂_prime.irreducible,
+        normalize_eq, normalize_eq]
+  -- Define a = count 𝔭₁, b = count 𝔭₂.
+  set a := Multiset.count 𝔭₁ (UniqueFactorizationMonoid.normalizedFactors I) with ha_def
+  set b := Multiset.count 𝔭₂ (UniqueFactorizationMonoid.normalizedFactors I) with hb_def
+  -- Bounds a ≤ k, b ≤ k from hfac_le and Multiset.le_iff_count.
+  have ha_le : a ≤ k := by
+    have h1 := Multiset.le_iff_count.mp hfac_le 𝔭₁
+    rw [hRHS, Multiset.count_add, Multiset.count_nsmul, Multiset.count_nsmul,
+      Multiset.count_singleton_self, Multiset.count_singleton, if_neg hne,
+      mul_one, mul_zero, Nat.add_zero] at h1
+    exact h1
+  have hb_le : b ≤ k := by
+    have h1 := Multiset.le_iff_count.mp hfac_le 𝔭₂
+    rw [hRHS, Multiset.count_add, Multiset.count_nsmul, Multiset.count_nsmul,
+      Multiset.count_singleton, Multiset.count_singleton_self, if_neg hne.symm,
+      mul_one, mul_zero, Nat.zero_add] at h1
+    exact h1
+  -- Every element of normalizedFactors I is associated to 𝔭₁ or 𝔭₂ (since it's a factor of RHS).
+  have hfac_eq :
+      UniqueFactorizationMonoid.normalizedFactors I =
+        a • ({𝔭₁} : Multiset (Ideal (𝓞 K))) + b • ({𝔭₂} : Multiset (Ideal (𝓞 K))) := by
+    refine Multiset.ext.mpr fun q => ?_
+    by_cases hq : q ∈ UniqueFactorizationMonoid.normalizedFactors I
+    · -- q is in normalizedFactors I, hence in RHS multiset, hence q = 𝔭₁ or q = 𝔭₂.
+      have hq_in : q ∈ k • ({𝔭₁} : Multiset (Ideal (𝓞 K))) +
+                       k • ({𝔭₂} : Multiset (Ideal (𝓞 K))) := by
+        rw [← hRHS]; exact Multiset.mem_of_le hfac_le hq
+      simp only [Multiset.mem_add, Multiset.mem_nsmul, Multiset.mem_singleton] at hq_in
+      rcases hq_in with ⟨_, _, rfl⟩ | ⟨_, _, rfl⟩
+      · rw [Multiset.count_add, Multiset.count_nsmul, Multiset.count_nsmul,
+          Multiset.count_singleton_self, Multiset.count_singleton, if_neg hne,
+          mul_one, mul_zero, Nat.add_zero]
+      · rw [Multiset.count_add, Multiset.count_nsmul, Multiset.count_nsmul,
+          Multiset.count_singleton, Multiset.count_singleton_self, if_neg hne.symm,
+          mul_one, mul_zero, Nat.zero_add]
+    · -- q ∉ normalizedFactors I: count is 0 on LHS.
+      rw [Multiset.count_eq_zero.mpr hq, Multiset.count_add, Multiset.count_nsmul,
+        Multiset.count_nsmul]
+      by_cases hq1 : q = 𝔭₁
+      · subst hq1
+        have ha0 : a = 0 := by rw [ha_def]; exact Multiset.count_eq_zero.mpr hq
+        rw [ha0, Nat.zero_mul, Nat.zero_add,
+          Multiset.count_singleton, if_neg hne, mul_zero]
+      · by_cases hq2 : q = 𝔭₂
+        · subst hq2
+          have hb0 : b = 0 := by rw [hb_def]; exact Multiset.count_eq_zero.mpr hq
+          rw [hb0, Nat.zero_mul, Nat.add_zero,
+            Multiset.count_singleton, if_neg hne.symm, mul_zero]
+        · rw [Multiset.count_singleton, if_neg hq1, mul_zero,
+            Multiset.count_singleton, if_neg hq2, mul_zero, Nat.add_zero]
+  -- Step 3: I = 𝔭₁ ^ a * 𝔭₂ ^ b (via prod_normalizedFactors and that I is normalized).
+  have hI_eq : I = 𝔭₁ ^ a * 𝔭₂ ^ b := by
+    have hprod : (UniqueFactorizationMonoid.normalizedFactors I).prod = I := by
+      rw [UniqueFactorizationMonoid.prod_normalizedFactors_eq hI_ne, normalize_eq]
+    rw [← hprod, hfac_eq]
+    rw [Multiset.prod_add, Multiset.prod_nsmul, Multiset.prod_nsmul,
+      Multiset.prod_singleton, Multiset.prod_singleton]
+  -- Step 4: norm constraint forces a + b = k.
+  have hab : a + b = k := by
+    have hnorm : Ideal.absNorm (𝔭₁ ^ a * 𝔭₂ ^ b) = p ^ k := by rw [← hI_eq]; exact hI
+    rw [map_mul, map_pow, map_pow, hN₁, hN₂, ← pow_add] at hnorm
+    exact Nat.pow_right_injective hp.two_le hnorm
+  refine ⟨a, ?_, ?_⟩
+  · omega
+  · rw [hI_eq]; congr 1; congr 1; omega
 
 /-- See sub-leaf above. -/
 theorem idealNormCount_split_pow {p : ℕ} (hp : p.Prime)
