@@ -511,4 +511,136 @@ theorem dedekindZeta_eq_LSeries_idealNormCount (s : ℂ) :
   intro n hn
   rw [idealNormCount_apply_of_ne_zero K hn]
 
+/-! ### Bridge helpers for split-prime ideal counts and PID element counts
+
+These two helpers provide a uniform interface for closing bridge lemmas in
+applications such as `EisensteinIntegerHecke` and `HeckeZetaFE_FromTheta`.
+
+The proofs below are tagged as named leaf `sorry`s for Phase 3a follow-up.
+The statements are stable; downstream files may use them immediately.
+-/
+
+/-- **Split prime power count.**
+
+If a rational prime `p` is split in `𝓞 K` as `p · 𝓞_K = 𝔭₁ · 𝔭₂` with two
+distinct primes of absolute norm `p`, then the integral ideals of norm `p^k`
+are exactly `{𝔭₁^a · 𝔭₂^(k-a) : a ∈ Fin (k+1)}`, hence
+`idealNormCount K (p^k) = k + 1`.
+
+Sub-leaf `exists_split_factorization_of_absNorm_pow` (below): every ideal of
+norm `p^k` factors as `𝔭₁^a · 𝔭₂^(k-a)` for some `a ≤ k`. Estimated 80–120 LOC,
+deferred to follow-up Phase 3a. -/
+theorem exists_split_factorization_of_absNorm_pow {p : ℕ} (hp : p.Prime)
+    (𝔭₁ 𝔭₂ : Ideal (𝓞 K))
+    (h𝔭₁ : 𝔭₁.IsPrime) (h𝔭₂ : 𝔭₂.IsPrime) (hne : 𝔭₁ ≠ 𝔭₂)
+    (hN₁ : Ideal.absNorm 𝔭₁ = p) (hN₂ : Ideal.absNorm 𝔭₂ = p)
+    (hsplit : Ideal.span ({(p : 𝓞 K)} : Set (𝓞 K)) = 𝔭₁ * 𝔭₂)
+    {k : ℕ} {I : Ideal (𝓞 K)} (hI : Ideal.absNorm I = p ^ k) :
+    ∃ a ≤ k, I = 𝔭₁ ^ a * 𝔭₂ ^ (k - a) := by
+  sorry
+
+/-- See sub-leaf above. -/
+theorem idealNormCount_split_pow {p : ℕ} (hp : p.Prime)
+    (𝔭₁ 𝔭₂ : Ideal (𝓞 K))
+    (h𝔭₁ : 𝔭₁.IsPrime) (h𝔭₂ : 𝔭₂.IsPrime) (hne : 𝔭₁ ≠ 𝔭₂)
+    (hN₁ : Ideal.absNorm 𝔭₁ = p) (hN₂ : Ideal.absNorm 𝔭₂ = p)
+    (hsplit : Ideal.span ({(p : 𝓞 K)} : Set (𝓞 K)) = 𝔭₁ * 𝔭₂)
+    (k : ℕ) :
+    idealNormCount K (p ^ k) = k + 1 := by
+  have hpk_ne : p ^ k ≠ 0 := pow_ne_zero _ hp.ne_zero
+  rw [idealNormCount_apply_of_ne_zero K hpk_ne]
+  -- Bijection: Fin (k+1) ≃ {I // absNorm I = p^k} via a ↦ 𝔭₁^a · 𝔭₂^(k-a).
+  have h𝔭₁_ne : 𝔭₁ ≠ ⊥ := fun h => by
+    rw [h, Ideal.absNorm_bot] at hN₁; exact hp.ne_zero hN₁.symm
+  have h𝔭₂_ne : 𝔭₂ ≠ ⊥ := fun h => by
+    rw [h, Ideal.absNorm_bot] at hN₂; exact hp.ne_zero hN₂.symm
+  have h𝔭₁_prime : Prime 𝔭₁ := Ideal.prime_of_isPrime h𝔭₁_ne h𝔭₁
+  have h𝔭₂_prime : Prime 𝔭₂ := Ideal.prime_of_isPrime h𝔭₂_ne h𝔭₂
+  classical
+  let f : Fin (k + 1) → {I : Ideal (𝓞 K) // Ideal.absNorm I = p ^ k} :=
+    fun a => ⟨𝔭₁ ^ a.1 * 𝔭₂ ^ (k - a.1), by
+      rw [map_mul, map_pow, map_pow, hN₁, hN₂, ← pow_add,
+        Nat.add_sub_cancel' (Nat.lt_succ_iff.mp a.2)]⟩
+  rw [show (k + 1 : ℕ) = Nat.card (Fin (k + 1)) by simp]
+  refine (Nat.card_congr (Equiv.ofBijective f ⟨?_, ?_⟩)).symm
+  · -- Injectivity: 𝔭₁^a · 𝔭₂^(k-a) = 𝔭₁^b · 𝔭₂^(k-b) → a = b.
+    rintro ⟨a, ha⟩ ⟨b, hb⟩ hfab
+    have heq : 𝔭₁ ^ a * 𝔭₂ ^ (k - a) = 𝔭₁ ^ b * 𝔭₂ ^ (k - b) := by
+      simpa [f] using congrArg Subtype.val hfab
+    -- Take multiplicity at 𝔭₁ on both sides via UFM.
+    have ha_le : a ≤ k := Nat.lt_succ_iff.mp ha
+    have hb_le : b ≤ k := Nat.lt_succ_iff.mp hb
+    apply Fin.ext
+    change a = b
+    have hcount := congrArg
+      (Multiset.count 𝔭₁ ∘ UniqueFactorizationMonoid.normalizedFactors) heq
+    have h12 : ¬ Associated 𝔭₁ 𝔭₂ := fun h => hne (by
+      simpa using normalize_eq_normalize_iff_associated.mpr h)
+    simp only [Function.comp_apply,
+      UniqueFactorizationMonoid.normalizedFactors_mul (pow_ne_zero _ h𝔭₁_ne)
+        (pow_ne_zero _ h𝔭₂_ne),
+      UniqueFactorizationMonoid.normalizedFactors_pow,
+      Multiset.count_add, Multiset.count_nsmul,
+      UniqueFactorizationMonoid.normalizedFactors_irreducible h𝔭₁_prime.irreducible,
+      UniqueFactorizationMonoid.normalizedFactors_irreducible h𝔭₂_prime.irreducible,
+      normalize_eq, Multiset.count_singleton_self,
+      Multiset.count_singleton, if_neg hne, if_neg (Ne.symm hne)] at hcount
+    -- hcount should be: a * 1 + (k - a) * 0 = b * 1 + (k - b) * 0
+    simpa using hcount
+  · -- Surjectivity: delegated to sub-leaf.
+    rintro ⟨I, hI⟩
+    obtain ⟨a, ha_le, hIeq⟩ :=
+      exists_split_factorization_of_absNorm_pow K hp 𝔭₁ 𝔭₂ h𝔭₁ h𝔭₂ hne hN₁ hN₂ hsplit hI
+    exact ⟨⟨a, Nat.lt_succ_of_le ha_le⟩, by simp [f, hIeq]⟩
+
+/-- **Split prime power successor identity.**
+
+Specialization of `idealNormCount_split_pow`: for split `p`, the count
+increments by 1 per prime power level. -/
+theorem idealNormCount_split_succ {p : ℕ} (hp : p.Prime)
+    (𝔭₁ 𝔭₂ : Ideal (𝓞 K))
+    (h𝔭₁ : 𝔭₁.IsPrime) (h𝔭₂ : 𝔭₂.IsPrime) (hne : 𝔭₁ ≠ 𝔭₂)
+    (hN₁ : Ideal.absNorm 𝔭₁ = p) (hN₂ : Ideal.absNorm 𝔭₂ = p)
+    (hsplit : Ideal.span ({(p : 𝓞 K)} : Set (𝓞 K)) = 𝔭₁ * 𝔭₂)
+    (k : ℕ) :
+    idealNormCount K (p ^ (k + 1)) = idealNormCount K (p ^ k) + 1 := by
+  rw [idealNormCount_split_pow K hp 𝔭₁ 𝔭₂ h𝔭₁ h𝔭₂ hne hN₁ hN₂ hsplit (k + 1),
+      idealNormCount_split_pow K hp 𝔭₁ 𝔭₂ h𝔭₁ h𝔭₂ hne hN₁ hN₂ hsplit k]
+
+/-- **PID element-count to ideal-count bridge (subtype form).**
+
+For a number field `K` whose ring of integers `𝓞 K` is a PID, ideals of
+norm `n ≥ 1` are in bijection with associate classes of elements of norm
+`n`.  Concretely: if `S` is a set of representatives — one per associate
+class — of elements `α ∈ 𝓞 K` with `Ideal.absNorm (Ideal.span {α}) = n`,
+then `Nat.card S = idealNormCount K n`.
+
+We package this as: a bijection between any chosen set of associate-class
+representatives and the norm fiber of ideals.
+
+TODO Phase 3a: in a PID, every ideal is principal `⟨α⟩`, and
+`⟨α⟩ = ⟨β⟩ ↔ α ~ β` (associate).  Bijection: `α ↦ ⟨α⟩`. -/
+theorem idealNormCount_eq_of_principal_repr [IsPrincipalIdealRing (𝓞 K)]
+    {n : ℕ} (hn : n ≠ 0)
+    (S : Set (𝓞 K))
+    (hS_norm : ∀ α ∈ S, Ideal.absNorm (Ideal.span ({α} : Set (𝓞 K))) = n)
+    (hS_inj : ∀ α ∈ S, ∀ β ∈ S,
+      Ideal.span ({α} : Set (𝓞 K)) = Ideal.span ({β} : Set (𝓞 K)) → α = β)
+    (hS_surj : ∀ I : Ideal (𝓞 K), Ideal.absNorm I = n →
+      ∃ α ∈ S, I = Ideal.span ({α} : Set (𝓞 K))) :
+    Nat.card S = idealNormCount K n := by
+  rw [idealNormCount_apply_of_ne_zero K hn]
+  -- Build a bijection S ≃ {I : Ideal (𝓞 K) // Ideal.absNorm I = n}
+  -- via α ↦ ⟨Ideal.span {α}, hS_norm α _⟩.
+  let f : S → {I : Ideal (𝓞 K) // Ideal.absNorm I = n} :=
+    fun α => ⟨Ideal.span ({α.1} : Set (𝓞 K)), hS_norm α.1 α.2⟩
+  refine Nat.card_congr (Equiv.ofBijective f ⟨?_, ?_⟩)
+  · intro α β hfab
+    have heq : Ideal.span ({α.1} : Set (𝓞 K)) = Ideal.span ({β.1} : Set (𝓞 K)) := by
+      simpa [f] using congrArg Subtype.val hfab
+    exact Subtype.ext (hS_inj α.1 α.2 β.1 β.2 heq)
+  · rintro ⟨I, hI⟩
+    obtain ⟨α, hαS, hIα⟩ := hS_surj I hI
+    exact ⟨⟨α, hαS⟩, by simp [f, hIα]⟩
+
 end NumberField
