@@ -717,6 +717,184 @@ theorem idealNormCount_split_succ {p : ℕ} (hp : p.Prime)
   rw [idealNormCount_split_pow K hp 𝔭₁ 𝔭₂ h𝔭₁ h𝔭₂ hne hN₁ hN₂ hsplit (k + 1),
       idealNormCount_split_pow K hp 𝔭₁ 𝔭₂ h𝔭₁ h𝔭₂ hne hN₁ hN₂ hsplit k]
 
+/-! ### Inert and ramified prime-power counts
+
+These helpers cover the two remaining local cases needed for Hecke
+factorizations over real quadratic fields (and any number field where
+a rational prime has a unique prime above with explicit norm relation).
+-/
+
+/-! Two specializations: inert (norm of unique prime is p^2, so ⟨p⟩ = 𝔭),
+and ramified (norm is p, so ⟨p⟩ = 𝔭^2). -/
+
+/-- **Inert prime-power count.** If `p` is a rational prime, `𝔭` is a
+prime ideal with `absNorm 𝔭 = p^2` and `⟨p⟩ = 𝔭` in `𝓞 K`, then
+`idealNormCount K (p^k) = 1` if `k` is even, else `0`. -/
+theorem idealNormCount_inert_prime_pow {p : ℕ} (hp : p.Prime)
+    (𝔭 : Ideal (𝓞 K)) (h𝔭_prime : 𝔭.IsPrime)
+    (h𝔭_norm : Ideal.absNorm 𝔭 = p ^ 2)
+    (hpO : Ideal.span ({(p : 𝓞 K)} : Set _) = 𝔭) (k : ℕ) :
+    idealNormCount K (p ^ k) = if Even k then 1 else 0 := by
+  classical
+  have hp_ne : (p : ℕ) ≠ 0 := hp.ne_zero
+  have hpk_ne : p ^ k ≠ 0 := pow_ne_zero _ hp_ne
+  have h𝔭_ne : 𝔭 ≠ ⊥ := by
+    intro h
+    rw [h, Ideal.absNorm_bot] at h𝔭_norm
+    exact (pow_ne_zero 2 hp_ne) h𝔭_norm.symm
+  have h𝔭_prime' : Prime 𝔭 := Ideal.prime_of_isPrime h𝔭_ne h𝔭_prime
+  rw [idealNormCount_apply_of_ne_zero K hpk_ne]
+  -- Claim: {I : absNorm I = p^k} is in bijection with {j : 2j = k} (one element if k even, none if odd).
+  -- Helper closure: any ideal `I` with `absNorm I = p^N` equals `𝔭 ^ j` for some `j`
+  -- with `2 * j = N`.
+  have key : ∀ {N : ℕ} {I : Ideal (𝓞 K)}, Ideal.absNorm I = p ^ N →
+      ∃ j, 2 * j = N ∧ I = 𝔭 ^ j := by
+    intro N I hI
+    have hpN_ne : p ^ N ≠ 0 := pow_ne_zero _ hp_ne
+    have hI_ne : I ≠ ⊥ := by
+      intro h
+      rw [h, Ideal.absNorm_bot] at hI
+      exact hpN_ne hI.symm
+    have hpk_mem : ((p : 𝓞 K) ^ N) ∈ I := by
+      have := Ideal.absNorm_mem I
+      rw [hI] at this
+      exact_mod_cast this
+    have hI_dvd_pk : I ∣ Ideal.span ({(p : 𝓞 K) ^ N} : Set (𝓞 K)) := by
+      rw [Ideal.dvd_iff_le, Ideal.span_le, Set.singleton_subset_iff]; exact hpk_mem
+    have hspan_pow : Ideal.span ({(p : 𝓞 K) ^ N} : Set (𝓞 K)) = 𝔭 ^ N := by
+      rw [← hpO, Ideal.span_singleton_pow]
+    rw [hspan_pow] at hI_dvd_pk
+    have hpow_ne : (𝔭 ^ N : Ideal (𝓞 K)) ≠ 0 := pow_ne_zero _ h𝔭_ne
+    have hfac_le :
+        UniqueFactorizationMonoid.normalizedFactors I ≤
+          UniqueFactorizationMonoid.normalizedFactors (𝔭 ^ N) :=
+      (UniqueFactorizationMonoid.dvd_iff_normalizedFactors_le_normalizedFactors hI_ne hpow_ne).mp
+        hI_dvd_pk
+    have hRHS :
+        UniqueFactorizationMonoid.normalizedFactors (𝔭 ^ N) =
+          N • ({𝔭} : Multiset (Ideal (𝓞 K))) := by
+      rw [UniqueFactorizationMonoid.normalizedFactors_pow,
+          UniqueFactorizationMonoid.normalizedFactors_irreducible h𝔭_prime'.irreducible,
+          normalize_eq]
+    set j := Multiset.count 𝔭 (UniqueFactorizationMonoid.normalizedFactors I) with hj_def
+    have hfac_eq :
+        UniqueFactorizationMonoid.normalizedFactors I =
+          j • ({𝔭} : Multiset (Ideal (𝓞 K))) := by
+      refine Multiset.ext.mpr fun q => ?_
+      by_cases hq : q ∈ UniqueFactorizationMonoid.normalizedFactors I
+      · have hq_in : q ∈ N • ({𝔭} : Multiset (Ideal (𝓞 K))) := by
+          rw [← hRHS]; exact Multiset.mem_of_le hfac_le hq
+        simp only [Multiset.mem_nsmul, Multiset.mem_singleton] at hq_in
+        obtain ⟨_, rfl⟩ := hq_in
+        rw [Multiset.count_nsmul, Multiset.count_singleton_self, mul_one]
+      · rw [Multiset.count_eq_zero.mpr hq, Multiset.count_nsmul]
+        by_cases hq1 : q = 𝔭
+        · subst hq1
+          have : j = 0 := by rw [hj_def]; exact Multiset.count_eq_zero.mpr hq
+          rw [this, Nat.zero_mul]
+        · rw [Multiset.count_singleton, if_neg hq1, mul_zero]
+    have hI_eq : I = 𝔭 ^ j := by
+      have hprod : (UniqueFactorizationMonoid.normalizedFactors I).prod = I := by
+        rw [UniqueFactorizationMonoid.prod_normalizedFactors_eq hI_ne, normalize_eq]
+      rw [← hprod, hfac_eq, Multiset.prod_nsmul, Multiset.prod_singleton]
+    have h2j_eq : 2 * j = N := by
+      have hnorm : Ideal.absNorm (𝔭 ^ j) = p ^ N := by rw [← hI_eq]; exact hI
+      rw [map_pow, h𝔭_norm, ← pow_mul] at hnorm
+      exact Nat.pow_right_injective hp.two_le hnorm
+    exact ⟨j, h2j_eq, hI_eq⟩
+  by_cases hke : Even k
+  · obtain ⟨m, rfl⟩ := hke
+    rw [if_pos ⟨m, rfl⟩, Nat.card_eq_one_iff_exists]
+    refine ⟨⟨𝔭 ^ m, by rw [map_pow, h𝔭_norm]; ring⟩, ?_⟩
+    rintro ⟨I, hI⟩
+    apply Subtype.ext
+    obtain ⟨j, h2j, hIeq⟩ := key hI
+    have hjm : j = m := by omega
+    subst hjm
+    exact hIeq
+  · rw [if_neg hke, Nat.card_eq_zero]
+    refine Or.inl ⟨?_⟩
+    rintro ⟨I, hI⟩
+    obtain ⟨j, h2j, _⟩ := key hI
+    exact hke ⟨j, by omega⟩
+
+/-- **Unique-prime-above (ramified) prime-power count.** If `p` is a
+rational prime, `𝔭` is a prime ideal with `absNorm 𝔭 = p` and
+`⟨p⟩ = 𝔭^2` in `𝓞 K`, then `idealNormCount K (p^k) = 1` for all `k`. -/
+theorem idealNormCount_unique_prime_above {p : ℕ} (hp : p.Prime)
+    (𝔭 : Ideal (𝓞 K)) (h𝔭_prime : 𝔭.IsPrime)
+    (h𝔭_norm : Ideal.absNorm 𝔭 = p)
+    (hpO : Ideal.span ({(p : 𝓞 K)} : Set _) = 𝔭 ^ 2) (k : ℕ) :
+    idealNormCount K (p ^ k) = 1 := by
+  classical
+  have hp_ne : (p : ℕ) ≠ 0 := hp.ne_zero
+  have hpk_ne : p ^ k ≠ 0 := pow_ne_zero _ hp_ne
+  have h𝔭_ne : 𝔭 ≠ ⊥ := by
+    intro h
+    rw [h, Ideal.absNorm_bot] at h𝔭_norm
+    exact hp_ne h𝔭_norm.symm
+  have h𝔭_prime' : Prime 𝔭 := Ideal.prime_of_isPrime h𝔭_ne h𝔭_prime
+  rw [idealNormCount_apply_of_ne_zero K hpk_ne]
+  -- Helper: any ideal of norm `p^N` is `𝔭 ^ j` with `j = N`.
+  have key : ∀ {N : ℕ} {I : Ideal (𝓞 K)}, Ideal.absNorm I = p ^ N → I = 𝔭 ^ N := by
+    intro N I hI
+    have hpN_ne : p ^ N ≠ 0 := pow_ne_zero _ hp_ne
+    have hI_ne : I ≠ ⊥ := by
+      intro h
+      rw [h, Ideal.absNorm_bot] at hI
+      exact hpN_ne hI.symm
+    have hpk_mem : ((p : 𝓞 K) ^ N) ∈ I := by
+      have := Ideal.absNorm_mem I
+      rw [hI] at this
+      exact_mod_cast this
+    have hI_dvd_pk : I ∣ Ideal.span ({(p : 𝓞 K) ^ N} : Set (𝓞 K)) := by
+      rw [Ideal.dvd_iff_le, Ideal.span_le, Set.singleton_subset_iff]; exact hpk_mem
+    have hspan_pow : Ideal.span ({(p : 𝓞 K) ^ N} : Set (𝓞 K)) = 𝔭 ^ (2 * N) := by
+      rw [← Ideal.span_singleton_pow, hpO, ← pow_mul, mul_comm]
+    rw [hspan_pow] at hI_dvd_pk
+    have hpow_ne : (𝔭 ^ (2 * N) : Ideal (𝓞 K)) ≠ 0 := pow_ne_zero _ h𝔭_ne
+    have hfac_le :
+        UniqueFactorizationMonoid.normalizedFactors I ≤
+          UniqueFactorizationMonoid.normalizedFactors (𝔭 ^ (2 * N)) :=
+      (UniqueFactorizationMonoid.dvd_iff_normalizedFactors_le_normalizedFactors hI_ne hpow_ne).mp
+        hI_dvd_pk
+    have hRHS :
+        UniqueFactorizationMonoid.normalizedFactors (𝔭 ^ (2 * N)) =
+          (2 * N) • ({𝔭} : Multiset (Ideal (𝓞 K))) := by
+      rw [UniqueFactorizationMonoid.normalizedFactors_pow,
+          UniqueFactorizationMonoid.normalizedFactors_irreducible h𝔭_prime'.irreducible,
+          normalize_eq]
+    set j := Multiset.count 𝔭 (UniqueFactorizationMonoid.normalizedFactors I) with hj_def
+    have hfac_eq :
+        UniqueFactorizationMonoid.normalizedFactors I =
+          j • ({𝔭} : Multiset (Ideal (𝓞 K))) := by
+      refine Multiset.ext.mpr fun q => ?_
+      by_cases hq : q ∈ UniqueFactorizationMonoid.normalizedFactors I
+      · have hq_in : q ∈ (2 * N) • ({𝔭} : Multiset (Ideal (𝓞 K))) := by
+          rw [← hRHS]; exact Multiset.mem_of_le hfac_le hq
+        simp only [Multiset.mem_nsmul, Multiset.mem_singleton] at hq_in
+        obtain ⟨_, rfl⟩ := hq_in
+        rw [Multiset.count_nsmul, Multiset.count_singleton_self, mul_one]
+      · rw [Multiset.count_eq_zero.mpr hq, Multiset.count_nsmul]
+        by_cases hq1 : q = 𝔭
+        · subst hq1
+          have : j = 0 := by rw [hj_def]; exact Multiset.count_eq_zero.mpr hq
+          rw [this, Nat.zero_mul]
+        · rw [Multiset.count_singleton, if_neg hq1, mul_zero]
+    have hI_eq : I = 𝔭 ^ j := by
+      have hprod : (UniqueFactorizationMonoid.normalizedFactors I).prod = I := by
+        rw [UniqueFactorizationMonoid.prod_normalizedFactors_eq hI_ne, normalize_eq]
+      rw [← hprod, hfac_eq, Multiset.prod_nsmul, Multiset.prod_singleton]
+    have hjN : j = N := by
+      have hnorm : Ideal.absNorm (𝔭 ^ j) = p ^ N := by rw [← hI_eq]; exact hI
+      rw [map_pow, h𝔭_norm] at hnorm
+      exact Nat.pow_right_injective hp.two_le hnorm
+    rw [hI_eq, hjN]
+  rw [Nat.card_eq_one_iff_exists]
+  refine ⟨⟨𝔭 ^ k, by rw [map_pow, h𝔭_norm]⟩, ?_⟩
+  rintro ⟨I, hI⟩
+  exact Subtype.ext (key hI)
+
 /-- **PID element-count to ideal-count bridge (subtype form).**
 
 For a number field `K` whose ring of integers `𝓞 K` is a PID, ideals of
