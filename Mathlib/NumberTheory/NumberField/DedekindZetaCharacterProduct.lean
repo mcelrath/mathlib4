@@ -429,6 +429,49 @@ theorem dedekindZetaSummand_localSum_eq_prod_inertia
   rw [tsum_congr (fun k => hpow_eq 𝔭 k)]
   exact tsum_absNorm_pow_neg_geom h𝔭_p h𝔭_ne hs
 
+/-! ### Sub-lemma B.2 — cyclic-group character orthogonality (abstract)
+
+A standalone abstract result: for a finite cyclic group of `d`-th roots of unity in `ℂ`, the
+product `∏ω (1 - ω T) = 1 - T^d`. This is the polynomial form via
+`Polynomial.X_pow_sub_one_eq_prod` evaluated at `X = T⁻¹` and rescaled by `T^d`.
+-/
+
+/-- For a positive integer `d` and `T : ℂ`, the product over the `d`-th roots of unity in `ℂ`
+of `(1 - ω·T)` equals `1 - T^d`. This is the polynomial identity
+`∏_{ω ∈ μ_d} (1 - ωX) = 1 - X^d` evaluated in `ℂ`. -/
+lemma prod_one_sub_nthRootsFinset_mul (d : ℕ) (hd : 0 < d) (T : ℂ) :
+    ∏ ω ∈ Polynomial.nthRootsFinset d (1 : ℂ), (1 - ω * T) = 1 - T ^ d := by
+  by_cases hT : T = 0
+  · subst hT
+    simp only [mul_zero, sub_zero, Finset.prod_const_one, zero_pow hd.ne', sub_zero]
+  · -- T ≠ 0: substitute X = T⁻¹ in `X^d - 1 = ∏ω (X - ω)` and rescale.
+    have hζ := Complex.isPrimitiveRoot_exp d hd.ne'
+    have hpoly := Polynomial.X_pow_sub_one_eq_prod hd hζ
+    have h_eval := congr_arg (Polynomial.eval T⁻¹) hpoly
+    simp only [Polynomial.eval_sub, Polynomial.eval_pow, Polynomial.eval_X, Polynomial.eval_one,
+      Polynomial.eval_prod, Polynomial.eval_C] at h_eval
+    -- h_eval : T⁻¹ ^ d - 1 = ∏ω (T⁻¹ - ω)
+    have hTd : T ^ d ≠ 0 := pow_ne_zero d hT
+    have hT_inv : T⁻¹ ^ d = (T ^ d)⁻¹ := inv_pow T d
+    -- Multiply both sides by T^d.
+    have key : (T ^ d) * (T⁻¹ ^ d - 1) =
+        (T ^ d) * ∏ ω ∈ Polynomial.nthRootsFinset d (1 : ℂ), (T⁻¹ - ω) := by
+      rw [h_eval]
+    -- Rewrite both sides.
+    have hLHS : T ^ d * (T⁻¹ ^ d - 1) = 1 - T ^ d := by
+      rw [hT_inv, mul_sub, mul_one, mul_inv_cancel₀ hTd]
+    have hRHS_card : (Polynomial.nthRootsFinset d (1 : ℂ)).card = d :=
+      hζ.card_nthRootsFinset
+    have hRHS : T ^ d * ∏ ω ∈ Polynomial.nthRootsFinset d (1 : ℂ), (T⁻¹ - ω) =
+        ∏ ω ∈ Polynomial.nthRootsFinset d (1 : ℂ), (1 - ω * T) := by
+      rw [show (T ^ d : ℂ) = ∏ _ω ∈ Polynomial.nthRootsFinset d (1 : ℂ), T from ?_]
+      · rw [← Finset.prod_mul_distrib]
+        refine Finset.prod_congr rfl fun ω _ => ?_
+        rw [mul_sub, mul_inv_cancel₀ hT, mul_comm]
+      · rw [Finset.prod_const, hRHS_card]
+    -- ∏ω (1 - ωT) = T^d · ∏ω (T⁻¹ - ω) = T^d · (T⁻¹^d - 1) = 1 - T^d
+    rw [← hRHS, ← key, hLHS]
+
 /-! ### Step B sub-lemmas
 
 Step B's proof decomposes into four sub-lemmas, each of independent interest:
