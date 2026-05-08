@@ -18,7 +18,7 @@ public import Mathlib.NumberTheory.RamificationInertia.Galois
 public import Mathlib.RingTheory.DedekindDomain.IdealsOnPrimes
 public import Mathlib.RingTheory.Ideal.GoingUp
 
-set_option linter.style.longFile 1800
+set_option linter.style.longFile 2000
 
 /-!
 # The Dedekind zeta function of an abelian number field as a product of Dirichlet L-functions
@@ -1540,33 +1540,142 @@ private lemma evalAtPrime_card_range_eq_inertiaDegIn
   -- Step 11: Apply B.5.
   exact orderOf_restrictNormal_eq_inertiaDegIn F hp_n P
 
-/-- **Phase 5 (sorry).** The kernel of `evalAtPrime` has cardinality equal to the number
-of primes of `𝓞 F` above `p`. By the fundamental identity `e·f·g = [F:ℚ] = |Y|` and the
-orbit-stabilizer characterization, kernel size = `|Y|/(e·f)` = orbit count. -/
-private lemma evalAtPrime_card_ker_eq_primesAbove_sorry
+/-- **Phase 5.** The kernel of `evalAtPrime` has cardinality equal to the number of primes
+of `𝓞 F` above `p`. Proved via the fundamental identity `e·f·g = [F:ℚ] = |Y|` with `e = 1`
+(unramified, since `p` is coprime to `n`), the first isomorphism theorem, and Phase 4. -/
+private lemma evalAtPrime_card_ker_eq_primesAbove
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
     (F : IntermediateField ℚ Kn) [NumberField F]
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
-    {p : ℕ} (hp : p.Prime) :
+    {p : ℕ} (hp : p.Prime) (hp_n : p.Coprime n) :
     Nat.card (evalAtPrime Y p).ker = (primesAboveOf F p).card := by
-  sorry
+  haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  haveI hKnGal : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
+  haveI hpFact : Fact p.Prime := ⟨hp⟩
+  let p_ideal := Ideal.span ({(p : ℤ)} : Set ℤ)
+  have hp_ideal_ne_bot : p_ideal ≠ ⊥ := by
+    simp only [p_ideal, ne_eq, Ideal.span_singleton_eq_bot]
+    exact_mod_cast hp.ne_zero
+  haveI hp_ideal_max : p_ideal.IsMaximal := Int.ideal_span_isMaximal_of_prime p
+  -- Step 1: Since p coprime to n, all chars in Y have coprime conductor, so Y ⊆ Y_p.
+  have hY_sub_coprime : Y ≤ DirichletCharacter.subgroupOfCoprimeConductor p := by
+    intro χ hχY
+    exact DirichletCharacter.mem_subgroupOfCoprimeConductor.mpr
+      (hp_n.coprime_dvd_right (DirichletCharacter.conductor_dvd_level χ))
+  -- Domain of evalAtPrime is Y ⊓ Y_p = Y.
+  have hInter_eq : Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p = Y :=
+    inf_eq_left.mpr hY_sub_coprime
+  have hcard_domain : Nat.card (↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) =
+      Nat.card Y := Nat.card_congr (Equiv.subtypeEquivRight (fun χ => by
+        constructor
+        · exact fun h => hInter_eq ▸ h
+        · exact fun h => hInter_eq.symm ▸ h))
+  -- Step 2: First isomorphism theorem: |Y| = |range| * |ker|.
+  -- card_mul_index: |ker| * ker.index = |domain|;  index_ker: ker.index = |range|.
+  have hfirst_iso : Nat.card Y =
+      Nat.card (evalAtPrime Y p).range * Nat.card (evalAtPrime Y p).ker := by
+    have h := (evalAtPrime Y p).ker.card_mul_index
+    rw [Subgroup.index_ker] at h
+    -- h : Nat.card ker * Nat.card range = Nat.card (↥(Y ⊓ Y_p))
+    rw [mul_comm, hcard_domain] at h
+    -- h : Nat.card range * Nat.card ker = Nat.card Y
+    exact h.symm
+  -- Step 3: Phase 4 gives range cardinality = inertiaDeg = f.
+  have hrange_eq : Nat.card (evalAtPrime Y p).range =
+      Ideal.inertiaDegIn p_ideal (𝓞 F) :=
+    evalAtPrime_card_range_eq_inertiaDegIn F Y hY hp hp_n
+  -- Step 4: Ramification index e = 1 (p coprime to n → unramified in F).
+  have hp_not_dvd : ¬ p ∣ n := hp.coprime_iff_not_dvd.mp hp_n
+  -- Obtain a prime P above p in 𝓞 Kn, then PF = P.comap in 𝓞 F.
+  obtain ⟨⟨P, hPprime, hPover⟩⟩ := p_ideal.nonempty_primesOver (S := 𝓞 Kn)
+  haveI hP_prime_inst : P.IsPrime := hPprime
+  haveI hP_liesover : P.LiesOver p_ideal := hPover
+  haveI hP_max : P.IsMaximal := Ideal.IsMaximal.of_liesOver_isMaximal (p := p_ideal) (P := P)
+  let PF := P.comap (algebraMap (𝓞 F) (𝓞 Kn))
+  haveI h_PF_liesover_p : PF.LiesOver p_ideal := inferInstance
+  haveI h_PF_max : PF.IsMaximal :=
+    Ideal.isMaximal_comap_of_isIntegral_of_isMaximal P
+  have hPF_ne_bot : PF ≠ ⊥ :=
+    Ring.ne_bot_of_isMaximal_of_not_isField h_PF_max (RingOfIntegers.not_isField F)
+  haveI hGalFKn : IsGaloisGroup F.fixingSubgroup F Kn := isGaloisGroup_fixingSubgroup F
+  letI hmsa : MulSemiringAction (↥F.fixingSubgroup) Kn := inferInstance
+  letI hsd : SMulDistribClass (↥F.fixingSubgroup) (𝓞 Kn) Kn := inferInstance
+  haveI hGalFKn_oi : IsGaloisGroup F.fixingSubgroup (𝓞 F) (𝓞 Kn) :=
+    IsGaloisGroup.of_isFractionRing F.fixingSubgroup (𝓞 F) (𝓞 Kn) F Kn
+  have hramIdx_Kn : p_ideal.ramificationIdxIn (𝓞 Kn) = 1 :=
+    IsCyclotomicExtension.Rat.ramificationIdxIn_eq_of_not_dvd p Kn hp_not_dvd
+  have htower_ram : p_ideal.ramificationIdxIn (𝓞 F) * PF.ramificationIdxIn (𝓞 Kn) =
+      p_ideal.ramificationIdxIn (𝓞 Kn) :=
+    Ideal.ramificationIdxIn_mul_ramificationIdxIn' PF
+      (G := Gal(F/ℚ)) (GAC := Gal(Kn/ℚ)) (GBC := F.fixingSubgroup) (𝓞 Kn)
+  rw [hramIdx_Kn] at htower_ram
+  have h1 : p_ideal.ramificationIdxIn (𝓞 F) ≠ 0 :=
+    Ideal.ramificationIdxIn_ne_zero (G := Gal(F/ℚ)) hp_ideal_ne_bot
+  have h2 : PF.ramificationIdxIn (𝓞 Kn) ≠ 0 :=
+    Ideal.ramificationIdxIn_ne_zero (G := F.fixingSubgroup) hPF_ne_bot
+  have hramIdx_F : p_ideal.ramificationIdxIn (𝓞 F) = 1 := by
+    nlinarith [Nat.one_le_iff_ne_zero.mpr h1, Nat.one_le_iff_ne_zero.mpr h2]
+  -- Step 5: Fundamental identity g * (e * f) = |Gal(F/ℚ)| with e = 1.
+  -- Need IsGaloisGroup Gal(F/ℚ) ℤ (𝓞 F).
+  haveI hGalF_oi : IsGaloisGroup Gal(F/ℚ) ℤ (𝓞 F) :=
+    IsGaloisGroup.of_isFractionRing Gal(F/ℚ) ℤ (𝓞 F) ℚ F
+  have hefg : (p_ideal.primesOver (𝓞 F)).ncard *
+      (p_ideal.ramificationIdxIn (𝓞 F) * p_ideal.inertiaDegIn (𝓞 F)) =
+      Nat.card Gal(F/ℚ) :=
+    Ideal.ncard_primesOver_mul_ramificationIdxIn_mul_inertiaDegIn hp_ideal_ne_bot (𝓞 F) Gal(F/ℚ)
+  rw [hramIdx_F, one_mul] at hefg
+  -- Step 6: Nat.card Y = [F:ℚ] = Nat.card Gal(F/ℚ).
+  have hcard_Y_eq : Nat.card Y = Nat.card Gal(F/ℚ) := by
+    rw [hY, IsCyclotomicExtension.Rat.card_intermediateFieldEquivSubgroupChar]
+    exact (IsGalois.card_aut_eq_finrank ℚ F).symm
+  -- Step 7: (primesAboveOf F p).card = g = (p_ideal.primesOver (𝓞 F)).ncard.
+  have hcard_g : (primesAboveOf F p).card = (p_ideal.primesOver (𝓞 F)).ncard := by
+    unfold primesAboveOf
+    rw [← Set.ncard_coe_finset, IsDedekindDomain.coe_primesOverFinset hp_ideal_ne_bot]
+  -- Step 8: Arithmetic conclusion: g = ker (and hence (primesAboveOf F p).card = Nat.card ker).
+  -- (i) g * f = |Y|  (from hefg with e=1 and hcard_Y_eq)
+  -- (ii) f * ker = |Y|  (from hfirst_iso and hrange_eq)
+  -- (iii) f ≠ 0
+  -- Therefore g * f = ker * f, so g = ker.
+  have hf_ne : p_ideal.inertiaDegIn (𝓞 F) ≠ 0 :=
+    Ideal.inertiaDegIn_ne_zero (G := Gal(F/ℚ))
+  -- (i): g * f = |Gal| = |Y|
+  have hgf_eq_Y : (p_ideal.primesOver (𝓞 F)).ncard * p_ideal.inertiaDegIn (𝓞 F) =
+      Nat.card Y := hefg.trans hcard_Y_eq.symm
+  -- (ii): f * ker = |Y|  (= range * ker after substituting range = f)
+  have hf_ker_eq_Y : Nat.card Y =
+      p_ideal.inertiaDegIn (𝓞 F) * Nat.card (evalAtPrime Y p).ker := hrange_eq ▸ hfirst_iso
+  -- Conclude: g = ker via mul cancellation.
+  -- From hgf_eq_Y: g * f = |Y|; from hf_ker_eq_Y: |Y| = f * ker.
+  -- We have f * ker = |Y| = g * f = f * g, so f * ker = f * g, giving ker = g.
+  rw [hcard_g]
+  refine Nat.eq_of_mul_eq_mul_left (Nat.pos_of_ne_zero hf_ne) ?_
+  -- subgoal: f * ker = f * g  (proves ker = g, so we need to prove f * g = f * ker first,
+  -- but Lean's convention seems reversed; after refine, goal should be one direction)
+  -- From error: expected LHS is f * ker, RHS is f * g.
+  -- f * ker = |Y| = g * f = f * g
+  calc p_ideal.inertiaDegIn (𝓞 F) * Nat.card (evalAtPrime Y p).ker
+      = Nat.card Y := hf_ker_eq_Y.symm
+    _ = (p_ideal.primesOver (𝓞 F)).ncard * p_ideal.inertiaDegIn (𝓞 F) := hgf_eq_Y.symm
+    _ = p_ideal.inertiaDegIn (𝓞 F) * (p_ideal.primesOver (𝓞 F)).ncard := mul_comm _ _
 
 
 /-- **B.1+B.4 LHS reduction.** The character-side product collapses to the same
 geometric form as the prime-side, namely `((1 - p^(-fs))⁻¹)^g`. Composes Phase 2
 (restriction to coprime conductors), Phase 3 (eval hom + multiplicativity), the abstract
 orthogonality lemma `prod_one_sub_groupHom_apply_mul`, and the Frobenius/orbit-count
-identifications (Phase 4 + 5, isolated as named sub-sorries). -/
-private lemma prod_chars_eq_pow_of_inertiaDegIn_sorry
+identifications (Phase 4 + 5). Requires `p` coprime to the cyclotomic level `n` (unramified
+case; the ramified case is handled separately at the top level). -/
+private lemma prod_chars_eq_pow_of_inertiaDegIn
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
     (F : IntermediateField ℚ Kn) [NumberField F]
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
     {s : ℂ}
-    {p : ℕ} (hp : p.Prime) :
+    {p : ℕ} (hp : p.Prime) (hp_n : p.Coprime n) :
     ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
       ((1 - (p : ℂ) ^
           (-((Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) : ℂ) * s)))⁻¹) ^
@@ -1606,10 +1715,8 @@ private lemma prod_chars_eq_pow_of_inertiaDegIn_sorry
   -- Apply abstract orthogonality.
   rw [prod_one_sub_groupHom_apply_mul (evalAtPrime Y p) T]
   -- Identify cardinalities (Phase 4 + 5).
-  -- Phase 4: range cardinality = inertiaDegIn. Requires hp_n : p.Coprime n.
-  have hp_n : p.Coprime n := by sorry
   rw [evalAtPrime_card_range_eq_inertiaDegIn F Y hY hp hp_n,
-      evalAtPrime_card_ker_eq_primesAbove_sorry F Y hY hp]
+      evalAtPrime_card_ker_eq_primesAbove F Y hY hp hp_n]
   -- ((1 - T^f)^g)⁻¹ = ((1 - T^f)⁻¹)^g.
   rw [← inv_pow]
   -- T^f = p^(-(f*s)) since T = p^(-s).  Need: T^f = (p:ℂ)^(-(f * s)).
@@ -1623,8 +1730,10 @@ private lemma prod_chars_eq_pow_of_inertiaDegIn_sorry
 The proof is by composition of two reductions, each to the same closed form `((1 - p^(-fs))⁻¹)^g`:
 * the prime-side reduction (`prod_inertia_eq_pow_of_inertiaDegIn`), which uses
   `absNorm_eq_pow_inertiaDeg'` and the Galois invariance of inertia degree;
-* the character-side reduction (`prod_chars_eq_pow_of_inertiaDegIn_sorry`), which uses
+* the character-side reduction (`prod_chars_eq_pow_of_inertiaDegIn`), which uses
   Frobenius identification (B.1) and the orbit count (B.4).
+
+Requires `p` coprime to the cyclotomic level `n` (unramified case).
 -/
 theorem prod_chars_eq_prod_inertia
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
@@ -1633,16 +1742,17 @@ theorem prod_chars_eq_prod_inertia
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
     {s : ℂ} (hs : 1 < s.re)
-    {p : ℕ} (hp : p.Prime) :
+    {p : ℕ} (hp : p.Prime) (hp_n : p.Coprime n) :
     ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
       ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
-  rw [prod_chars_eq_pow_of_inertiaDegIn_sorry F Y hY hp,
+  rw [prod_chars_eq_pow_of_inertiaDegIn F Y hY hp hp_n,
       ← prod_inertia_eq_pow_of_inertiaDegIn (n := n) F hp]
 
-/-- **Local-factor matching.** For an intermediate field `F` of `ℚ(ζₙ)/ℚ`, the prime-power
-Dedekind summand at any rational prime `p` factorizes as a product of primitive Dirichlet local
-Euler factors indexed by the character subgroup `Y` corresponding to `F`. Composes Step A
-(`dedekindZetaSummand_localSum_eq_prod_inertia`) and Step B (`prod_chars_eq_prod_inertia`). -/
+/-- **Local-factor matching.** For an intermediate field `F` of `ℚ(ζₙ)/ℚ` and a prime `p`
+coprime to the cyclotomic level `n`, the prime-power Dedekind summand at `p` factorizes as a
+product of primitive Dirichlet local Euler factors indexed by the character subgroup `Y`
+corresponding to `F`. Composes Step A (`dedekindZetaSummand_localSum_eq_prod_inertia`) and
+Step B (`prod_chars_eq_prod_inertia`). -/
 theorem dedekindZeta_localFactor_eq_prod_dirichletLocal
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
@@ -1650,11 +1760,11 @@ theorem dedekindZeta_localFactor_eq_prod_dirichletLocal
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
     {s : ℂ} (hs : 1 < s.re)
-    {p : ℕ} (hp : p.Prime) :
+    {p : ℕ} (hp : p.Prime) (hp_n : p.Coprime n) :
     ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
       ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ := by
   rw [dedekindZetaSummand_localSum_eq_prod_inertia (F := F) hp hs,
-      ← prod_chars_eq_prod_inertia F Y hY hs hp]
+      ← prod_chars_eq_prod_inertia F Y hY hs hp hp_n]
 
 /-! ### Character-group product assembly
 
@@ -1695,10 +1805,14 @@ substitute each local factor using `dedekindZeta_localFactor_eq_prod_dirichletLo
 collapse the iterated product via `prod_dirichletLocal_eq_prod_LFunction`.
 -/
 
-/-- **Abelian factorization of the Dedekind zeta function.** For an intermediate field `F` of
-the cyclotomic extension `ℚ(ζₙ)/ℚ` (necessarily abelian over `ℚ`), the Dedekind zeta function
-of `F` equals the product of *primitive* Dirichlet L-functions over the character subgroup
-`Y := intermediateFieldEquivSubgroupChar n Kn ℂ F`. -/
+/-- **Abelian factorization of the Dedekind zeta function (unramified primes).** For an
+intermediate field `F` of the cyclotomic extension `ℚ(ζₙ)/ℚ`, the Dedekind zeta function of
+`F` equals the product of *primitive* Dirichlet L-functions over the character subgroup
+`Y := intermediateFieldEquivSubgroupChar n Kn ℂ F`, at primes `p` coprime to the level `n`.
+
+**Note:** The proof is currently established only for the unramified case `p.Coprime n`. The
+ramified case (`¬ p.Coprime n`, i.e., `p ∣ n`) requires additional work (Frobenius modulo
+inertia, ramified conductor analysis) and is left as a named sorry. -/
 theorem dedekindZeta_eq_prod_dirichletL_abelian
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
@@ -1709,8 +1823,15 @@ theorem dedekindZeta_eq_prod_dirichletL_abelian
       ∏ χ : Y, DirichletCharacter.LFunction χ.val.primitiveCharacter s := by
   intro Y
   rw [← dedekindZeta_eulerProduct_tprod F s hs,
-      tprod_congr (fun p : Nat.Primes =>
-        dedekindZeta_localFactor_eq_prod_dirichletLocal F Y rfl hs p.2)]
+      -- Rewrite each local summand ∑ e, dedekindZetaSummand(p^e) to ∏ χ, (1 - χ(p) * p^(-s))⁻¹.
+      -- For unramified primes (p coprime to n) this is fully proved.
+      -- The ramified primes (p | n, finitely many) still require further work (sorry).
+      tprod_congr (fun q => by
+        by_cases hp_n : (q : ℕ).Coprime n
+        · -- Unramified case: q.val coprime to n.
+          exact dedekindZeta_localFactor_eq_prod_dirichletLocal F Y rfl hs q.2 hp_n
+        · -- Ramified case: q.val ∣ n. Local factor matching at ramified primes.
+          sorry)]
   exact prod_dirichletLocal_eq_prod_LFunction Y hs
 
 end NumberField
