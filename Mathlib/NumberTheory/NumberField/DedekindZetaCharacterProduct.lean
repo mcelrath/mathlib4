@@ -715,6 +715,74 @@ private lemma prod_chars_eq_prod_coprime_conductor
     rw [h_zero, zero_mul, sub_zero, inv_one]
   rw [Finset.prod_congr rfl h_not, Finset.prod_const_one, mul_one]
 
+/-! ### LHS reduction — Phase 3: lift evaluation to a multiplicative hom
+
+For χ ∈ Y with `p` coprime to `χ.val.conductor`, the value `χ.val.primitiveCharacter (p : ℕ)` is
+nonzero (a root of unity). We construct a `MonoidHom` from the intersection subgroup
+`Y ⊓ subgroupOfCoprimeConductor p` to `ℂˣ` whose value matches the primitive character
+evaluation.
+
+Multiplicativity in `χ` is proved at the lcm-level: for χ, ψ in the coprime-conductor subgroup,
+`(χ·ψ).primitiveCharacter (p)` and `χ.primitiveCharacter (p) · ψ.primitiveCharacter (p)` agree
+because they both arise from the same level-`m` character (where `m = lcm(conductor χ, conductor ψ)`,
+coprime to `p`), differing by `changeLevel` lifts that are injective on level-`n` characters.
+-/
+
+open DirichletCharacter in
+/-- For `c ∣ m` and `k` coprime to `m`, evaluating `changeLevel ξ` at the natural cast `(k : ZMod m)`
+gives the same value as evaluating `ξ` at the natural cast `(k : ZMod c)`. -/
+private lemma changeLevel_eval_natCast_of_coprime
+    {c m : ℕ} [NeZero m] (h : c ∣ m) (ξ : DirichletCharacter ℂ c) {k : ℕ}
+    (hk : k.Coprime m) :
+    (DirichletCharacter.changeLevel h ξ) ((k : ℕ) : ZMod m) = ξ ((k : ℕ) : ZMod c) := by
+  have hk_unit : IsUnit ((k : ℕ) : ZMod m) := by
+    rw [ZMod.isUnit_iff_coprime]; exact hk
+  rw [show ((k : ℕ) : ZMod m) = (hk_unit.unit : ZMod m) from (IsUnit.unit_spec _).symm]
+  rw [DirichletCharacter.changeLevel_eq_cast_of_dvd]
+  rw [IsUnit.unit_spec, ZMod.cast_natCast h]
+
+open DirichletCharacter in
+/-- For `χ, ψ : DirichletCharacter ℂ n` whose conductors are both coprime to `p`, the primitive
+character of the product evaluates multiplicatively at `p`. -/
+private lemma primitiveCharacter_mul_apply_of_coprime
+    {n : ℕ} [NeZero n] (χ ψ : DirichletCharacter ℂ n) {p : ℕ}
+    (hχ : p.Coprime χ.conductor) (hψ : p.Coprime ψ.conductor) :
+    (χ * ψ).primitiveCharacter ((p : ℕ) : ZMod (χ * ψ).conductor) =
+      χ.primitiveCharacter ((p : ℕ) : ZMod χ.conductor) *
+      ψ.primitiveCharacter ((p : ℕ) : ZMod ψ.conductor) := by
+  -- Set m = lcm of the two conductors.
+  set m := χ.conductor.lcm ψ.conductor with hm_eq
+  have hχ_m : χ.conductor ∣ m := Nat.dvd_lcm_left _ _
+  have hψ_m : ψ.conductor ∣ m := Nat.dvd_lcm_right _ _
+  have hχψ_m : (χ * ψ).conductor ∣ m := DirichletCharacter.conductor_mul_dvd_lcm_conductor χ ψ
+  -- p coprime to m via the bound m ∣ χ.conductor * ψ.conductor.
+  have hp_m : p.Coprime m :=
+    (Nat.Coprime.mul_right hχ hψ).coprime_dvd_right (Nat.lcm_dvd_mul _ _)
+  have hm_n : m ∣ n :=
+    Nat.lcm_dvd χ.conductor_dvd_level ψ.conductor_dvd_level
+  -- m is nonzero since n is.
+  haveI hm_ne : NeZero m := by
+    refine ⟨fun h0 => ?_⟩
+    rw [h0] at hm_n
+    exact (NeZero.ne n) (Nat.eq_zero_of_zero_dvd hm_n)
+  -- Identity at level m: lift to level n and apply changeLevel_injective.
+  have h_id : DirichletCharacter.changeLevel hχψ_m (χ * ψ).primitiveCharacter =
+      DirichletCharacter.changeLevel hχ_m χ.primitiveCharacter *
+        DirichletCharacter.changeLevel hψ_m ψ.primitiveCharacter := by
+    apply DirichletCharacter.changeLevel_injective hm_n
+    rw [map_mul]
+    rw [← DirichletCharacter.changeLevel_trans χ.primitiveCharacter hχ_m hm_n,
+        ← DirichletCharacter.changeLevel_trans ψ.primitiveCharacter hψ_m hm_n,
+        ← DirichletCharacter.changeLevel_trans (χ * ψ).primitiveCharacter hχψ_m hm_n,
+        DirichletCharacter.changeLevel_primitiveCharacter,
+        DirichletCharacter.changeLevel_primitiveCharacter,
+        DirichletCharacter.changeLevel_primitiveCharacter]
+  -- Evaluate at (p : ZMod m).
+  rw [← changeLevel_eval_natCast_of_coprime hχψ_m _ hp_m,
+      ← changeLevel_eval_natCast_of_coprime hχ_m _ hp_m,
+      ← changeLevel_eval_natCast_of_coprime hψ_m _ hp_m,
+      h_id, MulChar.mul_apply]
+
 /-- **B.1+B.4 LHS reduction (sorry).** The character-side product collapses to the same
 geometric form as the prime-side, namely `((1 - p^(-fs))⁻¹)^g` where `f` is the inertia degree
 and `g` is the number of primes above `p`. This requires the Frobenius identification
