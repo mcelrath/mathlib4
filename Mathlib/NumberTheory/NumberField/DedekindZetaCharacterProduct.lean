@@ -25,29 +25,29 @@ character group `Xₙ` via `IsCyclotomicExtension.Rat.intermediateFieldEquivSubg
 
 In this regime the Dedekind zeta function factorizes as
 
-  `dedekindZeta K s = ∏ χ ∈ Y, DirichletCharacter.LFunction χ s`   (for `1 < re s`).
+  `dedekindZeta K s = ∏ χ ∈ Y, DirichletCharacter.LFunction χ.primitiveCharacter s`
+  (for `1 < re s`).
 
-This identity is foundational for class-field-theoretic constructions over abelian extensions
-of `ℚ`, including computations of L-values, density theorems, and Generalized Riemann Hypothesis
-chains in applied frameworks. The current file establishes the **statement** of the abelian
-factorization (`dedekindZeta_eq_prod_dirichletL_abelian`), provides a clean `tprod`-form of the
-prime-power Euler product for the Dedekind zeta (`dedekindZeta_eulerProduct_tprod`), and stubs
-the two non-trivial intermediate steps:
+The use of `primitiveCharacter` is essential: the imprimitive `LFunction χ` for `χ` of conductor
+`m < n` differs from the primitive L-function `LFunction χ.primitiveCharacter` by the missing
+Euler factors at primes `p ∣ n` with `p ∤ m`, where `χ p = 0` but `χ.primitiveCharacter p ≠ 0`.
+Only the primitive product matches `dedekindZeta F s` globally; the imprimitive product would
+miss the local Euler factors of `dedekindZeta` at the ramified primes of `F`.
 
-* the *local-factor matching* between `idealNormCount`-driven prime-power sums and the standard
-  L-function geometric series at primes coprime to the conductor
-  (`dedekindZeta_localFactor_eq_prod_dirichletLocal`), and
-* the *conductor-character correspondence* tying the local factor at `p` to a product over the
-  character group `Y` (`prod_dirichletLocal_eq_prod_LFunction`).
+This identity underlies class-field-theoretic constructions over abelian extensions of `ℚ`,
+including L-value computations, density theorems, and Generalized Riemann Hypothesis chains in
+applied frameworks.
 
 ## Status
 
 * `dedekindZeta_eulerProduct_tprod` — proved (drop-in `tprod` reformulation of the existing
   prime-power Euler product `NumberField.dedekindZeta_eulerProduct`).
-* `dedekindZeta_localFactor_eq_prod_dirichletLocal` — stated, sorry.
-* `prod_dirichletLocal_eq_prod_LFunction` — stated, sorry.
-* `dedekindZeta_eq_prod_dirichletL_abelian` — stated, sorry; proof is to assemble the two
-  intermediate steps via the existing `dedekindZetaSummand_isMultiplicative`.
+* `prod_dirichletLocal_eq_prod_LFunction` — proved (per-prime ↔ per-character product swap
+  via `Multipliable.tprod_finsetProd`).
+* `dedekindZeta_localFactor_eq_prod_dirichletLocal` — stated with sorry; the deep
+  Frobenius-cycle local-factor identity at every rational prime, including ramified primes.
+* `dedekindZeta_eq_prod_dirichletL_abelian` — proved modulo the local-factor sorry; assembles
+  the three pieces above.
 
 Multiplicativity of `idealNormCount` (the splitting of `idealNormCount K (m * n)` for coprime
 `m, n`) is already provided upstream as
@@ -57,8 +57,9 @@ Multiplicativity of `idealNormCount` (the splitting of `idealNormCount K (m * n)
 
 ## TODO
 
-Assemble `dedekindZeta_eq_prod_dirichletL_abelian` once the two local-factor / conductor-matching
-sorries are filled.
+Discharge `dedekindZeta_localFactor_eq_prod_dirichletLocal`. The proof at unramified primes
+follows the standard Frobenius-cycle argument; ramified primes require
+`changeLevel_primitiveCharacter` + the local Euler factor identity for cyclotomic L-functions.
 -/
 
 @[expose] public section
@@ -75,6 +76,11 @@ namespace NumberField
 noncomputable instance subgroupDirichletCharacterFintype
     {n : ℕ} (Y : Subgroup (DirichletCharacter ℂ n)) : Fintype Y :=
   Fintype.ofFinite _
+
+/-- Auxiliary: the conductor of a Dirichlet character at a positive level is itself positive. -/
+instance dirichletCharacterConductorNeZero {R : Type*} [CommMonoidWithZero R] {n : ℕ} [NeZero n]
+    (χ : DirichletCharacter R n) : NeZero χ.conductor :=
+  ⟨DirichletCharacter.conductor_ne_zero _⟩
 
 variable (K : Type*) [Field K] [NumberField K]
 
@@ -93,27 +99,26 @@ theorem dedekindZeta_eulerProduct_tprod (s : ℂ) (hs : 1 < s.re) :
 
 /-! ### Local Euler factor: prime-power summand
 
-The local Euler factor of `dedekindZeta K` at the rational prime `p` is the inner sum
-`∑' e, dedekindZetaSummand K s (p ^ e)`. For `p` coprime to the conductor of `K/ℚ`, this
-equals the product of geometric series `∏_{𝔭∣p} (1 - N(𝔭)^(-s))^(-1)` indexed by the prime
-ideals of `𝓞 K` above `p`. The next step ties each `(1 - N(𝔭)^(-s))^(-1)` to a Dirichlet
-L-Euler factor via Frobenius compatibility.
+The local Euler factor of `dedekindZeta F` at the rational prime `p` is the inner sum
+`∑' e, dedekindZetaSummand F s (p ^ e)`. The standard theory of Dedekind zeta factorization
+identifies this with a product of geometric series indexed by primitive Dirichlet characters
+arising from the Galois group `Gal(F/ℚ)`. We state this as the local-factor identity below;
+the proof in a follow-on session uses `IsCyclotomicExtension.Rat.galEquivZMod_stabilizer`
+(Frobenius compatibility), unique factorization of ideals in `𝓞 F`, and the change-of-level
+identity `changeLevel_primitiveCharacter` for ramified primes.
 -/
 
-/-- **Local-factor matching (sorry).** For an abelian extension `K/ℚ` of conductor `n`, and a
-rational prime `p` coprime to `n`, the prime-power Dedekind summand
-`∑' e, dedekindZetaSummand K s (p^e)` factorizes as a product of Dirichlet local Euler factors
-indexed by the character group `Y` corresponding to `K`.
+/-- **Local-factor matching (sorry).** For an intermediate field `F` of `ℚ(ζₙ)/ℚ`, the
+prime-power Dedekind summand at any rational prime `p` factorizes as a product of primitive
+Dirichlet local Euler factors indexed by the character subgroup `Y` corresponding to `F`.
 
 This is the non-trivial local statement: it reduces to the identity
-`∑_{n ≥ 0} a_{p^n} p^{-ns} = ∏_χ (1 - χ(p) p^{-s})^{-1}`,
-where `a_m = idealNormCount K m`, holding because the Frobenius at `p` acts on the prime
-ideals above `p` via `galEquivZMod n K (Frob_p)`, and the cycle structure determines both
-the inertia degrees `f(𝔭∣p)` and the character values `χ(p)`.
-
-The proof in a follow-on session uses
-`IsCyclotomicExtension.Rat.galEquivZMod_stabilizer` to identify the Frobenius image, and
-unique factorization of `p · 𝓞_K` together with `dedekindZetaSummand_isMultiplicative`. -/
+`∑_{k ≥ 0} a_{p^k} p^{-ks} = ∏_χ (1 - χ̃(p) p^{-s})^{-1}`,
+where `a_m = idealNormCount F m` and `χ̃ = χ.primitiveCharacter` is the primitive character of
+`χ`. The use of primitive characters is what makes this hold uniformly at all primes, including
+those ramified in `F`: at primes `p` dividing `n` but not the conductor of `χ̃`, the value
+`χ̃ p` is non-zero (the unit value at `p mod conductor χ̃`) and contributes the missing Euler
+factor that the imprimitive `χ p` would zero out. -/
 theorem dedekindZeta_localFactor_eq_prod_dirichletLocal
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
@@ -121,36 +126,44 @@ theorem dedekindZeta_localFactor_eq_prod_dirichletLocal
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
     {s : ℂ} (hs : 1 < s.re)
-    {p : ℕ} (hp : p.Prime) (hpn : p.Coprime n) :
+    {p : ℕ} (hp : p.Prime) :
     ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
-      ∏ χ : Y, (1 - (χ.val p : ℂ) * (p : ℂ) ^ (-s))⁻¹ := by
+      ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ := by
   sorry
 
 /-! ### Character-group product assembly
 
-Given the per-prime local factor, the global identity follows by taking the product over
-primes and exchanging it with the product over characters (a finite group), using
-absolute convergence (`summable_dedekindZetaSummand`) on the analytic side and
-`DirichletCharacter.LSeries_eulerProduct_tprod` on the L-function side.
-
-The conductor-coprime hypothesis above is harmless for primes dividing `n`, since
-`χ p = 0` exactly when `p ∣ conductor χ`, and the corresponding `dedekindZeta` local
-factor at a ramified prime then matches the omitted geometric term.
+Given the per-prime local factor identity (in primitive form), the global identity follows
+by taking the product over primes and exchanging it with the product over characters (a finite
+group), using absolute convergence on the analytic side and
+`DirichletCharacter.LSeries_eulerProduct_tprod` on each per-character side.
 -/
 
-/-- **Character-group product (sorry).** The prime-by-prime product of Dirichlet local Euler
-factors over a character subgroup `Y` reassembles to a product of L-functions over `Y`. -/
+/-- **Character-group product.** The prime-by-prime product of *primitive* Dirichlet local
+Euler factors over a character subgroup `Y` reassembles to a product of (primitive)
+L-functions over `Y`. -/
 theorem prod_dirichletLocal_eq_prod_LFunction
     {n : ℕ} [NeZero n] (Y : Subgroup (DirichletCharacter ℂ n)) {s : ℂ} (hs : 1 < s.re) :
-    ∏' p : Nat.Primes, ∏ χ : Y, (1 - (χ.val p : ℂ) * (p : ℂ) ^ (-s))⁻¹ =
-      ∏ χ : Y, DirichletCharacter.LFunction χ.val s := by
-  sorry
+    ∏' p : Nat.Primes, ∏ χ : Y,
+        (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
+      ∏ χ : Y, DirichletCharacter.LFunction χ.val.primitiveCharacter s := by
+  have hMult : ∀ χ : Y,
+      Multipliable (fun p : Nat.Primes ↦
+        (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹) :=
+    fun χ => (DirichletCharacter.LSeries_eulerProduct_hasProd
+      χ.val.primitiveCharacter hs).multipliable
+  rw [Multipliable.tprod_finsetProd (s := (Finset.univ : Finset Y))
+        (fun χ _ => hMult χ)]
+  refine Finset.prod_congr rfl fun χ _ => ?_
+  haveI : NeZero χ.val.conductor := ⟨DirichletCharacter.conductor_ne_zero _⟩
+  rw [DirichletCharacter.LSeries_eulerProduct_tprod χ.val.primitiveCharacter hs,
+      ← DirichletCharacter.LFunction_eq_LSeries χ.val.primitiveCharacter hs]
 
 /-! ### The main theorem
 
 The Dedekind zeta function of an abelian number field equals the product of Dirichlet
-L-functions indexed by the corresponding character group, on the absolute-convergence
-half-plane.
+L-functions (in their *primitive* form) indexed by the corresponding character group, on
+the absolute-convergence half-plane.
 
 The proof is by composition: rewrite `dedekindZeta` via `dedekindZeta_eulerProduct_tprod`,
 substitute each local factor using `dedekindZeta_localFactor_eq_prod_dirichletLocal`, and
@@ -159,7 +172,7 @@ collapse the iterated product via `prod_dirichletLocal_eq_prod_LFunction`.
 
 /-- **Abelian factorization of the Dedekind zeta function.** For an intermediate field `F` of
 the cyclotomic extension `ℚ(ζₙ)/ℚ` (necessarily abelian over `ℚ`), the Dedekind zeta function
-of `F` equals the product of Dirichlet L-functions over the character subgroup
+of `F` equals the product of *primitive* Dirichlet L-functions over the character subgroup
 `Y := intermediateFieldEquivSubgroupChar n Kn ℂ F`. -/
 theorem dedekindZeta_eq_prod_dirichletL_abelian
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
@@ -167,7 +180,12 @@ theorem dedekindZeta_eq_prod_dirichletL_abelian
     (F : IntermediateField ℚ Kn) [NumberField F]
     {s : ℂ} (hs : 1 < s.re) :
     let Y := IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F
-    dedekindZeta F s = ∏ χ : Y, DirichletCharacter.LFunction χ.val s := by
-  sorry
+    dedekindZeta F s =
+      ∏ χ : Y, DirichletCharacter.LFunction χ.val.primitiveCharacter s := by
+  intro Y
+  rw [← dedekindZeta_eulerProduct_tprod F s hs,
+      tprod_congr (fun p : Nat.Primes =>
+        dedekindZeta_localFactor_eq_prod_dirichletLocal F Y rfl hs p.2)]
+  exact prod_dirichletLocal_eq_prod_LFunction Y hs
 
 end NumberField
