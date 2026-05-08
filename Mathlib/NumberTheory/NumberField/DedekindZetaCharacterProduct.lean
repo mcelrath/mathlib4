@@ -14,6 +14,7 @@ public import Mathlib.NumberTheory.LSeries.DirichletContinuation
 public import Mathlib.NumberTheory.NumberField.Cyclotomic.Galois
 public import Mathlib.NumberTheory.NumberField.DedekindZeta
 public import Mathlib.NumberTheory.NumberField.DedekindZetaEulerProduct
+public import Mathlib.NumberTheory.RamificationInertia.Galois
 public import Mathlib.RingTheory.DedekindDomain.IdealsOnPrimes
 
 /-!
@@ -874,6 +875,230 @@ private lemma evalAtPrime_eq_eval_galois
         ((IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm
           (ZMod.unitOfCoprime p hp_n)) : ZMod n) := by
   rw [evalAtPrime_eq_natCast Y hp_n χ, MulEquiv.apply_symm_apply, ZMod.coe_unitOfCoprime]
+
+/-! ### B.3–B.4: Frobenius-in-stabilizer sub-lemmas
+
+These helper lemmas show that the canonical Frobenius element `σ₀ = (galEquivZMod)⁻¹(p mod n)`
+lies in the stabilizer of `P` under `Gal(Kn/ℚ)` (B.3), that `algebraMap (𝓞 F → 𝓞 Kn)` is
+equivariant under `restrictNormal` (B.4a), and that the restriction `frobeniusAt F hp_n` lies
+in the stabilizer of `P_F = P.comap` under `Gal(F/ℚ)` (B.4b). -/
+
+section FrobeniusStabilizer
+
+open scoped Pointwise
+
+/-- **B.3.** The element σ₀ = `(galEquivZMod n Kn).symm (unitOfCoprime p hp_n)` lies in
+the stabilizer of `P` under `Gal(Kn/ℚ)`. Derived from `galEquivZMod_stabilizer`. -/
+private lemma sigma0_mem_stabilizer
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    {p : ℕ} [hp : Fact (Nat.Prime p)] (hp_n : p.Coprime n)
+    (P : Ideal (𝓞 Kn)) [P.IsMaximal] [P.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ))] :
+    (IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm (ZMod.unitOfCoprime p hp_n) ∈
+        MulAction.stabilizer Gal(Kn/ℚ) P := by
+  have hmem : ZMod.unitOfCoprime p hp_n ∈
+      (IsCyclotomicExtension.Rat.galEquivZMod n Kn).mapSubgroup
+        (MulAction.stabilizer Gal(Kn/ℚ) P) :=
+    (IsCyclotomicExtension.Rat.galEquivZMod_stabilizer n Kn p P hp_n) ▸ Subgroup.mem_zpowers _
+  rw [MulEquiv.mapSubgroup_apply, Subgroup.mem_map] at hmem
+  obtain ⟨σ, hσ_mem, hσ_eq⟩ := hmem
+  rwa [show (IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm
+        (ZMod.unitOfCoprime p hp_n) = σ from
+    (IsCyclotomicExtension.Rat.galEquivZMod n Kn).injective
+      (hσ_eq.symm ▸ (MulEquiv.apply_symm_apply _ _))]
+
+/-- **B.4a.** The map `algebraMap (𝓞 F → 𝓞 Kn)` is equivariant under `restrictNormal`:
+`algebraMap(σ|_F • x) = σ • algebraMap(x)` for `σ : Gal(Kn/ℚ)`, `x : 𝓞 F`. -/
+private lemma algebraMap_restrictNormal_smul_compat
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    (σ₀ : Gal(Kn/ℚ)) (x : 𝓞 F) :
+    haveI : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+    algebraMap (𝓞 F) (𝓞 Kn) (σ₀.restrictNormal F • x) = σ₀ • algebraMap (𝓞 F) (𝓞 Kn) x := by
+  haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  ext
+  simp only [NumberField.RingOfIntegers.coe_eq_algebraMap]
+  have rhs_eq : (algebraMap (𝓞 Kn) Kn) (σ₀ • (algebraMap (𝓞 F) (𝓞 Kn)) x) =
+      σ₀ ((algebraMap (𝓞 Kn) Kn) ((algebraMap (𝓞 F) (𝓞 Kn)) x)) := by
+    have h := algebraMap.coe_smul' σ₀ (algebraMap (𝓞 F) (𝓞 Kn) x) Kn
+    simp only [NumberField.RingOfIntegers.coe_eq_algebraMap, AlgEquiv.smul_def] at h; exact h
+  rw [rhs_eq, ← IsScalarTower.algebraMap_apply (𝓞 F) (𝓞 Kn) Kn,
+      ← IsScalarTower.algebraMap_apply (𝓞 F) (𝓞 Kn) Kn,
+      IsScalarTower.algebraMap_apply (𝓞 F) F Kn, IsScalarTower.algebraMap_apply (𝓞 F) F Kn]
+  have htau : (algebraMap (𝓞 F) F) (σ₀.restrictNormal F • x) =
+      (σ₀.restrictNormal F) ((algebraMap (𝓞 F) F) x) := by
+    have h := algebraMap.coe_smul' (σ₀.restrictNormal F) x F
+    simp only [NumberField.RingOfIntegers.coe_eq_algebraMap, AlgEquiv.smul_def] at h
+    exact h.symm
+  rw [htau, AlgEquiv.restrictNormal_commutes σ₀ F (algebraMap (𝓞 F) F x)]
+
+/-- **B.4b.** The Frobenius element `frobeniusAt F hp_n = σ₀|_F` lies in the stabilizer
+of `P_F = P.comap(algebraMap (𝓞 F) (𝓞 Kn))` under `Gal(F/ℚ)`. -/
+private lemma frobeniusAt_mem_stabilizer_PF
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    {p : ℕ} [hp : Fact (Nat.Prime p)] (hp_n : p.Coprime n)
+    (P : Ideal (𝓞 Kn)) [P.IsMaximal] [P.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ))] :
+    haveI : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+    let σ₀ := (IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm (ZMod.unitOfCoprime p hp_n)
+    σ₀.restrictNormal F ∈
+      MulAction.stabilizer Gal(F/ℚ) (P.comap (algebraMap (𝓞 F) (𝓞 Kn))) := by
+  haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  let σ₀ : Gal(Kn/ℚ) :=
+    (IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm (ZMod.unitOfCoprime p hp_n)
+  have hσ₀_stab : σ₀ ∈ MulAction.stabilizer Gal(Kn/ℚ) P :=
+    sigma0_mem_stabilizer hp_n P
+  rw [MulAction.mem_stabilizer_iff] at hσ₀_stab ⊢
+  ext x
+  simp only [Ideal.mem_pointwise_smul_iff_inv_smul_mem, Ideal.mem_comap]
+  let τ_inv : Gal(Kn/ℚ) := σ₀⁻¹
+  have hkey : algebraMap (𝓞 F) (𝓞 Kn) ((σ₀.restrictNormal F)⁻¹ • x) =
+      τ_inv • algebraMap (𝓞 F) (𝓞 Kn) x := by
+    rw [show (σ₀.restrictNormal F)⁻¹ = τ_inv.restrictNormal F from
+      (map_inv (AlgEquiv.restrictNormalHom F) σ₀).symm]
+    exact algebraMap_restrictNormal_smul_compat (n := n) (Kn := Kn) F τ_inv x
+  rw [hkey, ← Ideal.mem_pointwise_smul_iff_inv_smul_mem, hσ₀_stab]
+
+end FrobeniusStabilizer
+
+section OrderOfFrobenius
+
+open scoped Pointwise
+open IsCyclotomicExtension.Rat IntermediateField
+
+/-- Helper: `F.fixingSubgroup` is a Galois group for `F' / L'` whenever `L'/K'` is Galois.
+Wraps `IsGaloisGroup.intermediateField` to avoid `(L := ...)` named argument clash with
+the `L` LSeries notation opened file-wide by `open scoped LSeries.notation`. -/
+private lemma isGaloisGroup_fixingSubgroup
+    {K' L' : Type*} [Field K'] [Field L'] [Algebra K' L'] [IsGalois K' L']
+    [FiniteDimensional K' L']
+    (F' : IntermediateField K' L') :
+    IsGaloisGroup F'.fixingSubgroup F' L' := by
+  apply IsGaloisGroup.subgroup_iff.mpr
+  exact IsGalois.fixedField_fixingSubgroup (K := F')
+
+/-- **B.5 helper.** The stabilizer of `P` under `Gal(Kn/ℚ)` equals the cyclic subgroup generated
+by `σ₀ = (galEquivZMod n Kn).symm (unitOfCoprime p hp_n)`. Derived from `galEquivZMod_stabilizer`
+by conjugating with `MulEquiv.mapSubgroup`. -/
+private lemma stabilizer_eq_zpowers_sigma0
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn]
+    {p : ℕ} [hp : Fact (Nat.Prime p)] (hp_n : p.Coprime n)
+    (P : Ideal (𝓞 Kn)) [P.IsMaximal] [P.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ))] :
+    MulAction.stabilizer Gal(Kn/ℚ) P =
+      Subgroup.zpowers ((galEquivZMod n Kn).symm (ZMod.unitOfCoprime p hp_n)) := by
+  conv_lhs =>
+    rw [show MulAction.stabilizer Gal(Kn/ℚ) P =
+      (MulEquiv.mapSubgroup (galEquivZMod n Kn)).symm
+        ((MulEquiv.mapSubgroup (galEquivZMod n Kn)) (MulAction.stabilizer Gal(Kn/ℚ) P)) from
+      ((MulEquiv.mapSubgroup (galEquivZMod n Kn)).left_inv _).symm]
+  rw [galEquivZMod_stabilizer n Kn p P hp_n, MulEquiv.symm_mapSubgroup,
+    MulEquiv.coe_mapSubgroup, MonoidHom.map_zpowers]
+  simp
+
+attribute [local instance] Ideal.Quotient.field in
+/-- **B.5.** The order of the Frobenius element `frobeniusAt F hp_n = σ₀|_F` in `Gal(F/ℚ)`
+equals the inertia degree `inertiaDegIn(p, 𝓞 F)`, for any prime `p` coprime to `n`. -/
+private lemma orderOf_restrictNormal_eq_inertiaDegIn
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    {p : ℕ} [hp : Fact (Nat.Prime p)] (hp_n : p.Coprime n)
+    (P : Ideal (𝓞 Kn)) [hPmax : P.IsMaximal] [hPover : P.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ))] :
+    haveI : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+    orderOf ((IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm (ZMod.unitOfCoprime p hp_n)
+              |>.restrictNormal F) =
+      Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
+  haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  haveI hKnGal : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
+  let σ₀ : Gal(Kn/ℚ) := (galEquivZMod n Kn).symm (ZMod.unitOfCoprime p hp_n)
+  let PF := P.comap (algebraMap (𝓞 F) (𝓞 Kn))
+  let p_ideal := Ideal.span ({(p : ℤ)} : Set ℤ)
+  have hp_ideal_ne_bot : p_ideal ≠ ⊥ := by
+    simp only [p_ideal, ne_eq, Ideal.span_singleton_eq_bot]
+    exact_mod_cast hp.out.ne_zero
+  haveI hP_liesover_PF : P.LiesOver PF := inferInstance
+  haveI h_PF_max : PF.IsMaximal :=
+    Ideal.isMaximal_comap_of_isIntegral_of_isMaximal P
+  have hPF_ne_bot : PF ≠ ⊥ :=
+    Ring.ne_bot_of_isMaximal_of_not_isField h_PF_max (RingOfIntegers.not_isField F)
+  have hstab : MulAction.stabilizer Gal(Kn/ℚ) P = Subgroup.zpowers σ₀ :=
+    stabilizer_eq_zpowers_sigma0 hp_n P
+  have h_ord_σ₀ : orderOf σ₀ = p_ideal.inertiaDegIn (𝓞 Kn) := by
+    have hcard_stab := Ideal.card_stabilizer_eq (G := Gal(Kn/ℚ)) p_ideal hp_ideal_ne_bot P
+    rw [← Nat.card_zpowers, ← hstab, hcard_stab,
+      IsCyclotomicExtension.Rat.ramificationIdxIn_eq_of_not_dvd p Kn
+        ((Nat.Prime.coprime_iff_not_dvd hp.out).mp hp_n),
+      one_mul]
+  have h_relIndex : F.fixingSubgroup.relIndex (Subgroup.zpowers σ₀) =
+      orderOf (σ₀.restrictNormal F) := by
+    have key := Subgroup.relIndex_ker (f := AlgEquiv.restrictNormalHom F)
+      (K := Subgroup.zpowers σ₀)
+    have hker : (AlgEquiv.restrictNormalHom F).ker = F.fixingSubgroup :=
+      IntermediateField.restrictNormalHom_ker F
+    rw [hker, MonoidHom.map_zpowers, Nat.card_zpowers] at key
+    exact key
+  have h_card_eq : Nat.card (F.fixingSubgroup.subgroupOf (Subgroup.zpowers σ₀)) *
+      orderOf (σ₀.restrictNormal F) = orderOf σ₀ := by
+    rw [← h_relIndex, ← Nat.card_zpowers]
+    exact (F.fixingSubgroup.subgroupOf (Subgroup.zpowers σ₀)).card_mul_index
+  haveI hGalFKn : IsGaloisGroup F.fixingSubgroup F Kn :=
+    isGaloisGroup_fixingSubgroup F
+  letI hmsa : MulSemiringAction (↥F.fixingSubgroup) Kn := inferInstance
+  letI hsd : SMulDistribClass (↥F.fixingSubgroup) (𝓞 Kn) Kn := inferInstance
+  haveI hGalFKn_oi : IsGaloisGroup F.fixingSubgroup (𝓞 F) (𝓞 Kn) :=
+    IsGaloisGroup.of_isFractionRing F.fixingSubgroup (𝓞 F) (𝓞 Kn) F Kn
+  have h_inter_card : Nat.card (F.fixingSubgroup.subgroupOf (Subgroup.zpowers σ₀)) =
+      Nat.card (MulAction.stabilizer F.fixingSubgroup P) := by
+    apply Nat.card_congr
+    exact {
+      toFun := fun ⟨⟨σ, hσ_zpow⟩, hσ_fix⟩ => ⟨⟨σ, hσ_fix⟩, by
+        rw [MulAction.mem_stabilizer_iff]
+        have hmem : σ ∈ MulAction.stabilizer Gal(Kn/ℚ) P := hstab ▸ hσ_zpow
+        rw [MulAction.mem_stabilizer_iff] at hmem
+        exact_mod_cast hmem⟩
+      invFun := fun ⟨⟨σ, hσ_fix⟩, hσ_stab⟩ => ⟨⟨σ, by
+        rw [← hstab]
+        rw [MulAction.mem_stabilizer_iff]
+        rw [MulAction.mem_stabilizer_iff] at hσ_stab
+        exact_mod_cast hσ_stab⟩, hσ_fix⟩
+      left_inv := fun _ => rfl
+      right_inv := fun _ => rfl
+    }
+  have h_stab_F_card : Nat.card (MulAction.stabilizer F.fixingSubgroup P) =
+      PF.ramificationIdxIn (𝓞 Kn) * PF.inertiaDegIn (𝓞 Kn) :=
+    Ideal.card_stabilizer_eq (G := F.fixingSubgroup) PF hPF_ne_bot P
+  have h_ramIdx_PF : PF.ramificationIdxIn (𝓞 Kn) = 1 := by
+    have htower : p_ideal.ramificationIdxIn (𝓞 F) * PF.ramificationIdxIn (𝓞 Kn) =
+        p_ideal.ramificationIdxIn (𝓞 Kn) :=
+      Ideal.ramificationIdxIn_mul_ramificationIdxIn' PF
+        (G := Gal(F/ℚ)) (GAC := Gal(Kn/ℚ)) (GBC := F.fixingSubgroup) (𝓞 Kn)
+    rw [IsCyclotomicExtension.Rat.ramificationIdxIn_eq_of_not_dvd p Kn
+        ((Nat.Prime.coprime_iff_not_dvd hp.out).mp hp_n)] at htower
+    have h1 : p_ideal.ramificationIdxIn (𝓞 F) ≠ 0 :=
+      Ideal.ramificationIdxIn_ne_zero (G := Gal(F/ℚ)) hp_ideal_ne_bot
+    have h2 : PF.ramificationIdxIn (𝓞 Kn) ≠ 0 :=
+      Ideal.ramificationIdxIn_ne_zero (G := F.fixingSubgroup) hPF_ne_bot
+    nlinarith [Nat.one_le_iff_ne_zero.mpr h1, Nat.one_le_iff_ne_zero.mpr h2]
+  have h_tower : p_ideal.inertiaDegIn (𝓞 F) * PF.inertiaDegIn (𝓞 Kn) =
+      p_ideal.inertiaDegIn (𝓞 Kn) :=
+    Ideal.inertiaDegIn_mul_inertiaDegIn p_ideal PF
+      (G := Gal(F/ℚ)) (GAC := Gal(Kn/ℚ)) (GBC := F.fixingSubgroup) (𝓞 Kn)
+  have h_inter_eq : Nat.card (F.fixingSubgroup.subgroupOf (Subgroup.zpowers σ₀)) =
+      PF.inertiaDegIn (𝓞 Kn) := by
+    rw [h_inter_card, h_stab_F_card, h_ramIdx_PF, one_mul]
+  rw [h_inter_eq, h_ord_σ₀] at h_card_eq
+  have hPF_ine : PF.inertiaDegIn (𝓞 Kn) ≠ 0 :=
+    Ideal.inertiaDegIn_ne_zero (G := F.fixingSubgroup)
+  have h_mul_eq : PF.inertiaDegIn (𝓞 Kn) * orderOf (σ₀.restrictNormal F) =
+      PF.inertiaDegIn (𝓞 Kn) * p_ideal.inertiaDegIn (𝓞 F) := by
+    rw [h_card_eq]
+    linarith [h_tower, Nat.mul_comm (p_ideal.inertiaDegIn (𝓞 F)) (PF.inertiaDegIn (𝓞 Kn))]
+  exact Nat.eq_of_mul_eq_mul_left (Nat.pos_of_ne_zero hPF_ine) h_mul_eq
+
+end OrderOfFrobenius
 
 /-- **Phase 4 (sorry).** The image of `evalAtPrime` is cyclic of order equal to the
 inertia degree. This is the Frobenius identification: the eval at `p` corresponds to
