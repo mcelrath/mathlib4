@@ -822,6 +822,59 @@ private noncomputable def evalAtPrime
     (χ : ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) :
     ((evalAtPrime Y p χ : ℂˣ) : ℂ) = χ.val.primitiveCharacter (p : ℕ) := rfl
 
+/-! ### B.1 — Frobenius element and B.2 — evalAtPrime vs natCast eval
+
+These sub-lemmas connect the prime evaluation map `evalAtPrime` to the Galois Frobenius
+element `σ_p ∈ Gal(F/ℚ)` constructed from the canonical `galEquivZMod` isomorphism.
+-/
+
+/-- **B.1.** The Frobenius element `σ_p ∈ Gal(F/ℚ)` for a prime `p` coprime to `n`.
+Constructed by applying the inverse of the `galEquivZMod` isomorphism to the canonical unit
+`(p : (ZMod n)ˣ)` and restricting the resulting automorphism of `ℚ(ζₙ)` to `F`. -/
+private noncomputable def frobeniusAt
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn)
+    {p : ℕ} (hp : p.Coprime n) : Gal(F/ℚ) :=
+  haveI : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  ((IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm (ZMod.unitOfCoprime p hp)).restrictNormal F
+
+/-- **B.2 (intermediate).** For `χ` in `Y ⊓ subgroupOfCoprimeConductor p` and `p` coprime to `n`,
+the complex value of `evalAtPrime Y p χ` equals `χ.val` evaluated at the natural cast of `p` in
+`ZMod n`.  The proof uses `changeLevel_primitiveCharacter` to lift `χ.val.primitiveCharacter`
+back to level `n`, then `changeLevel_eval_natCast_of_coprime` to identify the evaluations. -/
+private lemma evalAtPrime_eq_natCast
+    {n : ℕ} [NeZero n] (Y : Subgroup (DirichletCharacter ℂ n))
+    {p : ℕ} (hp_n : p.Coprime n)
+    (χ : ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) :
+    (evalAtPrime Y p χ : ℂ) = χ.val ((p : ℕ) : ZMod n) := by
+  simp only [evalAtPrime_val]
+  -- χ.val.primitiveCharacter (p:ℕ) = χ.val ((p:ℕ) : ZMod n)
+  -- via: χ.val = changeLevel h χ.val.primitiveCharacter  (changeLevel_primitiveCharacter)
+  -- and: (changeLevel h prim) ((p:ZMod n)) = prim ((p:ZMod c))  (changeLevel_eval_natCast_of_coprime)
+  rw [show χ.val ((p : ℕ) : ZMod n) =
+      (DirichletCharacter.changeLevel χ.val.conductor_dvd_level
+        χ.val.primitiveCharacter) ((p : ℕ) : ZMod n) from by
+    rw [DirichletCharacter.changeLevel_primitiveCharacter]]
+  exact (changeLevel_eval_natCast_of_coprime χ.val.conductor_dvd_level
+    χ.val.primitiveCharacter hp_n).symm
+
+/-- **B.2 (Galois form).** For `χ` in `Y ⊓ subgroupOfCoprimeConductor p` and `p` coprime to `n`,
+the complex value of `evalAtPrime Y p χ` equals `χ.val` evaluated at the unit class of `p` in
+`(ZMod n)ˣ`, viewed via the `galEquivZMod` round-trip. This connects the analytic prime
+evaluation to the Galois-theoretic evaluation at the Frobenius preimage in `Gal(Kn/ℚ)`. -/
+private lemma evalAtPrime_eq_eval_galois
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    {p : ℕ} (hp_n : p.Coprime n)
+    (χ : ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) :
+    (evalAtPrime Y p χ : ℂ) =
+      χ.val (IsCyclotomicExtension.Rat.galEquivZMod n Kn
+        ((IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm
+          (ZMod.unitOfCoprime p hp_n)) : ZMod n) := by
+  rw [evalAtPrime_eq_natCast Y hp_n χ, MulEquiv.apply_symm_apply, ZMod.coe_unitOfCoprime]
+
 /-- **Phase 4 (sorry).** The image of `evalAtPrime` is cyclic of order equal to the
 inertia degree. This is the Frobenius identification: the eval at `p` corresponds to
 evaluating the Galois character at the Frobenius element σ_p ∈ Gal(F/ℚ), whose order
