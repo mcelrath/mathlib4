@@ -16,6 +16,9 @@ public import Mathlib.NumberTheory.NumberField.DedekindZeta
 public import Mathlib.NumberTheory.NumberField.DedekindZetaEulerProduct
 public import Mathlib.NumberTheory.RamificationInertia.Galois
 public import Mathlib.RingTheory.DedekindDomain.IdealsOnPrimes
+public import Mathlib.RingTheory.Ideal.GoingUp
+
+set_option linter.style.longFile 1800
 
 /-!
 # The Dedekind zeta function of an abelian number field as a product of Dirichlet L-functions
@@ -1342,20 +1345,200 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
   rw [hramIdx_F, Nat.div_one]
   conv_rhs => rw [hY_eq, MulChar.card_subgroupOrderIsoSubgroupMulChar]
 
-/-- **Phase 4 (sorry).** The image of `evalAtPrime` is cyclic of order equal to the
-inertia degree. This is the Frobenius identification: the eval at `p` corresponds to
-evaluating the Galois character at the Frobenius element σ_p ∈ Gal(F/ℚ), whose order
-in Gal(F/ℚ) modulo inertia equals the inertia degree. -/
-private lemma evalAtPrime_card_range_eq_inertiaDegIn_sorry
+/-- **Phase 4.** The image of `evalAtPrime` has cardinality equal to the inertia degree,
+for primes `p` coprime to the level `n`. This is the Frobenius identification: the eval
+at `p` corresponds to evaluating the Galois character at the Frobenius element
+σ_p ∈ Gal(F/ℚ), whose order in Gal(F/ℚ) equals the inertia degree (B.5). -/
+private lemma evalAtPrime_card_range_eq_inertiaDegIn
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
     (F : IntermediateField ℚ Kn) [NumberField F]
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
-    {p : ℕ} (hp : p.Prime) :
+    {p : ℕ} (hp : p.Prime) (hp_n : p.Coprime n) :
     Nat.card (evalAtPrime Y p).range =
       Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
-  sorry
+  haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  haveI hKnGal : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
+  haveI hpFact : Fact p.Prime := ⟨hp⟩
+  let σ₀ : Gal(Kn/ℚ) :=
+    (IsCyclotomicExtension.Rat.galEquivZMod n Kn).symm (ZMod.unitOfCoprime p hp_n)
+  let u_p : (ZMod n)ˣ := ZMod.unitOfCoprime p hp_n
+  let p_ideal := Ideal.span ({(p : ℤ)} : Set ℤ)
+  -- Obtain a prime P above p in 𝓞 Kn.
+  obtain ⟨⟨P, hP_prime, hP_over⟩⟩ := p_ideal.nonempty_primesOver (S := 𝓞 Kn)
+  haveI hp_ideal_max : p_ideal.IsMaximal := Int.ideal_span_isMaximal_of_prime p
+  haveI hP_prime_inst : P.IsPrime := hP_prime
+  haveI hP_liesover : P.LiesOver p_ideal := hP_over
+  haveI hP_max : P.IsMaximal := Ideal.IsMaximal.of_liesOver_isMaximal (p := p_ideal) (P := P)
+  -- H_map: image of F.fixingSubgroup in (ZMod n)ˣ under galEquivZMod.
+  let H_map := (IsCyclotomicExtension.Rat.galEquivZMod n Kn).mapSubgroup F.fixingSubgroup
+  -- Step 1: Nat.card range = ker.index, by the first isomorphism theorem.
+  rw [← Subgroup.index_ker (evalAtPrime Y p)]
+  -- Step 2: When p ∤ n, all chars in Y have conductor dividing n and p-coprime.
+  have hY_sub_coprime : Y ≤ DirichletCharacter.subgroupOfCoprimeConductor p := by
+    intro χ hχY
+    exact DirichletCharacter.mem_subgroupOfCoprimeConductor.mpr
+      (hp_n.coprime_dvd_right (DirichletCharacter.conductor_dvd_level χ))
+  have hInter_eq : Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p = Y :=
+    inf_eq_left.mpr hY_sub_coprime
+  -- Step 3: Identify Y = dual of H_map via Pontryagin (same as A.3).
+  have hY_eq : Y = (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ H_map).ofDual := by
+    rw [hY]; ext χ
+    rw [MulChar.mem_subgroupOrderIsoSubgroupMulChar_iff,
+        IsCyclotomicExtension.Rat.mem_intermediateFieldEquivSubgroupChar_iff]
+    constructor
+    · intro h u hu
+      obtain ⟨σ, hσ, rfl⟩ := (by simp only [H_map, MulEquiv.coe_mapSubgroup, Subgroup.mem_map]
+                                     at hu; exact hu)
+      exact h σ hσ
+    · intro h σ hσ
+      exact h _ (by simp only [H_map, MulEquiv.coe_mapSubgroup, Subgroup.mem_map]; exact ⟨σ, hσ, rfl⟩)
+  -- Step 4: The kernel of evalAtPrime Y p (via the bijection Y ⊓ sub = Y when coprime).
+  -- evalAtPrime χ = χ(u_p) by B.2.
+  -- ker = {χ ∈ Y : χ(u_p) = 1} = Y ∩ dual(zpowers u_p) = dual(H_map ⊔ zpowers u_p).
+  -- χ(u_p) = 1 ↔ χ annihilates all zpowers of u_p.
+  have hχ_zpow : ∀ (χ : DirichletCharacter ℂ n), χ ↑u_p = 1 →
+      ∀ k : ℤ, χ ↑(u_p ^ k) = 1 := by
+    intro χ hχ k
+    induction k using Int.induction_on with
+    | zero => simp [map_one]
+    | succ k ih =>
+      rw [zpow_add_one u_p, Units.val_mul, map_mul, ih, one_mul, hχ]
+    | pred k ih =>
+      have hχinv : χ ↑(u_p⁻¹) = 1 := by
+        have h1 : χ ↑(u_p * u_p⁻¹) = 1 := by
+          rw [mul_inv_cancel, Units.val_one, map_one]
+        rw [Units.val_mul, map_mul, hχ, one_mul] at h1; exact h1
+      rw [zpow_sub_one u_p, Units.val_mul, map_mul, ih, one_mul, hχinv]
+  have hK_up_eq : ∀ χ : DirichletCharacter ℂ n,
+      χ ∈ (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ (Subgroup.zpowers u_p)).ofDual ↔
+      χ u_p = 1 := fun χ => by
+    rw [MulChar.mem_subgroupOrderIsoSubgroupMulChar_iff]
+    constructor
+    · intro h; exact h u_p (Subgroup.mem_zpowers u_p)
+    · intro hχ u hu
+      obtain ⟨k, hk⟩ := Subgroup.mem_zpowers_iff.mp hu
+      rw [← hk]; exact hχ_zpow χ hχ k
+  -- Step 4b: Map the kernel to DirichletCharacter ℂ n via the subtype inclusion, and identify
+  -- its image as the Pontryagin dual of H_map ⊔ zpowers u_p.
+  -- The kernel consists of χ ∈ Y ⊓ coprime with χ(u_p) = 1.
+  -- Since Y ⊆ coprime (hY_sub_coprime), this equals {χ ∈ Y : χ(u_p) = 1}.
+  -- By Pontryagin: ofDual(iso H_map) ∩ ofDual(iso(zpowers u_p)) = ofDual(iso(H_map ⊔ zpowers u_p)).
+  have hker_map_eq :
+      (evalAtPrime Y p).ker.map (Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p).subtype =
+      (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ (H_map ⊔ Subgroup.zpowers u_p)).ofDual := by
+    ext χ
+    simp only [Subgroup.mem_map, MonoidHom.mem_ker, Subgroup.coe_subtype]
+    rw [(MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ).map_sup, ofDual_sup,
+        Subgroup.mem_inf, ← hY_eq, hK_up_eq]
+    constructor
+    · rintro ⟨⟨χ', hχ'_Y, hχ'_cop⟩, hker, rfl⟩
+      -- hker : evalAtPrime Y p ⟨χ', ...⟩ = 1 (in ℂˣ)
+      -- hv : (evalAtPrime : ℂ) = χ' ((p : ℕ) : ZMod n)
+      -- Since u_p = ZMod.unitOfCoprime p hp_n and (u_p : ZMod n) = (p : ZMod n),
+      -- χ' u_p = χ' (p : ZMod n) = (evalAtPrime : ℂ) = 1.
+      have hval : χ' ((p : ℕ) : ZMod n) = 1 := by
+        have hv := evalAtPrime_eq_natCast Y hp_n ⟨χ', hχ'_Y, hχ'_cop⟩
+        have hker_val : (evalAtPrime Y p ⟨χ', hχ'_Y, hχ'_cop⟩ : ℂ) = 1 :=
+          congr_arg Units.val hker
+        rw [hv] at hker_val; exact_mod_cast hker_val
+      refine ⟨hχ'_Y, ?_⟩
+      -- Goal: χ' u_p = 1, i.e., χ' (ZMod.unitOfCoprime p hp_n) = 1
+      -- But χ' : ZMod n → ℂ (MulChar), and u_p = ZMod.unitOfCoprime p hp_n,
+      -- so χ' u_p = χ' ((unitOfCoprime p hp_n : ZMod n)) = χ' (p : ZMod n) = 1.
+      change χ' (ZMod.unitOfCoprime p hp_n) = 1
+      rw [ZMod.coe_unitOfCoprime]; exact hval
+    · intro ⟨hχY, hχup⟩
+      -- hχup : χ u_p = 1 (i.e., χ (ZMod.unitOfCoprime p hp_n) = 1)
+      refine ⟨⟨χ, hχY, hY_sub_coprime hχY⟩, ?_, rfl⟩
+      apply Units.ext; rw [Units.val_one]
+      have hv := evalAtPrime_eq_natCast Y hp_n ⟨χ, hχY, hY_sub_coprime hχY⟩
+      -- hv : (evalAtPrime : ℂ) = χ ((p : ℕ) : ZMod n)
+      rw [hv]
+      have hχup' : χ ((p : ℕ) : ZMod n) = 1 := by
+        have := hχup  -- χ (ZMod.unitOfCoprime p hp_n) = 1
+        rw [show (ZMod.unitOfCoprime p hp_n : ZMod n) = (p : ZMod n) from
+            ZMod.coe_unitOfCoprime p hp_n] at this
+        exact_mod_cast this
+      exact_mod_cast hχup'
+  -- Kernel cardinality = Nat.card (dual of H_map ⊔ zpowers u_p).
+  have hker_card : Nat.card (evalAtPrime Y p).ker =
+      Nat.card ((MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ
+        (H_map ⊔ Subgroup.zpowers u_p)).ofDual) := by
+    calc Nat.card (evalAtPrime Y p).ker
+        = Nat.card ((evalAtPrime Y p).ker.map
+              (Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p).subtype) :=
+              Nat.card_congr (Subgroup.equivMapOfInjective _
+                (Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p).subtype
+                (Subgroup.subtype_injective _)).toEquiv
+      _ = _ := by rw [hker_map_eq]
+  -- Step 5: Cardinalities.
+  have hcard_Y : Nat.card Y = Nat.card ((ZMod n)ˣ ⧸ H_map) := by
+    rw [hY_eq]; exact MulChar.card_subgroupOrderIsoSubgroupMulChar
+  have hcard_ker : Nat.card (evalAtPrime Y p).ker =
+      Nat.card ((ZMod n)ˣ ⧸ (H_map ⊔ Subgroup.zpowers u_p)) := by
+    rw [hker_card]; exact MulChar.card_subgroupOrderIsoSubgroupMulChar
+  -- Step 6: Lagrange: ker.index = Nat.card domain / Nat.card ker.
+  have hcard_domain : Nat.card (↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) =
+      Nat.card Y := Nat.card_congr (Equiv.subtypeEquivRight (fun χ => by
+        constructor
+        · exact fun h => hInter_eq ▸ h
+        · exact fun h => hInter_eq.symm ▸ h))
+  have hindex_eq : (evalAtPrime Y p).ker.index =
+      Nat.card (↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) /
+      Nat.card (evalAtPrime Y p).ker := by
+    have h := (evalAtPrime Y p).ker.card_mul_index
+    exact Nat.eq_div_of_mul_eq_right (Nat.card_pos.ne') h
+  rw [hindex_eq, hcard_domain, hcard_ker, hcard_Y]
+  -- Goal: |(ZMod n)ˣ / H_map| / |(ZMod n)ˣ / (H_map ⊔ zpowers u_p)| = inertiaDegIn.
+  -- Step 7: relIndex computation.
+  -- H_map.relIndex (H_map ⊔ zpowers u_p) = |(ZMod n)ˣ / H_map| / |(ZMod n)ˣ / (H_map ⊔ zpowers u_p)|.
+  have hle : H_map ≤ H_map ⊔ Subgroup.zpowers u_p := le_sup_left
+  have hrelIndex_eq :
+      H_map.relIndex (H_map ⊔ Subgroup.zpowers u_p) =
+      Nat.card ((ZMod n)ˣ ⧸ H_map) / Nat.card ((ZMod n)ˣ ⧸ (H_map ⊔ Subgroup.zpowers u_p)) := by
+    have h_mul := H_map.relIndex_mul_index hle
+    rw [Subgroup.index_eq_card, Subgroup.index_eq_card] at h_mul
+    exact Nat.eq_div_of_mul_eq_right (Nat.card_pos.ne')
+      (mul_comm (H_map.relIndex (H_map ⊔ Subgroup.zpowers u_p))
+        (Nat.card ((ZMod n)ˣ ⧸ H_map ⊔ Subgroup.zpowers u_p)) ▸ h_mul)
+  rw [← hrelIndex_eq]
+  -- Step 8: relIndex_sup_left — H_map.relIndex (H_map ⊔ zpowers u_p) = H_map.relIndex (zpowers u_p).
+  -- (Since (ZMod n)ˣ is abelian, H_map is normal.)
+  haveI hH_map_normal : H_map.Normal := ⟨fun n hn g => by
+    rw [mul_comm g n, mul_assoc, mul_inv_cancel g, mul_one]; exact hn⟩
+  have hrel_eq2 : H_map.relIndex (H_map ⊔ Subgroup.zpowers u_p) =
+      H_map.relIndex (Subgroup.zpowers u_p) :=
+    @Subgroup.relIndex_sup_left _ _ (Subgroup.zpowers u_p) H_map hH_map_normal
+  rw [hrel_eq2]
+  -- Step 9: H_map.relIndex (zpowers u_p) = F.fixingSubgroup.relIndex (zpowers σ₀)
+  -- via galEquivZMod: H_map = galEquivZMod.mapSubgroup F.fixingSubgroup,
+  -- zpowers u_p = galEquivZMod.mapSubgroup (zpowers σ₀).
+  have hzpowers_u_p : Subgroup.zpowers u_p =
+      (IsCyclotomicExtension.Rat.galEquivZMod n Kn).mapSubgroup (Subgroup.zpowers σ₀) := by
+    simp only [MulEquiv.coe_mapSubgroup, MonoidHom.map_zpowers, σ₀, u_p]
+    congr 1
+    exact ((IsCyclotomicExtension.Rat.galEquivZMod n Kn).apply_symm_apply _).symm
+  have hrelIndex_galois : H_map.relIndex (Subgroup.zpowers u_p) =
+      F.fixingSubgroup.relIndex (Subgroup.zpowers σ₀) := by
+    rw [hzpowers_u_p]
+    simp only [H_map, MulEquiv.coe_mapSubgroup]
+    exact Subgroup.relIndex_map_map_of_injective _ _
+      (IsCyclotomicExtension.Rat.galEquivZMod n Kn).injective
+  rw [hrelIndex_galois]
+  -- Step 10: F.fixingSubgroup.relIndex (zpowers σ₀) = orderOf (σ₀.restrictNormal F) by B.5's h_relIndex.
+  have h_relIndex : F.fixingSubgroup.relIndex (Subgroup.zpowers σ₀) =
+      orderOf (σ₀.restrictNormal F) := by
+    have key := Subgroup.relIndex_ker (f := AlgEquiv.restrictNormalHom F)
+      (K := Subgroup.zpowers σ₀)
+    have hker : (AlgEquiv.restrictNormalHom F).ker = F.fixingSubgroup :=
+      IntermediateField.restrictNormalHom_ker F
+    rw [hker, MonoidHom.map_zpowers, Nat.card_zpowers] at key
+    exact key
+  rw [h_relIndex]
+  -- Step 11: Apply B.5.
+  exact orderOf_restrictNormal_eq_inertiaDegIn F hp_n P
 
 /-- **Phase 5 (sorry).** The kernel of `evalAtPrime` has cardinality equal to the number
 of primes of `𝓞 F` above `p`. By the fundamental identity `e·f·g = [F:ℚ] = |Y|` and the
@@ -1423,7 +1606,9 @@ private lemma prod_chars_eq_pow_of_inertiaDegIn_sorry
   -- Apply abstract orthogonality.
   rw [prod_one_sub_groupHom_apply_mul (evalAtPrime Y p) T]
   -- Identify cardinalities (Phase 4 + 5).
-  rw [evalAtPrime_card_range_eq_inertiaDegIn_sorry F Y hY hp,
+  -- Phase 4: range cardinality = inertiaDegIn. Requires hp_n : p.Coprime n.
+  have hp_n : p.Coprime n := by sorry
+  rw [evalAtPrime_card_range_eq_inertiaDegIn F Y hY hp hp_n,
       evalAtPrime_card_ker_eq_primesAbove_sorry F Y hY hp]
   -- ((1 - T^f)^g)⁻¹ = ((1 - T^f)⁻¹)^g.
   rw [← inv_pow]
