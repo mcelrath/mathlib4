@@ -472,6 +472,136 @@ lemma prod_one_sub_nthRootsFinset_mul (d : ℕ) (hd : 0 < d) (T : ℂ) :
     -- ∏ω (1 - ωT) = T^d · ∏ω (T⁻¹ - ω) = T^d · (T⁻¹^d - 1) = 1 - T^d
     rw [← hRHS, ← key, hLHS]
 
+/-! ### Sub-lemma B.2 (continued) — fiber decomposition + range identification
+
+The polynomial identity `prod_one_sub_nthRootsFinset_mul` lifts to an arbitrary finite group `G`
+via fiber decomposition. For `φ : G →* ℂˣ` a hom from a finite group, every fiber of `φ` over
+a value in the range has cardinality `Nat.card (ker φ)`, and the range (viewed as a Finset of
+ℂˣ) consists of exactly the `d`-th roots of unity, where `d = Nat.card (range φ)`. Combining
+yields the abstract orthogonality identity.
+-/
+
+/-- Fibers of a finite-group homomorphism over the range have size equal to the kernel. -/
+private lemma card_fiber_eq_card_ker_aux {G : Type*} [Group G] [Fintype G]
+    (φ : G →* ℂˣ) (y : φ.range) :
+    Nat.card {x : G // φ.rangeRestrict x = y} = Nat.card φ.ker := by
+  obtain ⟨x₀, hx₀⟩ := φ.rangeRestrict_surjective y
+  have h_x₀ : φ x₀ = (y : ℂˣ) := congr_arg Subtype.val hx₀
+  refine Nat.card_congr ?_
+  refine
+    { toFun := fun a => ⟨x₀⁻¹ * a.val, ?_⟩
+      invFun := fun b => ⟨x₀ * b.val, ?_⟩
+      left_inv := fun a => Subtype.ext (by simp [← mul_assoc])
+      right_inv := fun b => Subtype.ext (by simp [← mul_assoc]) }
+  · -- toFun: a in fiber → x₀⁻¹ * a in ker
+    have ha : φ.rangeRestrict a.val = y := a.property
+    have h_a : φ a.val = (y : ℂˣ) := congr_arg Subtype.val ha
+    show φ (x₀⁻¹ * a.val) = 1
+    rw [map_mul, map_inv, h_x₀, h_a, inv_mul_cancel]
+  · -- invFun: b in ker → x₀ * b in fiber
+    have hb : φ b.val = 1 := b.property
+    apply Subtype.ext
+    show φ (x₀ * b.val) = (y : ℂˣ)
+    rw [map_mul, hb, mul_one, h_x₀]
+
+/-- For a finite group `G` and a hom `φ : G →* ℂˣ`, the image-Finset
+`(Finset.image (fun x => ((φ x : ℂˣ) : ℂ)) Finset.univ)` is exactly the `d`-th roots of unity in
+`ℂ`, where `d = Nat.card φ.range`. -/
+private lemma image_eq_nthRootsFinset_aux {G : Type*} [Group G] [Fintype G]
+    (φ : G →* ℂˣ) :
+    Finset.image (fun y : φ.range => ((y : ℂˣ) : ℂ)) Finset.univ =
+      Polynomial.nthRootsFinset (Nat.card φ.range) (1 : ℂ) := by
+  classical
+  have hd_pos : 0 < Nat.card φ.range := Nat.card_pos
+  -- Subset: every value (y : ℂ) for y : range satisfies y^d = 1.
+  have h_subset : ∀ y : φ.range, ((y : ℂˣ) : ℂ) ∈
+      Polynomial.nthRootsFinset (Nat.card φ.range) (1 : ℂ) := by
+    intro y
+    rw [Polynomial.mem_nthRootsFinset hd_pos]
+    have hy : (y : φ.range) ^ (Nat.card φ.range) = 1 := pow_card_eq_one'
+    have hy' : ((y : ℂˣ) : ℂ) ^ (Nat.card φ.range) = 1 := by
+      have h1 : (y : ℂˣ) ^ (Nat.card φ.range) = 1 := by
+        have := congr_arg (Subgroup.subtype φ.range) hy
+        simpa using this
+      have := congr_arg (Units.coeHom ℂ) h1
+      simpa using this
+    exact hy'
+  -- Image is contained in nthRootsFinset.
+  have h_sub : Finset.image (fun y : φ.range => ((y : ℂˣ) : ℂ)) Finset.univ ≤
+      Polynomial.nthRootsFinset (Nat.card φ.range) (1 : ℂ) := by
+    intro z hz
+    rw [Finset.mem_image] at hz
+    obtain ⟨y, _, rfl⟩ := hz
+    exact h_subset y
+  -- Image has cardinality d.
+  have h_inj : Function.Injective (fun y : φ.range => ((y : ℂˣ) : ℂ)) := by
+    intro a b h
+    apply Subtype.ext
+    apply Units.ext
+    exact h
+  have h_card_image : (Finset.image (fun y : φ.range => ((y : ℂˣ) : ℂ)) Finset.univ).card =
+      Nat.card φ.range := by
+    rw [Finset.card_image_of_injective _ h_inj, Finset.card_univ, Fintype.card_eq_nat_card]
+  -- nthRootsFinset has cardinality d (using a primitive d-th root of unity in ℂ).
+  have h_card_roots :
+      (Polynomial.nthRootsFinset (Nat.card φ.range) (1 : ℂ)).card = Nat.card φ.range := by
+    have hζ := Complex.isPrimitiveRoot_exp (Nat.card φ.range) hd_pos.ne'
+    exact hζ.card_nthRootsFinset
+  -- Equal Finsets.
+  exact Finset.eq_of_subset_of_card_le h_sub (h_card_roots.symm ▸ h_card_image.ge)
+
+/-- **Abstract orthogonality.** For a finite group `G` and a homomorphism `φ : G →* ℂˣ`, the
+product `∏ x : G, (1 - φ(x) · T)` equals `(1 - T^d)^k`, where `d = Nat.card φ.range` is the
+order of the image and `k = Nat.card φ.ker` is the order of the kernel.
+
+This is the workhorse of Step B: we apply it with `G = Y`, `φ = (χ ↦ χ((p : (ZMod n)ˣ)))`, and
+`T = (p : ℂ)^(-s)`, so `d` will be the inertia degree of any prime above `p` and `k` will be the
+number of primes above `p`. -/
+lemma prod_one_sub_groupHom_apply_mul {G : Type*} [Group G] [Fintype G]
+    (φ : G →* ℂˣ) (T : ℂ) :
+    ∏ x : G, (1 - (φ x : ℂ) * T) =
+      (1 - T ^ Nat.card φ.range) ^ Nat.card φ.ker := by
+  classical
+  -- Step 1: fiberwise decomposition over φ.range.
+  have h_maps_to : ∀ x ∈ (Finset.univ : Finset G), φ.rangeRestrict x ∈
+      (Finset.univ : Finset φ.range) := fun _ _ => Finset.mem_univ _
+  rw [← Finset.prod_fiberwise_of_maps_to h_maps_to (f := fun x => 1 - (φ x : ℂ) * T)]
+  -- Step 2: each inner product evaluates to (1 - (y : ℂˣ) * T)^k.
+  have h_inner : ∀ y : φ.range,
+      ∏ x ∈ Finset.univ with φ.rangeRestrict x = y, (1 - (φ x : ℂ) * T) =
+        (1 - ((y : ℂˣ) : ℂ) * T) ^ Nat.card φ.ker := by
+    intro y
+    -- Inner product: each x in the fiber satisfies φ x = (y : ℂˣ), so the integrand
+    -- equals (1 - ((y : ℂˣ) : ℂ) * T) constantly. Use prod_const + fiber cardinality.
+    rw [Finset.prod_congr rfl (g := fun _ => (1 - ((y : ℂˣ) : ℂ) * T)) ?_]
+    · rw [Finset.prod_const]
+      congr 1
+      -- Match cardinalities.
+      have hcard := card_fiber_eq_card_ker_aux φ y
+      rw [Nat.card_eq_fintype_card] at hcard
+      rw [show (Finset.univ.filter (fun x : G => φ.rangeRestrict x = y)).card =
+            Fintype.card {x : G // φ.rangeRestrict x = y} from ?_, hcard]
+      · rw [Fintype.card_subtype]
+    · intro x hx
+      rw [Finset.mem_filter] at hx
+      have hxy : φ.rangeRestrict x = y := hx.2
+      have : φ x = (y : ℂˣ) := congr_arg Subtype.val hxy
+      rw [this]
+  rw [Finset.prod_congr rfl (fun y _ => h_inner y)]
+  -- Step 3: pull out the power and use range = nthRootsFinset.
+  rw [Finset.prod_pow]
+  rw [show ∏ y : φ.range, (1 - ((y : ℂˣ) : ℂ) * T) =
+        ∏ ω ∈ Polynomial.nthRootsFinset (Nat.card φ.range) (1 : ℂ), (1 - ω * T) from ?_]
+  · -- Apply the polynomial identity.
+    have hd_pos : 0 < Nat.card φ.range := Nat.card_pos
+    rw [prod_one_sub_nthRootsFinset_mul _ hd_pos]
+  · -- Reindex using the image bijection.
+    rw [← image_eq_nthRootsFinset_aux φ]
+    rw [Finset.prod_image (fun a _ b _ hab => ?_)]
+    apply Subtype.ext
+    apply Units.ext
+    exact hab
+
 /-! ### Step B sub-lemmas
 
 Step B's proof decomposes into four sub-lemmas, each of independent interest:
