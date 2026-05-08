@@ -783,6 +783,45 @@ private lemma primitiveCharacter_mul_apply_of_coprime
       ← changeLevel_eval_natCast_of_coprime hψ_m _ hp_m,
       h_id, MulChar.mul_apply]
 
+/-- The evaluation hom `Y_p → ℂˣ` given by `χ ↦ χ.val.primitiveCharacter (p : ℕ)`, well-defined
+because the value is a nonzero root of unity for `χ` in the coprime-conductor subgroup, and
+multiplicative by `primitiveCharacter_mul_apply_of_coprime`. -/
+private noncomputable def evalAtPrime
+    {n : ℕ} [NeZero n] (Y : Subgroup (DirichletCharacter ℂ n)) (p : ℕ) :
+    ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p) →* ℂˣ where
+  toFun χ := Units.mk0 (χ.val.primitiveCharacter (p : ℕ)) (by
+    have h_coprime : p.Coprime χ.val.conductor :=
+      DirichletCharacter.mem_subgroupOfCoprimeConductor.mp χ.property.2
+    have h_unit : IsUnit ((p : ℕ) : ZMod χ.val.conductor) := by
+      rw [ZMod.isUnit_iff_coprime]; exact h_coprime
+    rw [← IsUnit.unit_spec h_unit, ← MulChar.coe_toUnitHom]
+    exact Units.ne_zero _)
+  map_one' := by
+    apply Units.ext
+    show (1 : DirichletCharacter ℂ n).primitiveCharacter ((p : ℕ) : ZMod _) = 1
+    have hc : (1 : DirichletCharacter ℂ n).conductor = 1 := DirichletCharacter.conductor_one
+    have h_subsingleton :
+        Subsingleton (ZMod (1 : DirichletCharacter ℂ n).conductor) := by
+      rw [hc]; infer_instance
+    rw [DirichletCharacter.primitiveCharacter_one]
+    exact MulChar.one_apply (@isUnit_of_subsingleton _ _ h_subsingleton _)
+  map_mul' a b := by
+    apply Units.ext
+    show (a.val * b.val).primitiveCharacter ((p : ℕ) : ZMod _) =
+      a.val.primitiveCharacter ((p : ℕ) : ZMod _) *
+      b.val.primitiveCharacter ((p : ℕ) : ZMod _)
+    have hχ : p.Coprime a.val.conductor :=
+      DirichletCharacter.mem_subgroupOfCoprimeConductor.mp a.property.2
+    have hψ : p.Coprime b.val.conductor :=
+      DirichletCharacter.mem_subgroupOfCoprimeConductor.mp b.property.2
+    exact primitiveCharacter_mul_apply_of_coprime a.val b.val hχ hψ
+
+/-- The underlying complex value of `evalAtPrime χ` is `χ.val.primitiveCharacter (p : ℕ)`. -/
+@[simp] private lemma evalAtPrime_val
+    {n : ℕ} [NeZero n] {Y : Subgroup (DirichletCharacter ℂ n)} {p : ℕ}
+    (χ : ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) :
+    ((evalAtPrime Y p χ : ℂˣ) : ℂ) = χ.val.primitiveCharacter (p : ℕ) := rfl
+
 /-- **B.1+B.4 LHS reduction (sorry).** The character-side product collapses to the same
 geometric form as the prime-side, namely `((1 - p^(-fs))⁻¹)^g` where `f` is the inertia degree
 and `g` is the number of primes above `p`. This requires the Frobenius identification
