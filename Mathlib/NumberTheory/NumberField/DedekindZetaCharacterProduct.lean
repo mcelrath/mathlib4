@@ -850,6 +850,65 @@ private lemma evalAtPrime_card_ker_eq_primesAbove_sorry
     Nat.card (evalAtPrime Y p).ker = (primesAboveOf F p).card := by
   sorry
 
+/-- Auxiliary: `Nat.divMaxPow n p` divides `n`.
+Follows from `Nat.divMaxPow n p * p ^ padicValNat p n = n`. -/
+private lemma divMaxPow_dvd' (n p : ℕ) : Nat.divMaxPow n p ∣ n :=
+  ⟨p ^ padicValNat p n, (Nat.divMaxPow_mul_pow_padicValNat p n).symm⟩
+
+/-- **A.1.** A Dirichlet character χ of level n belongs to `subgroupOfCoprimeConductor p`
+(equivalently: conductor of χ is coprime to p) if and only if χ is trivial on the kernel
+of the natural unit-group map `(ZMod n)ˣ → (ZMod (Nat.divMaxPow n p))ˣ`.
+
+The proof chains: `p.Coprime χ.conductor ↔ χ.conductor ∣ Nat.divMaxPow n p`
+(using that `divMaxPow n p` is the p'-part of n) then applies
+`DirichletCharacter.factorsThrough_iff_ker_unitsMap`. -/
+private lemma subgroupOfCoprimeConductor_iff_trivial_on_unitsMap_ker
+    {n : ℕ} [NeZero n] {p : ℕ} (hp : p.Prime) (χ : DirichletCharacter ℂ n) :
+    χ ∈ DirichletCharacter.subgroupOfCoprimeConductor p ↔
+      ∀ u ∈ (ZMod.unitsMap (divMaxPow_dvd' n p)).ker, χ.toUnitHom u = 1 := by
+  rw [DirichletCharacter.mem_subgroupOfCoprimeConductor]
+  -- Step 1: p.Coprime χ.conductor ↔ χ.conductor ∣ Nat.divMaxPow n p
+  have h_key : p.Coprime χ.conductor ↔ χ.conductor ∣ Nat.divMaxPow n p := by
+    constructor
+    · intro h_cop
+      have h_ndvd : ¬p ∣ χ.conductor := hp.coprime_iff_not_dvd.mp h_cop
+      have h_cop2 : Nat.Coprime χ.conductor (p ^ padicValNat p n) :=
+        hp.coprime_pow_of_not_dvd h_ndvd
+      have h_dvd_mp : χ.conductor ∣ Nat.divMaxPow n p * p ^ padicValNat p n :=
+        (Nat.divMaxPow_mul_pow_padicValNat p n).symm ▸ χ.conductor_dvd_level
+      exact h_cop2.dvd_mul_right.mp h_dvd_mp
+    · intro h_dvd
+      refine hp.coprime_iff_not_dvd.mpr ?_
+      exact fun h_pdvd =>
+        Nat.not_dvd_divMaxPow hp.one_lt (NeZero.ne n) (h_pdvd.trans h_dvd)
+  -- Step 2: chain through conductorSet and factorsThrough
+  rw [h_key,
+      ← DirichletCharacter.mem_conductorSet_iff_conductor_dvd χ (divMaxPow_dvd' n p),
+      DirichletCharacter.mem_conductorSet_iff χ,
+      DirichletCharacter.factorsThrough_iff_ker_unitsMap (divMaxPow_dvd' n p)]
+  simp [SetLike.le_def, MonoidHom.mem_ker]
+
+/-- **A.2.** The cardinality of `subgroupOfCoprimeConductor p` equals the index of the
+kernel of `ZMod.unitsMap (Nat.divMaxPow n p ∣ n)` in `(ZMod n)ˣ`, i.e. the order of the
+image of `(ZMod n)ˣ → (ZMod (Nat.divMaxPow n p))ˣ`.
+
+Proof: by A.1 the subgroup equals the Pontryagin dual of `(ZMod.unitsMap _).ker`, so its
+cardinality equals the index by `MulChar.card_subgroupOrderIsoSubgroupMulChar`. -/
+private lemma card_subgroupOfCoprimeConductor_eq_quotient
+    {n : ℕ} [NeZero n] {p : ℕ} (hp : p.Prime)
+    [HasEnoughRootsOfUnity ℂ (Monoid.exponent (ZMod n)ˣ)] :
+    Nat.card (DirichletCharacter.subgroupOfCoprimeConductor (R := ℂ) (n := n) p) =
+      Nat.card ((ZMod n)ˣ ⧸ (ZMod.unitsMap (divMaxPow_dvd' n p)).ker) := by
+  have h_sg_eq : DirichletCharacter.subgroupOfCoprimeConductor (R := ℂ) (n := n) p =
+      (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ
+        (ZMod.unitsMap (divMaxPow_dvd' n p)).ker).ofDual := by
+    ext χ
+    rw [subgroupOfCoprimeConductor_iff_trivial_on_unitsMap_ker hp χ,
+        MulChar.mem_subgroupOrderIsoSubgroupMulChar_iff]
+    simp only [← MulChar.coe_toUnitHom, Units.val_eq_one]
+  rw [h_sg_eq]
+  exact MulChar.card_subgroupOrderIsoSubgroupMulChar
+
 /-- **B.1+B.4 LHS reduction.** The character-side product collapses to the same
 geometric form as the prime-side, namely `((1 - p^(-fs))⁻¹)^g`. Composes Phase 2
 (restriction to coprime conductors), Phase 3 (eval hom + multiplicativity), the abstract
