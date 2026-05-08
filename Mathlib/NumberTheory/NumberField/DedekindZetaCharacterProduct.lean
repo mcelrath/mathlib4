@@ -670,6 +670,51 @@ lemma prod_inertia_eq_pow_of_inertiaDegIn
     rw [this]
   rw [Finset.prod_congr rfl h_unif, Finset.prod_const]
 
+/-! ### LHS reduction — Phase 2: restrict to coprime-conductor characters
+
+Characters `χ ∈ Y` with `¬ p.Coprime χ.val.conductor` (equivalently `p ∣ conductor χ.val`, since
+`p` is prime) have `χ.val.primitiveCharacter (p : ℕ) = 0`, contributing factor `(1 - 0)⁻¹ = 1` to
+the product. So the product over all of `Y` equals the product over only the coprime-conductor
+subset. This isolates the analytically nontrivial factors.
+-/
+
+/-- A primitive character vanishes at any natural number sharing a prime factor with the level. -/
+private lemma DirichletCharacter.primitiveCharacter_eval_eq_zero
+    {n : ℕ} (χ : DirichletCharacter ℂ n) {p : ℕ} (hp_dvd : p ∣ χ.conductor)
+    (hp1 : 1 < p) :
+    χ.primitiveCharacter (p : ℕ) = 0 := by
+  apply MulChar.map_nonunit
+  rw [ZMod.isUnit_iff_coprime]
+  intro h_coprime
+  -- p | conductor and p coprime to conductor ⟹ p = 1, contra hp1.
+  have h : p = 1 := Nat.eq_one_of_dvd_coprimes h_coprime (dvd_refl p) hp_dvd
+  exact absurd h hp1.ne'
+
+/-- **Phase 2.** Restriction to the coprime-conductor subset of Y. -/
+private lemma prod_chars_eq_prod_coprime_conductor
+    {n : ℕ} [NeZero n] (Y : Subgroup (DirichletCharacter ℂ n))
+    {p : ℕ} (hp : p.Prime) (T : ℂ) :
+    ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * T)⁻¹ =
+    ∏ χ ∈ (Finset.univ : Finset Y).filter (fun χ => p.Coprime χ.val.conductor),
+      (1 - χ.val.primitiveCharacter (p : ℕ) * T)⁻¹ := by
+  classical
+  rw [← Finset.prod_filter_mul_prod_filter_not (Finset.univ : Finset Y)
+        (fun χ : Y => p.Coprime χ.val.conductor)]
+  -- Show second factor is 1.
+  have h_not : ∀ χ ∈ (Finset.univ : Finset Y).filter
+      (fun χ : Y => ¬ p.Coprime χ.val.conductor),
+      (1 - χ.val.primitiveCharacter (p : ℕ) * T)⁻¹ = 1 := by
+    intro χ hχ
+    rw [Finset.mem_filter] at hχ
+    have h_dvd : p ∣ χ.val.conductor := by
+      have h := hχ.2
+      rw [Nat.Prime.coprime_iff_not_dvd hp, not_not] at h
+      exact h
+    have h_zero : χ.val.primitiveCharacter (p : ℕ) = 0 :=
+      DirichletCharacter.primitiveCharacter_eval_eq_zero χ.val h_dvd hp.one_lt
+    rw [h_zero, zero_mul, sub_zero, inv_one]
+  rw [Finset.prod_congr rfl h_not, Finset.prod_const_one, mul_one]
+
 /-- **B.1+B.4 LHS reduction (sorry).** The character-side product collapses to the same
 geometric form as the prime-side, namely `((1 - p^(-fs))⁻¹)^g` where `f` is the inertia degree
 and `g` is the number of primes above `p`. This requires the Frobenius identification
