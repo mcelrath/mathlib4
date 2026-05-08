@@ -150,18 +150,92 @@ lemma tsum_absNorm_pow_neg_geom
     rw [Complex.neg_re]; linarith
   exact Real.rpow_lt_one_of_one_lt_of_neg h1lt hneg_re
 
-/-- **Step A (sorry).** The prime-power Dedekind summand factorizes as a product
-of geometric series over the primes of `𝓞 F` lying above `p`. Reduces to (i) the bijection
-between ideals of `𝓞 F` of norm `p^e` and tuples `(k_𝔭)_𝔭∣p ∈ (primesAbove p) → ℕ` with
-`∑ k_𝔭 · inertiaDeg 𝔭 = e`, given by unique factorization; (ii) Fubini-swap
-`∑'e ∑'(k:tuple,sum=e) X = ∑'(k:tuple) X = ∏_𝔭 ∑'k_𝔭 X` for absolutely-convergent geometric
-series; (iii) the geometric-series step `tsum_absNorm_pow_neg_geom` above. -/
+/-- **Step A reindex (sorry):** the prime-power Dedekind sum equals the sum of `absNorm(I)^(-s)`
+over ideals of `𝓞 F` whose prime support lies above `p`. The bijection is `(e, I)` with
+`absNorm I = p^e` ↔ `I ∈ factoredOnPrimes (primesAboveOf F p)`, with `e` recovered as
+`log_p (absNorm I)`. Surjectivity uses that every prime factor `𝔭` of an ideal with absNorm
+a power of `p` lies above `p` (since `absNorm (Ideal.under ℤ 𝔭) ∣ absNorm 𝔭 ∣ p^e`). -/
+theorem tsum_dedekindZetaSummand_pow_eq_tsum_factoredOnPrimes
+    (F : Type*) [Field F] [NumberField F]
+    {p : ℕ} (hp : p.Prime) {s : ℂ} (hs : 1 < s.re) :
+    ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
+      ∑' I : Ideal.factoredOnPrimes (primesAboveOf F p),
+        (Ideal.absNorm I.1 : ℂ) ^ (-s) := by
+  sorry
+
+/-- **Step A.** The prime-power Dedekind summand factorizes as a product of local Euler factors
+over the primes of `𝓞 F` lying above `p`. Composes the reindex
+`tsum_dedekindZetaSummand_pow_eq_tsum_factoredOnPrimes`, the HasSum-form Euler product
+`Ideal.tsum_factoredOnPrimes_eq_prod_tsum`, and the geometric-series identity
+`tsum_absNorm_pow_neg_geom`. -/
 theorem dedekindZetaSummand_localSum_eq_prod_inertia
     (F : Type*) [Field F] [NumberField F]
     {p : ℕ} (hp : p.Prime) {s : ℂ} (hs : 1 < s.re) :
     ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
       ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
-  sorry
+  -- Define the function f I = (absNorm I : ℂ)^(-s).
+  set f : Ideal (𝓞 F) → ℂ := fun I => (Ideal.absNorm I : ℂ) ^ (-s) with hf_def
+  -- Hypotheses for tsum_factoredOnPrimes_eq_prod_tsum.
+  have hf_top : f ⊤ = 1 := by
+    simp [f, Ideal.absNorm_top]
+  have hf_mul : ∀ I J : Ideal (𝓞 F), I ≠ ⊥ → J ≠ ⊥ → f (I * J) = f I * f J := by
+    intro I J _ _
+    simp only [f, map_mul, Nat.cast_mul]
+    exact Complex.mul_cpow_ofReal_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _) (-s)
+  have hpow_eq : ∀ (𝔭 : Ideal (𝓞 F)) (k : ℕ),
+      f (𝔭 ^ k) = ((Ideal.absNorm 𝔭 : ℂ) ^ (-s)) ^ k := by
+    intro 𝔭 k
+    show ((Ideal.absNorm (𝔭 ^ k) : ℕ) : ℂ) ^ (-s) = ((Ideal.absNorm 𝔭 : ℂ) ^ (-s)) ^ k
+    rw [map_pow, Nat.cast_pow, ← Complex.natCast_cpow_natCast_mul, Complex.cpow_nat_mul]
+  have hsum_norm : ∀ {𝔭 : Ideal (𝓞 F)}, Prime 𝔭 →
+      Summable (fun n : ℕ ↦ ‖f (𝔭 ^ n)‖) := by
+    intro 𝔭 h𝔭_prime
+    have h𝔭_ne : 𝔭 ≠ ⊥ := h𝔭_prime.ne_zero
+    have hgeom : Summable (fun k : ℕ ↦ ((Ideal.absNorm 𝔭 : ℂ) ^ (-s)) ^ k) := by
+      refine summable_geometric_of_norm_lt_one ?_
+      have h_norm_pos : 0 < Ideal.absNorm 𝔭 := by
+        rw [Nat.pos_iff_ne_zero]
+        exact fun h => h𝔭_ne (Ideal.absNorm_eq_zero_iff.mp h)
+      have h_norm_ne_one : Ideal.absNorm 𝔭 ≠ 1 := by
+        intro h
+        have : 𝔭 = ⊤ := Ideal.absNorm_eq_one_iff.mp h
+        apply h𝔭_prime.not_unit
+        rw [this, ← Ideal.one_eq_top]; exact isUnit_one
+      have h2 : 2 ≤ Ideal.absNorm 𝔭 := by omega
+      rw [Complex.norm_natCast_cpow_of_pos h_norm_pos]
+      have h1lt : (1 : ℝ) < (Ideal.absNorm 𝔭 : ℝ) := by
+        exact_mod_cast (lt_of_lt_of_le one_lt_two h2)
+      have hneg : (-s).re < 0 := by rw [Complex.neg_re]; linarith
+      exact Real.rpow_lt_one_of_one_lt_of_neg h1lt hneg
+    have hconv : (fun n : ℕ ↦ ‖f (𝔭 ^ n)‖) =
+        fun n : ℕ ↦ ‖((Ideal.absNorm 𝔭 : ℂ) ^ (-s)) ^ n‖ := by
+      funext n; rw [hpow_eq]
+    rw [hconv]
+    exact hgeom.norm
+  have hs_prime : ∀ 𝔭 ∈ primesAboveOf F p, Prime 𝔭 := by
+    intro 𝔭 h𝔭
+    have hp_span_ne : (Ideal.span ({(p : ℤ)} : Set ℤ)) ≠ ⊥ := by
+      simp [hp.ne_zero]
+    haveI : Fact (Nat.Prime p) := ⟨hp⟩
+    have hp_span_max : (Ideal.span ({(p : ℤ)} : Set ℤ)).IsMaximal :=
+      Int.ideal_span_isMaximal_of_prime p
+    have h_mem' : 𝔭 ∈ IsDedekindDomain.primesOverFinset (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) :=
+      h𝔭
+    have h_in : 𝔭 ∈ Ideal.primesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
+      have h_coe : 𝔭 ∈ ((IsDedekindDomain.primesOverFinset (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F)
+          : Finset _) : Set _) := Finset.mem_coe.mpr h_mem'
+      rwa [IsDedekindDomain.coe_primesOverFinset hp_span_ne] at h_coe
+    exact Ideal.prime_of_mem_primesOver hp_span_ne h_in
+  -- Compose.
+  rw [tsum_dedekindZetaSummand_pow_eq_tsum_factoredOnPrimes F hp hs]
+  rw [Ideal.tsum_factoredOnPrimes_eq_prod_tsum hf_top hf_mul hsum_norm hs_prime]
+  refine Finset.prod_congr rfl fun 𝔭 hp_mem => ?_
+  -- Per-prime: ∑'k f(𝔭^k) = (1 - (absNorm 𝔭 : ℂ)^(-s))⁻¹.
+  have h𝔭_prime : Prime 𝔭 := hs_prime 𝔭 hp_mem
+  have h𝔭_ne : 𝔭 ≠ ⊥ := h𝔭_prime.ne_zero
+  have h𝔭_p : 𝔭.IsPrime := Ideal.isPrime_of_prime h𝔭_prime
+  rw [tsum_congr (fun k => hpow_eq 𝔭 k)]
+  exact tsum_absNorm_pow_neg_geom h𝔭_p h𝔭_ne hs
 
 /-- **Step B (character side, sorry).** The product of primitive Dirichlet local Euler factors
 over the character group `Y` equals the product of geometric series over primes above `p` (in
