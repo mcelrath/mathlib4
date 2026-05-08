@@ -1210,7 +1210,7 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
     (F : IntermediateField ℚ Kn) [NumberField F]
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
-    {p : ℕ} (hp : p.Prime) :
+    {p : ℕ} (hp : p.Prime) (hp_n : p.Coprime n) :
     Nat.card (↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) =
       Nat.card Y / Ideal.ramificationIdxIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
   -- H_map: image of F.fixingSubgroup in (ZMod n)ˣ under galEquivZMod.
@@ -1276,16 +1276,71 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
   rw [hInter]
   simp only [MulChar.card_subgroupOrderIsoSubgroupMulChar]
   -- Goal: Nat.card ((ZMod n)ˣ ⧸ (H_map ⊔ I_p)) = Nat.card Y / ramificationIdxIn p (𝓞 F).
-  -- Sub-step E (sorry): arithmetic identity.
-  -- (a) |Y| = |(ZMod n)ˣ ⧸ H_map| via hY_eq + card_subgroupOrderIsoSubgroupMulChar.
-  -- (b) |(ZMod n)ˣ ⧸ (H_map ⊔ I_p)| = |(ZMod n)ˣ| / |H_map ⊔ I_p|.
-  -- (c) |H_map ⊔ I_p| / |H_map| = |I_p| / |H_map ∩ I_p| (2nd isomorphism theorem).
-  -- (d) |I_p / (H_map ∩ I_p)| = ramificationIdxIn p (𝓞 F):
-  --     under galEquivZMod, I_p corresponds to the inertia group of p in Kn/ℚ;
-  --     H_map ∩ I_p corresponds to the inertia of p within the fixing group of F;
-  --     the quotient = inertia group of p in F/ℚ, order = ramificationIdxIn p (𝓞 F)
-  --     (by card_inertia_eq_ramificationIdxIn).
-  sorry
+  -- Sub-step E: unramified case (hp_n : p.Coprime n).
+  -- Since p ∤ n: divMaxPow n p = n, so I_p = ⊥, H_map ⊔ I_p = H_map,
+  -- ramificationIdxIn = 1 (tower law), and Nat.card Y = |(ZMod n)ˣ ⧸ H_map| by duality.
+  -- (i) p ∤ n and divMaxPow n p = n.
+  have hp_not_dvd : ¬ p ∣ n := hp.coprime_iff_not_dvd.mp hp_n
+  have hm_eq : Nat.divMaxPow n p = n := by
+    simp [Nat.divMaxPow, Nat.maxPowDvdDiv_of_not_dvd hp_not_dvd]
+  -- (ii) I_p = ⊥: ZMod.unitsMap hm_dvd is injective when divMaxPow n p = n.
+  have hI_p_bot : I_p = ⊥ := by
+    rw [eq_bot_iff]
+    intro u hu
+    rw [Subgroup.mem_bot]
+    simp only [I_p, MonoidHom.mem_ker] at hu
+    -- hu : ZMod.unitsMap hm_dvd u = 1, i.e. cast of u in ZMod (divMaxPow n p) is 1
+    have hval : ((u : ZMod n).cast : ZMod (Nat.divMaxPow n p)) = 1 := by
+      have := congr_arg Units.val hu
+      rwa [ZMod.unitsMap_val, Units.val_one] at this
+    -- When divMaxPow n p = n, the cast is the identity ZMod.cast_id
+    rw [hm_eq, ZMod.cast_id] at hval
+    exact Units.val_eq_one.mp hval
+  -- (iii) H_map ⊔ I_p = H_map.
+  rw [hI_p_bot, sup_bot_eq]
+  -- Goal: Nat.card ((ZMod n)ˣ ⧸ H_map) = Nat.card Y / ramificationIdxIn p (𝓞 F).
+  -- (iv) ramificationIdxIn p (𝓞 F) = 1 via tower law Kn/F/ℚ.
+  haveI hpFact : Fact (Nat.Prime p) := ⟨hp⟩
+  haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  haveI hKnGal : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
+  let p_ideal := Ideal.span ({(p : ℤ)} : Set ℤ)
+  have hp_ideal_ne_bot : p_ideal ≠ ⊥ := by
+    simp only [p_ideal, ne_eq, Ideal.span_singleton_eq_bot]
+    exact_mod_cast hp.ne_zero
+  -- Get a prime P of 𝓞 Kn above p_ideal, then take PF = P.comap.
+  obtain ⟨⟨P, hPprime, hPover⟩⟩ := p_ideal.nonempty_primesOver (S := 𝓞 Kn)
+  haveI : P.LiesOver p_ideal := hPover
+  haveI : P.IsPrime := hPprime
+  have h_P_ne_bot : P ≠ ⊥ :=
+    Ideal.ne_bot_of_mem_primesOver hp_ideal_ne_bot ⟨hPprime, hPover⟩
+  haveI hPmax : P.IsMaximal := hPprime.isMaximal h_P_ne_bot
+  let PF := P.comap (algebraMap (𝓞 F) (𝓞 Kn))
+  haveI h_PF_liesover_p : PF.LiesOver p_ideal := inferInstance
+  haveI h_PF_max : PF.IsMaximal :=
+    Ideal.isMaximal_comap_of_isIntegral_of_isMaximal P
+  have hPF_ne_bot : PF ≠ ⊥ :=
+    Ring.ne_bot_of_isMaximal_of_not_isField h_PF_max (RingOfIntegers.not_isField F)
+  haveI hGalFKn : IsGaloisGroup F.fixingSubgroup F Kn := isGaloisGroup_fixingSubgroup F
+  letI hmsa : MulSemiringAction (↥F.fixingSubgroup) Kn := inferInstance
+  letI hsd : SMulDistribClass (↥F.fixingSubgroup) (𝓞 Kn) Kn := inferInstance
+  haveI hGalFKn_oi : IsGaloisGroup F.fixingSubgroup (𝓞 F) (𝓞 Kn) :=
+    IsGaloisGroup.of_isFractionRing F.fixingSubgroup (𝓞 F) (𝓞 Kn) F Kn
+  have hramIdx_Kn : p_ideal.ramificationIdxIn (𝓞 Kn) = 1 :=
+    IsCyclotomicExtension.Rat.ramificationIdxIn_eq_of_not_dvd p Kn hp_not_dvd
+  have htower : p_ideal.ramificationIdxIn (𝓞 F) * PF.ramificationIdxIn (𝓞 Kn) =
+      p_ideal.ramificationIdxIn (𝓞 Kn) :=
+    Ideal.ramificationIdxIn_mul_ramificationIdxIn' PF
+      (G := Gal(F/ℚ)) (GAC := Gal(Kn/ℚ)) (GBC := F.fixingSubgroup) (𝓞 Kn)
+  rw [hramIdx_Kn] at htower
+  have h1 : p_ideal.ramificationIdxIn (𝓞 F) ≠ 0 :=
+    Ideal.ramificationIdxIn_ne_zero (G := Gal(F/ℚ)) hp_ideal_ne_bot
+  have h2 : PF.ramificationIdxIn (𝓞 Kn) ≠ 0 :=
+    Ideal.ramificationIdxIn_ne_zero (G := F.fixingSubgroup) hPF_ne_bot
+  have hramIdx_F : p_ideal.ramificationIdxIn (𝓞 F) = 1 := by
+    nlinarith [Nat.one_le_iff_ne_zero.mpr h1, Nat.one_le_iff_ne_zero.mpr h2]
+  -- (v) Conclude: |(ZMod n)ˣ ⧸ H_map| = Nat.card Y by Pontryagin duality (hY_eq).
+  rw [hramIdx_F, Nat.div_one]
+  conv_rhs => rw [hY_eq, MulChar.card_subgroupOrderIsoSubgroupMulChar]
 
 /-- **Phase 4 (sorry).** The image of `evalAtPrime` is cyclic of order equal to the
 inertia degree. This is the Frobenius identification: the eval at `p` corresponds to
