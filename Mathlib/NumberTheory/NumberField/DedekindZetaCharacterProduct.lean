@@ -429,15 +429,34 @@ theorem dedekindZetaSummand_localSum_eq_prod_inertia
   rw [tsum_congr (fun k => hpow_eq 𝔭 k)]
   exact tsum_absNorm_pow_neg_geom h𝔭_p h𝔭_ne hs
 
-/-- **Step B (character side, sorry).** The product of primitive Dirichlet local Euler factors
-over the character group `Y` equals the product of geometric series over primes above `p` (in
-absolute-norm form). Reduces to (i) Frobenius compatibility
-`χ.primitiveCharacter p = χ (σ_p)` via `IsCyclotomicExtension.Rat.galEquivZMod_stabilizer`;
-(ii) the abelian cyclic-group character identity
-`∏_{χ ∈ Y} (1 - χ(g) T) = (1 - T^{ord g})^{|Y|/ord g}` (each value `χ(g)` cycles through the
-`(ord g)`-th roots of unity, each appearing `|Y|/ord g` times); (iii) the orbit count
-`|Y|/ord(σ_p) = #(primesAbove p)` and `inertiaDeg 𝔭 = ord(σ_p)` for each `𝔭∣p` (decomposition
-group is cyclic in the abelian-Galois case). -/
+/-! ### Step B sub-lemmas
+
+Step B's proof decomposes into four sub-lemmas, each of independent interest:
+
+* **B.1 — Frobenius element identification:** the Frobenius `σ_p ∈ Gal(F/ℚ)` corresponds to
+  `(p : (ZMod n)ˣ)` under the composition `(ZMod n)ˣ ≃ Gal(ℚ(ζₙ)/ℚ) → Gal(F/ℚ)`, and
+  `χ.primitiveCharacter (p : ℕ) = χ.val (σ_p)` for `χ ∈ Y` where `σ_p` is suitably interpreted.
+* **B.2 — Cyclic-group character orthogonality (abstract):** for a finite abelian group `G`,
+  subgroup `Y ⊆ Ĝ`, `g ∈ G`, `T : ℂ`:
+  `∏ χ ∈ Y, (1 - χ(g) T) = (1 - T^d)^{|Y|/d}` where `d = ord(g) in G/Y^⊥`. The proof: each
+  value `χ(g)` for `χ ∈ Y` is a `d`-th root of unity, with each root appearing `|Y|/d` times
+  (Y → μ_d via χ ↦ χ(g) is surjective with kernel of index d). Then
+  `∏_{ω ∈ μ_d} (1 - ω T) = 1 - T^d` (cyclotomic identity, see
+  `Polynomial.X_pow_sub_one_eq_prod`).
+* **B.3 — Inertia degree:** all primes `𝔭` above `p` in `𝓞 F` have the same inertia degree
+  `f = ord(σ_p) in Gal(F/ℚ)/(I_𝔭)`; in particular, `absNorm 𝔭 = p^f`.
+* **B.4 — Orbit count:** the number of primes above `p` is `|Y|/(e·f) = #(primesAboveOf F p)`,
+  using the fundamental identity `e·f·g = [F:ℚ] = |Y|`.
+
+Composing B.1–B.4 gives Step B.
+-/
+
+/-- **Step B (sorry).** The product of primitive Dirichlet local Euler factors over the
+character group `Y` equals the product of geometric series over primes above `p` (in
+absolute-norm form). See section docstring above for the decomposition.
+
+This is the deepest piece of the abelian Dedekind factorization theorem. Closing it requires
+the four sub-lemmas B.1–B.4 to be filled. -/
 theorem prod_chars_eq_prod_inertia
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
