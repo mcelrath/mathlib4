@@ -1,0 +1,9 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_server_host": "tardis",
+  "dolt_server_port": 3308,
+  "dolt_database": "mathlib4",
+  "project_id": "12c36d99-b5e8-4c9f-9564-7128a40eca4c"
+}
