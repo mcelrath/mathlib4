@@ -822,10 +822,39 @@ private noncomputable def evalAtPrime
     (χ : ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) :
     ((evalAtPrime Y p χ : ℂˣ) : ℂ) = χ.val.primitiveCharacter (p : ℕ) := rfl
 
-/-- **B.1+B.4 LHS reduction (sorry).** The character-side product collapses to the same
-geometric form as the prime-side, namely `((1 - p^(-fs))⁻¹)^g` where `f` is the inertia degree
-and `g` is the number of primes above `p`. This requires the Frobenius identification
-`χ.val.primitiveCharacter (p) = χ_F(σ_p)` (B.1) and the orbit count `g · e · f = |Y|` (B.4). -/
+/-- **Phase 4 (sorry).** The image of `evalAtPrime` is cyclic of order equal to the
+inertia degree. This is the Frobenius identification: the eval at `p` corresponds to
+evaluating the Galois character at the Frobenius element σ_p ∈ Gal(F/ℚ), whose order
+in Gal(F/ℚ) modulo inertia equals the inertia degree. -/
+private lemma evalAtPrime_card_range_eq_inertiaDegIn_sorry
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
+    {p : ℕ} (hp : p.Prime) :
+    Nat.card (evalAtPrime Y p).range =
+      Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
+  sorry
+
+/-- **Phase 5 (sorry).** The kernel of `evalAtPrime` has cardinality equal to the number
+of primes of `𝓞 F` above `p`. By the fundamental identity `e·f·g = [F:ℚ] = |Y|` and the
+orbit-stabilizer characterization, kernel size = `|Y|/(e·f)` = orbit count. -/
+private lemma evalAtPrime_card_ker_eq_primesAbove_sorry
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
+    {p : ℕ} (hp : p.Prime) :
+    Nat.card (evalAtPrime Y p).ker = (primesAboveOf F p).card := by
+  sorry
+
+/-- **B.1+B.4 LHS reduction.** The character-side product collapses to the same
+geometric form as the prime-side, namely `((1 - p^(-fs))⁻¹)^g`. Composes Phase 2
+(restriction to coprime conductors), Phase 3 (eval hom + multiplicativity), the abstract
+orthogonality lemma `prod_one_sub_groupHom_apply_mul`, and the Frobenius/orbit-count
+identifications (Phase 4 + 5, isolated as named sub-sorries). -/
 private lemma prod_chars_eq_pow_of_inertiaDegIn_sorry
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
@@ -838,7 +867,49 @@ private lemma prod_chars_eq_pow_of_inertiaDegIn_sorry
       ((1 - (p : ℂ) ^
           (-((Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) : ℂ) * s)))⁻¹) ^
         (primesAboveOf F p).card := by
-  sorry
+  classical
+  set T := (p : ℂ) ^ (-s) with hT_def
+  set f := Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) with hf_def
+  set g := (primesAboveOf F p).card with hg_def
+  -- Phase 2: restrict to coprime-conductor characters.
+  rw [prod_chars_eq_prod_coprime_conductor Y hp]
+  -- Bijection: Finset.filter on ↥Y ↔ Finset.univ on ↥(Y ⊓ subgroupOfCoprimeConductor p).
+  let e : { χ : ↥Y // p.Coprime χ.val.conductor } ≃
+      ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p) :=
+    { toFun := fun χ => ⟨χ.val.val, χ.val.property,
+        DirichletCharacter.mem_subgroupOfCoprimeConductor.mpr χ.property⟩
+      invFun := fun χ => ⟨⟨χ.val, χ.property.1⟩,
+        DirichletCharacter.mem_subgroupOfCoprimeConductor.mp χ.property.2⟩
+      left_inv := fun _ => rfl
+      right_inv := fun _ => rfl }
+  rw [← Finset.prod_subtype_eq_prod_filter (s := (Finset.univ : Finset Y))
+        (p := fun χ : Y => p.Coprime χ.val.conductor)
+        (f := fun χ : Y => (1 - χ.val.primitiveCharacter (p : ℕ) * T)⁻¹),
+      Finset.subtype_univ,
+      Fintype.prod_equiv e
+        (fun χ : { χ : ↥Y // p.Coprime χ.val.conductor } =>
+          (1 - χ.val.val.primitiveCharacter (p : ℕ) * T)⁻¹)
+        (fun χ : ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p) =>
+          (1 - χ.val.primitiveCharacter (p : ℕ) * T)⁻¹) (fun _ => rfl)]
+  -- Now: ∏ χ : ↥(Y ⊓ ...), (1 - χ.val.primitive(p) * T)⁻¹ = (...)
+  -- Convert each factor to use evalAtPrime.
+  have h_eq : ∀ χ : ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p),
+      (1 - χ.val.primitiveCharacter (p : ℕ) * T)⁻¹ =
+      (1 - ((evalAtPrime Y p χ : ℂˣ) : ℂ) * T)⁻¹ := fun χ => by rw [evalAtPrime_val]
+  rw [Finset.prod_congr rfl (fun χ _ => h_eq χ)]
+  -- Pull out the inverse.
+  rw [Finset.prod_inv_distrib]
+  -- Apply abstract orthogonality.
+  rw [prod_one_sub_groupHom_apply_mul (evalAtPrime Y p) T]
+  -- Identify cardinalities (Phase 4 + 5).
+  rw [evalAtPrime_card_range_eq_inertiaDegIn_sorry F Y hY hp,
+      evalAtPrime_card_ker_eq_primesAbove_sorry F Y hY hp]
+  -- ((1 - T^f)^g)⁻¹ = ((1 - T^f)⁻¹)^g.
+  rw [← inv_pow]
+  -- T^f = p^(-(f*s)) since T = p^(-s).  Need: T^f = (p:ℂ)^(-(f * s)).
+  congr 2
+  rw [hT_def, ← Complex.cpow_mul_nat (p : ℂ) (-s) f]
+  ring_nf
 
 /-- **Step B.** The product of primitive Dirichlet local Euler factors over the character group
 `Y` equals the product of geometric series over primes above `p` (in absolute-norm form).
