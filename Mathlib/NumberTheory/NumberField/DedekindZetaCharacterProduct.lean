@@ -670,12 +670,33 @@ lemma prod_inertia_eq_pow_of_inertiaDegIn
     rw [this]
   rw [Finset.prod_congr rfl h_unif, Finset.prod_const]
 
-/-- **Step B (sorry).** The product of primitive Dirichlet local Euler factors over the
-character group `Y` equals the product of geometric series over primes above `p` (in
-absolute-norm form). See section docstring above for the decomposition.
+/-- **B.1+B.4 LHS reduction (sorry).** The character-side product collapses to the same
+geometric form as the prime-side, namely `((1 - p^(-fs))⁻¹)^g` where `f` is the inertia degree
+and `g` is the number of primes above `p`. This requires the Frobenius identification
+`χ.val.primitiveCharacter (p) = χ_F(σ_p)` (B.1) and the orbit count `g · e · f = |Y|` (B.4). -/
+private lemma prod_chars_eq_pow_of_inertiaDegIn_sorry
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
+    {s : ℂ}
+    {p : ℕ} (hp : p.Prime) :
+    ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
+      ((1 - (p : ℂ) ^
+          (-((Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) : ℂ) * s)))⁻¹) ^
+        (primesAboveOf F p).card := by
+  sorry
 
-This is the deepest piece of the abelian Dedekind factorization theorem. Closing it requires
-the four sub-lemmas B.1–B.4 to be filled. -/
+/-- **Step B.** The product of primitive Dirichlet local Euler factors over the character group
+`Y` equals the product of geometric series over primes above `p` (in absolute-norm form).
+
+The proof is by composition of two reductions, each to the same closed form `((1 - p^(-fs))⁻¹)^g`:
+* the prime-side reduction (`prod_inertia_eq_pow_of_inertiaDegIn`), which uses
+  `absNorm_eq_pow_inertiaDeg'` and the Galois invariance of inertia degree;
+* the character-side reduction (`prod_chars_eq_pow_of_inertiaDegIn_sorry`), which uses
+  Frobenius identification (B.1) and the orbit count (B.4).
+-/
 theorem prod_chars_eq_prod_inertia
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
@@ -686,7 +707,8 @@ theorem prod_chars_eq_prod_inertia
     {p : ℕ} (hp : p.Prime) :
     ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
       ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
-  sorry
+  rw [prod_chars_eq_pow_of_inertiaDegIn_sorry F Y hY hp,
+      ← prod_inertia_eq_pow_of_inertiaDegIn (n := n) F hp]
 
 /-- **Local-factor matching.** For an intermediate field `F` of `ℚ(ζₙ)/ℚ`, the prime-power
 Dedekind summand at any rational prime `p` factorizes as a product of primitive Dirichlet local
