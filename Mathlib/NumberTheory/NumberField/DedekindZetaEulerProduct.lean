@@ -103,7 +103,6 @@ theorem absNorm_maxPowDividing_is_prime_pow (v : IsDedekindDomain.HeightOneSpect
       Multiset.count v.asIdeal (UniqueFactorizationMonoid.normalizedFactors I), ?_⟩
   rw [v.maxPowDividing_eq_pow_multiset_count (I := I) hI, map_pow,
     Ideal.absNorm_eq_pow_inertiaDeg' v.asIdeal (ratPrime_prime K v), pow_mul]
-  rfl
 
 theorem splitIdeal_mul {I : Ideal (𝓞 K)} {m n : ℕ} (hI : I ≠ ⊥) (hmn : Nat.Coprime m n)
     (hNorm : Ideal.absNorm I = m * n) :

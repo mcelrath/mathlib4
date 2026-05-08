@@ -6,6 +6,7 @@ Authors: Bob McElrath
 module
 
 public import Mathlib.NumberTheory.DirichletCharacter.Basic
+public import Mathlib.NumberTheory.DirichletCharacter.Orthogonality
 public import Mathlib.NumberTheory.EulerProduct.Basic
 public import Mathlib.NumberTheory.EulerProduct.DirichletLSeries
 public import Mathlib.NumberTheory.LSeries.Dirichlet
@@ -68,6 +69,12 @@ open Filter Complex
 open scoped LSeries.notation Topology
 
 namespace NumberField
+
+/-- Auxiliary: any subgroup of `DirichletCharacter ℂ n` is a `Fintype`. Derived from the
+`noncomputable` global `Fintype (DirichletCharacter ℂ n)` instance via `Fintype.ofFinite`. -/
+noncomputable instance subgroupDirichletCharacterFintype
+    {n : ℕ} (Y : Subgroup (DirichletCharacter ℂ n)) : Fintype Y :=
+  Fintype.ofFinite _
 
 variable (K : Type*) [Field K] [NumberField K]
 
