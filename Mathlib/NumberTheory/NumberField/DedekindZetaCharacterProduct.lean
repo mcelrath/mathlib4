@@ -100,38 +100,64 @@ theorem dedekindZeta_eulerProduct_tprod (s : ℂ) (hs : 1 < s.re) :
 /-! ### Local Euler factor: prime-power summand
 
 The local Euler factor of `dedekindZeta F` at the rational prime `p` is the inner sum
-`∑' e, dedekindZetaSummand F s (p ^ e)`. The standard theory of Dedekind zeta factorization
-identifies this with a product of geometric series indexed by primitive Dirichlet characters
-arising from `Gal(F/ℚ)`. The proof of the local factor identity decomposes naturally into
-two steps:
+`∑' e, dedekindZetaSummand F s (p ^ e)`. We factor the local-factor identity through a
+"middle term" — the product of geometric series indexed by primes of `𝓞 F` above `p` —
+which both sides equal:
 
-**Step A (analytic side).** Let `g` denote the number of distinct primes `𝔭₁,…,𝔭_g` of `𝓞 F`
-above `p`, with inertia degrees `f₁,…,f_g`. Unique factorization in `𝓞 F` gives a bijection
-between norm-`p^e` ideals and tuples `(k₁,…,k_g) ∈ ℕ^g` with `∑ kᵢ fᵢ = e`. Computing the
-generating function:
-  `∑' e, idealNormCount F (p^e) · T^e = ∏ᵢ (1 - T^{fᵢ})⁻¹`  (with `T = p^(-s)`).
+* **Step A (analytic side).** Unique factorization in `𝓞 F` plus a Fubini-style swap of `tsum`
+  and `Finset.prod` gives
+  `∑' e, dedekindZetaSummand F s (p^e) = ∏_{𝔭∣p} (1 - (absNorm 𝔭 : ℂ)^(-s))⁻¹`.
+* **Step B (character side).** Frobenius via `galEquivZMod_stabilizer` together with the
+  cyclic-group character identity
+  `∏_{χ ∈ Y} (1 - χ(g) T) = (1 - T^{ord g})^{|Y|/ord g}` gives
+  `∏_{χ ∈ Y} (1 - χ̃(p) p^(-s))⁻¹ = ∏_{𝔭∣p} (1 - (absNorm 𝔭 : ℂ)^(-s))⁻¹`.
 
-**Step B (character side).** Frobenius `σ_p ∈ Gal(F/ℚ)` has order `f` (= the common inertia
-degree at all `g` primes above `p`, in the abelian-Galois case where decomposition group is
-cyclic). Via `IsCyclotomicExtension.Rat.galEquivZMod_stabilizer`, `σ_p` corresponds to
-`(p : (ZMod n)ˣ)`, and `χ.primitiveCharacter p = χ(σ_p)` for `χ ∈ Y` (away from the conductor).
-The cyclic-group character identity `∏_{χ ∈ Y} (1 - χ(g) T) = (1 - T^{ord g})^{|Y|/ord g}` gives:
-  `∏_{χ ∈ Y} (1 - χ̃(p) p^(-s))⁻¹ = ((1 - p^{-fs}))⁻ᵍ = ∏ᵢ (1 - p^{-fᵢs})⁻¹`.
-
-Steps A and B together give the local factor identity. **Both steps require Mathlib
-infrastructure that doesn't yet exist** — specifically, a `Finset` of primes above `p` in `𝓞 F`
-and a Frobenius-orbit decomposition of `Y` — and are deferred to follow-on sessions.
+Composing Step A and Step B gives `dedekindZeta_localFactor_eq_prod_dirichletLocal`.
 -/
 
-/-- **Local-factor matching (sorry).** For an intermediate field `F` of `ℚ(ζₙ)/ℚ`, the
-prime-power Dedekind summand at any rational prime `p` factorizes as a product of primitive
-Dirichlet local Euler factors indexed by the character subgroup `Y` corresponding to `F`.
+/-- The Finset of prime ideals of `𝓞 F` lying over the rational prime `p`. -/
+noncomputable def primesAboveOf (F : Type*) [Field F] [NumberField F] (p : ℕ) :
+    Finset (Ideal (𝓞 F)) :=
+  IsDedekindDomain.primesOverFinset (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F)
 
-This is the deepest piece of the abelian factorization theorem. See the section docstring above
-for the proof outline (Step A: unique factorization + generating function on the analytic side;
-Step B: Frobenius cycle structure + cyclic-group character orthogonality on the L-function
-side). The use of *primitive* characters is what makes the identity hold uniformly at all
-primes, including those ramified in `F`. -/
+/-- **Step A (analytic side, sorry).** The prime-power Dedekind summand factorizes as a product
+of geometric series over the primes of `𝓞 F` lying above `p`. Reduces to (i) the bijection
+between ideals of `𝓞 F` of norm `p^e` and tuples `(k_𝔭)_𝔭∣p ∈ (primesAbove p) → ℕ` with
+`∑ k_𝔭 · inertiaDeg 𝔭 = e`, given by unique factorization; (ii) Fubini-swap
+`∑'e ∑'(k:tuple,sum=e) X = ∑'(k:tuple) X = ∏_𝔭 ∑'k_𝔭 X` for absolutely-convergent geometric
+series; (iii) the standard `(1 - T^{f})⁻¹ = ∑'k T^{kf}` identity. -/
+theorem dedekindZetaSummand_localSum_eq_prod_inertia
+    (F : Type*) [Field F] [NumberField F]
+    {p : ℕ} (hp : p.Prime) {s : ℂ} (hs : 1 < s.re) :
+    ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
+      ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
+  sorry
+
+/-- **Step B (character side, sorry).** The product of primitive Dirichlet local Euler factors
+over the character group `Y` equals the product of geometric series over primes above `p` (in
+absolute-norm form). Reduces to (i) Frobenius compatibility
+`χ.primitiveCharacter p = χ (σ_p)` via `IsCyclotomicExtension.Rat.galEquivZMod_stabilizer`;
+(ii) the abelian cyclic-group character identity
+`∏_{χ ∈ Y} (1 - χ(g) T) = (1 - T^{ord g})^{|Y|/ord g}` (each value `χ(g)` cycles through the
+`(ord g)`-th roots of unity, each appearing `|Y|/ord g` times); (iii) the orbit count
+`|Y|/ord(σ_p) = #(primesAbove p)` and `inertiaDeg 𝔭 = ord(σ_p)` for each `𝔭∣p` (decomposition
+group is cyclic in the abelian-Galois case). -/
+theorem prod_chars_eq_prod_inertia
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
+    {s : ℂ} (hs : 1 < s.re)
+    {p : ℕ} (hp : p.Prime) :
+    ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
+      ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
+  sorry
+
+/-- **Local-factor matching.** For an intermediate field `F` of `ℚ(ζₙ)/ℚ`, the prime-power
+Dedekind summand at any rational prime `p` factorizes as a product of primitive Dirichlet local
+Euler factors indexed by the character subgroup `Y` corresponding to `F`. Composes Step A
+(`dedekindZetaSummand_localSum_eq_prod_inertia`) and Step B (`prod_chars_eq_prod_inertia`). -/
 theorem dedekindZeta_localFactor_eq_prod_dirichletLocal
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
@@ -142,7 +168,8 @@ theorem dedekindZeta_localFactor_eq_prod_dirichletLocal
     {p : ℕ} (hp : p.Prime) :
     ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
       ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ := by
-  sorry
+  rw [dedekindZetaSummand_localSum_eq_prod_inertia (F := F) hp hs,
+      ← prod_chars_eq_prod_inertia F Y hY hs hp]
 
 /-! ### Character-group product assembly
 
