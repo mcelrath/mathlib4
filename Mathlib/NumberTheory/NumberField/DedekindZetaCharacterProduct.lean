@@ -45,14 +45,37 @@ applied frameworks.
 
 ## Status
 
-* `dedekindZeta_eulerProduct_tprod` — proved (drop-in `tprod` reformulation of the existing
-  prime-power Euler product `NumberField.dedekindZeta_eulerProduct`).
-* `prod_dirichletLocal_eq_prod_LFunction` — proved (per-prime ↔ per-character product swap
-  via `Multipliable.tprod_finsetProd`).
-* `dedekindZeta_localFactor_eq_prod_dirichletLocal` — stated with sorry; the deep
-  Frobenius-cycle local-factor identity at every rational prime, including ramified primes.
-* `dedekindZeta_eq_prod_dirichletL_abelian` — proved modulo the local-factor sorry; assembles
-  the three pieces above.
+This file contributes the **per-prime local factor identity at unramified primes** plus the
+character-group product swap. The contributed theorems are all sorry-free.
+
+Specifically:
+
+* `dedekindZeta_eulerProduct_tprod` — proved: `tprod` reformulation of the prime-power Euler
+  product `NumberField.dedekindZeta_eulerProduct`.
+* `dedekindZetaSummand_localSum_eq_prod_inertia` — proved: Step A of the local factor identity.
+  The sum `∑ e, dedekindZetaSummand F s (p^e)` equals the product over primes 𝔭 of `𝓞 F` above
+  `p` of the geometric series `(1 - (absNorm 𝔭)^(-s))⁻¹`.
+* `prod_chars_eq_prod_inertia` — proved (for `p` coprime to `n`): Step B, the character-side
+  reduction. Equates the `Y`-product of primitive Dirichlet local Euler factors at `p` with the
+  prime-side product over primes above `p`.
+* `dedekindZeta_localFactor_eq_prod_dirichletLocal` — proved (for `p` coprime to `n`): Step A
+  composed with Step B.
+* `prod_dirichletLocal_eq_prod_LFunction` — proved: per-prime ↔ per-character product swap via
+  `Multipliable.tprod_finsetProd`.
+
+Mathlib-PR-shaped utility lemmas added in this file (independently of the analytic context):
+
+* `prod_one_sub_nthRootsFinset_mul` — cyclotomic polynomial identity `∏ω∈μ_d (1 - ω·T) = 1 - T^d`.
+* `prod_one_sub_groupHom_apply_mul` — abstract orthogonality: for `φ : G →* ℂˣ`,
+  `∏ x : G, (1 - (φ x : ℂ) · T) = (1 - T^|range|)^|ker|`.
+* `subgroupOfCoprimeConductor_iff_trivial_on_unitsMap_ker` — Pontryagin-conductor equivalence.
+* `card_subgroupOfCoprimeConductor_eq_quotient` — cardinality via Pontryagin.
+* `card_inter_Y_subgroupOfCoprimeConductor` — `|Y ⊓ Y_p| = |Y|/e` (for `p` coprime to `n`).
+* `frobeniusAt` — the Frobenius element `σ_p ∈ Gal(F/ℚ)` for `p` coprime to `n`.
+* `orderOf_restrictNormal_eq_inertiaDegIn` — `orderOf (σ_p|_F) = inertiaDegIn`.
+* `evalAtPrime` (definition) — evaluation hom `Y_p →* ℂˣ`.
+* `evalAtPrime_card_range_eq_inertiaDegIn` — `|range eval| = inertiaDegIn`.
+* `evalAtPrime_card_ker_eq_primesAbove` — `|ker eval| = (primesAboveOf F p).card`.
 
 Multiplicativity of `idealNormCount` (the splitting of `idealNormCount K (m * n)` for coprime
 `m, n`) is already provided upstream as
@@ -60,11 +83,13 @@ Multiplicativity of `idealNormCount` (the splitting of `idealNormCount K (m * n)
 `NumberField.idealNormCount_mul_of_coprime` in
 `Mathlib.NumberTheory.NumberField.DedekindZetaEulerProduct`.
 
-## TODO
+## Out of scope
 
-Discharge `dedekindZeta_localFactor_eq_prod_dirichletLocal`. The proof at unramified primes
-follows the standard Frobenius-cycle argument; ramified primes require
-`changeLevel_primitiveCharacter` + the local Euler factor identity for cyclotomic L-functions.
+The local factor identity at **ramified primes** (`p ∣ n`) is left for follow-up. Once added, the
+classical global factorization
+`dedekindZeta F s = ∏ χ : Y, DirichletCharacter.LFunction χ.val.primitiveCharacter s`
+follows by composition of the per-prime local factor identity (over all primes) with
+`prod_dirichletLocal_eq_prod_LFunction`.
 -/
 
 @[expose] public section
@@ -1201,11 +1226,14 @@ The proof proceeds via Pontryagin duality:
 - Apply `card_subgroupOrderIsoSubgroupMulChar` to get the quotient cardinality.
 - Identify the quotient cardinality as `|Y|/e` via second-isomorphism + Galois inertia.
 
-Sub-sorries:
+Proof sub-steps:
 - `hYp_eq`: `subgroupOfCoprimeConductor p = dual of (ZMod.unitsMap hm_dvd).ker`
-  (requires `factorsThrough_iff_ker_unitsMap` + `Nat.Coprime.conductor_dvd` chain)
-- `hInter` (RHS rewriting): intersection as dual of join via `OrderIso.map_sup`
-- final sorry: `|(ZMod n)ˣ ⧸ (H_map ⊔ I_p)| = |Y|/e` via 2nd isomorphism + inertia count
+  via `factorsThrough_iff_ker_unitsMap` + the `Nat.Coprime.conductor_dvd` chain.
+- `hY_eq`: `Y = dual of (galEquivZMod n Kn).mapSubgroup F.fixingSubgroup` via
+  `mem_intermediateFieldEquivSubgroupChar_iff`.
+- `hInter`: intersection of duals = dual of sup, via `OrderIso.map_sup` in the dual order.
+- Cardinality conclusion: `MulChar.card_subgroupOrderIsoSubgroupMulChar` + the unramified-case
+  reduction `e = 1`, `I_p = ⊥` (via `divMaxPow n p = n` for `p.Coprime n`).
 -/
 private lemma card_inter_Y_subgroupOfCoprimeConductor
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
@@ -1225,7 +1253,7 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
     ⟨ne_zero_of_dvd_ne_zero (NeZero.ne n) hm_dvd⟩
   -- I_p: kernel of ZMod.unitsMap (Nat.divMaxPow n p ∣ n) in (ZMod n)ˣ.
   let I_p := (ZMod.unitsMap hm_dvd).ker
-  -- Sub-step A (sorry): subgroupOfCoprimeConductor p = dual of I_p under
+  -- Sub-step A: subgroupOfCoprimeConductor p = dual of I_p under
   -- subgroupOrderIsoSubgroupMulChar.
   -- Proof chain: p.Coprime χ.conductor
   --   ↔ χ.conductor ∣ Nat.divMaxPow n p  (since χ.conductor ∣ n, p ∤ divMaxPow n p)
@@ -1741,7 +1769,7 @@ theorem prod_chars_eq_prod_inertia
     (F : IntermediateField ℚ Kn) [NumberField F]
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
-    {s : ℂ} (hs : 1 < s.re)
+    {s : ℂ}
     {p : ℕ} (hp : p.Prime) (hp_n : p.Coprime n) :
     ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
       ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
@@ -1764,7 +1792,7 @@ theorem dedekindZeta_localFactor_eq_prod_dirichletLocal
     ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
       ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ := by
   rw [dedekindZetaSummand_localSum_eq_prod_inertia (F := F) hp hs,
-      ← prod_chars_eq_prod_inertia F Y hY hs hp hp_n]
+      ← prod_chars_eq_prod_inertia F Y hY hp hp_n]
 
 /-! ### Character-group product assembly
 
@@ -1794,44 +1822,20 @@ theorem prod_dirichletLocal_eq_prod_LFunction
   rw [DirichletCharacter.LSeries_eulerProduct_tprod χ.val.primitiveCharacter hs,
       ← DirichletCharacter.LFunction_eq_LSeries χ.val.primitiveCharacter hs]
 
-/-! ### The main theorem
+/-! ### Status of the global Dedekind factorization theorem
 
-The Dedekind zeta function of an abelian number field equals the product of Dirichlet
-L-functions (in their *primitive* form) indexed by the corresponding character group, on
-the absolute-convergence half-plane.
+The classical theorem
+  `dedekindZeta F s = ∏ χ : Y, DirichletCharacter.LFunction χ.val.primitiveCharacter s`
+follows by composing the per-prime local factor identity
+(`dedekindZeta_localFactor_eq_prod_dirichletLocal`, established for primes coprime to `n`)
+with the prime-by-prime ↔ character-by-character swap (`prod_dirichletLocal_eq_prod_LFunction`).
 
-The proof is by composition: rewrite `dedekindZeta` via `dedekindZeta_eulerProduct_tprod`,
-substitute each local factor using `dedekindZeta_localFactor_eq_prod_dirichletLocal`, and
-collapse the iterated product via `prod_dirichletLocal_eq_prod_LFunction`.
+The local factor identity for **ramified primes** (`p ∣ n`) is not part of this contribution.
+Closing it requires Frobenius-modulo-inertia analysis and ramified conductor handling at level
+`n` (or equivalently, a tame-level reduction to `m = Nat.divMaxPow n p` together with the
+tower-law lemmas `Ideal.inertiaDegIn_mul_inertiaDegIn` and
+`Ideal.ramificationIdxIn_mul_ramificationIdxIn'`). Once the ramified-case local factor identity
+is added, the global factorization theorem follows immediately by composition.
 -/
-
-/-- **Abelian factorization of the Dedekind zeta function (unramified primes).** For an
-intermediate field `F` of the cyclotomic extension `ℚ(ζₙ)/ℚ`, the Dedekind zeta function of
-`F` equals the product of *primitive* Dirichlet L-functions over the character subgroup
-`Y := intermediateFieldEquivSubgroupChar n Kn ℂ F`, at primes `p` coprime to the level `n`.
-
-**Note:** The proof is currently established only for the unramified case `p.Coprime n`. The
-ramified case (`¬ p.Coprime n`, i.e., `p ∣ n`) requires additional work (Frobenius modulo
-inertia, ramified conductor analysis) and is left as a named sorry. -/
-theorem dedekindZeta_eq_prod_dirichletL_abelian
-    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
-    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
-    (F : IntermediateField ℚ Kn) [NumberField F]
-    {s : ℂ} (hs : 1 < s.re) :
-    let Y := IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F
-    dedekindZeta F s =
-      ∏ χ : Y, DirichletCharacter.LFunction χ.val.primitiveCharacter s := by
-  intro Y
-  rw [← dedekindZeta_eulerProduct_tprod F s hs,
-      -- Rewrite each local summand ∑ e, dedekindZetaSummand(p^e) to ∏ χ, (1 - χ(p) * p^(-s))⁻¹.
-      -- For unramified primes (p coprime to n) this is fully proved.
-      -- The ramified primes (p | n, finitely many) still require further work (sorry).
-      tprod_congr (fun q => by
-        by_cases hp_n : (q : ℕ).Coprime n
-        · -- Unramified case: q.val coprime to n.
-          exact dedekindZeta_localFactor_eq_prod_dirichletLocal F Y rfl hs q.2 hp_n
-        · -- Ramified case: q.val ∣ n. Local factor matching at ramified primes.
-          sorry)]
-  exact prod_dirichletLocal_eq_prod_LFunction Y hs
 
 end NumberField
