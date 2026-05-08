@@ -1100,6 +1100,131 @@ private lemma orderOf_restrictNormal_eq_inertiaDegIn
 
 end OrderOfFrobenius
 
+
+/-! ### Lemma A.3 — cardinality of `Y ⊓ subgroupOfCoprimeConductor p`
+
+The intersection of the character subgroup `Y` with the coprime-conductor subgroup `Y_p`
+has cardinality `|Y| / e` where `e` is the ramification index of `p` in `𝓞 F`.
+
+**Proof sketch (Pontryagin duality):**
+
+1. Identify `Y = (subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ H_F_map).ofDual`
+   where `H_F_map = (galEquivZMod n Kn).mapSubgroup F.fixingSubgroup`.
+   This follows directly from the definition `intermediateFieldEquivSubgroupChar =
+   IsGalois.intermediateFieldEquivSubgroup.trans (subgroupGalEquivSubgroupChar.dual.trans dualDual⁻¹)`.
+
+2. Identify `subgroupOfCoprimeConductor p = (subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ I_p).ofDual`
+   where `I_p = (ZMod.unitsMap (m_dvd_n : Nat.divMaxPow n p ∣ n)).ker`.
+   This follows from `mem_subgroupOfCoprimeConductor` + `factorsThrough_iff_ker_unitsMap` +
+   `mem_subgroupOrderIsoSubgroupMulChar_iff`.
+
+3. Apply the anti-isomorphism's lattice law (via `OrderIso.map_sup` in the dual order):
+   `Y ⊓ Y_p = (subgroupOrderIsoSubgroupMulChar ... (H_F_map ⊔ I_p)).ofDual`
+
+4. Apply `card_subgroupOrderIsoSubgroupMulChar`:
+   `Nat.card (Y ⊓ Y_p) = Nat.card ((ZMod n)ˣ ⧸ (H_F_map ⊔ I_p))`
+
+5. Reduce `|(ZMod n)ˣ ⧸ (H_F_map ⊔ I_p)| = |Y|/e` using the
+   `ncard_primesOver_mul_ramificationIdxIn_mul_inertiaDegIn` identity for `F` and the
+   second-isomorphism identification of `H_F_map ⊔ I_p` with `e * |H_F_map|`
+   (the inertia group `I_p^F ≅ I_p/(H_F_map ∩ I_p)` of `p` in `F` has order `e`).
+-/
+
+/-- **A.3.** The cardinality of `Y ⊓ subgroupOfCoprimeConductor p` equals `|Y|` divided
+by the ramification index `e = ramificationIdxIn p (𝓞 F)`.
+
+The proof proceeds via Pontryagin duality:
+- Identify `Y` and `subgroupOfCoprimeConductor p` as dual subgroups of subgroups of `(ZMod n)ˣ`
+  under `MulChar.subgroupOrderIsoSubgroupMulChar`.
+- Use the anti-isomorphism's sup/inf exchange: intersection = dual of join.
+- Apply `card_subgroupOrderIsoSubgroupMulChar` to get the quotient cardinality.
+- Identify the quotient cardinality as `|Y|/e` via second-isomorphism + Galois inertia.
+
+Sub-sorries:
+- `hYp_eq`: `subgroupOfCoprimeConductor p = dual of (ZMod.unitsMap hm_dvd).ker`
+  (requires `factorsThrough_iff_ker_unitsMap` + `Nat.Coprime.conductor_dvd` chain)
+- `hInter` (RHS rewriting): intersection as dual of join via `OrderIso.map_sup`
+- final sorry: `|(ZMod n)ˣ ⧸ (H_map ⊔ I_p)| = |Y|/e` via 2nd isomorphism + inertia count
+-/
+private lemma card_inter_Y_subgroupOfCoprimeConductor
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
+    {p : ℕ} (hp : p.Prime) :
+    Nat.card (↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) =
+      Nat.card Y / Ideal.ramificationIdxIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
+  -- H_map: image of F.fixingSubgroup in (ZMod n)ˣ under galEquivZMod.
+  let H_map := (IsCyclotomicExtension.Rat.galEquivZMod n Kn).mapSubgroup F.fixingSubgroup
+  -- hm_dvd: Nat.divMaxPow n p divides n (n = p^k * divMaxPow n p).
+  have hm_dvd : Nat.divMaxPow n p ∣ n :=
+    ⟨p ^ padicValNat p n, (Nat.divMaxPow_mul_pow_padicValNat p n).symm⟩
+  haveI hm_ne : NeZero (Nat.divMaxPow n p) :=
+    ⟨ne_zero_of_dvd_ne_zero (NeZero.ne n) hm_dvd⟩
+  -- I_p: kernel of ZMod.unitsMap (Nat.divMaxPow n p ∣ n) in (ZMod n)ˣ.
+  let I_p := (ZMod.unitsMap hm_dvd).ker
+  -- Sub-step A (sorry): subgroupOfCoprimeConductor p = dual of I_p under
+  -- subgroupOrderIsoSubgroupMulChar.
+  -- Proof chain: p.Coprime χ.conductor
+  --   ↔ χ.conductor ∣ Nat.divMaxPow n p  (since χ.conductor ∣ n, p ∤ divMaxPow n p)
+  --   ↔ FactorsThrough χ (Nat.divMaxPow n p)  (conductor_dvd and factorsThrough)
+  --   ↔ (ZMod.unitsMap hm_dvd).ker ≤ χ.toUnitHom.ker  (factorsThrough_iff_ker_unitsMap)
+  --   ↔ ∀ u ∈ I_p, χ.toUnitHom u = 1  (definition of ker ≤ ker)
+  --   ↔ ∀ u ∈ I_p, χ u = 1            (by coe_toUnitHom)
+  --   ↔ χ ∈ (subgroupOrderIsoSubgroupMulChar ... I_p).ofDual
+  --     (by mem_subgroupOrderIsoSubgroupMulChar_iff).
+  have hYp_eq : DirichletCharacter.subgroupOfCoprimeConductor (R := ℂ) (n := n) p =
+      (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ I_p).ofDual := by
+    sorry
+  -- Sub-step B: Y = dual of H_map under subgroupOrderIsoSubgroupMulChar.
+  -- From mem_intermediateFieldEquivSubgroupChar_iff:
+  --   χ ∈ Y ↔ ∀ σ ∈ F.fixingSubgroup, χ (galEquivZMod n Kn σ) = 1
+  -- From Subgroup.mem_map (H_map = mapSubgroup(F.fixingSubgroup)):
+  --   u ∈ H_map ↔ ∃ σ ∈ F.fixingSubgroup, galEquivZMod n Kn σ = u
+  -- Combined with mem_subgroupOrderIsoSubgroupMulChar_iff:
+  --   χ ∈ (subgroupOrderIsoSubgroupMulChar ... H_map).ofDual ↔ ∀ u ∈ H_map, χ u = 1
+  --   ↔ ∀ σ ∈ F.fixingSubgroup, χ (galEquivZMod n Kn σ) = 1  ↔ χ ∈ Y.
+  have hY_eq : Y = (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ H_map).ofDual := by
+    rw [hY]
+    ext χ
+    rw [MulChar.mem_subgroupOrderIsoSubgroupMulChar_iff,
+        IsCyclotomicExtension.Rat.mem_intermediateFieldEquivSubgroupChar_iff]
+    constructor
+    · intro h u hu
+      -- hu : u ∈ H_map = mapSubgroup(F.fixingSubgroup) = Subgroup.map galEquivZMod F.fixingSubgroup
+      simp only [H_map, MulEquiv.coe_mapSubgroup, Subgroup.mem_map] at hu
+      obtain ⟨σ, hσ, rfl⟩ := hu
+      exact h σ hσ
+    · intro h σ hσ
+      -- galEquivZMod σ ∈ H_map since σ ∈ F.fixingSubgroup.
+      apply h
+      simp only [H_map, MulEquiv.coe_mapSubgroup, Subgroup.mem_map]
+      exact ⟨σ, hσ, rfl⟩
+  -- Sub-step C: Y ⊓ Y_p = dual of (H_map ⊔ I_p).
+  -- subgroupOrderIsoSubgroupMulChar : Subgroup Mˣ ≃o (Subgroup (MulChar M R))ᵒᵈ
+  -- preserves ⊔ (order-isomorphism). Taking ofDual converts ⊔ᵒᵈ to ⊓.
+  have hInter : Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor (R := ℂ) (n := n) p =
+      (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ (H_map ⊔ I_p)).ofDual := by
+    rw [hY_eq, hYp_eq]
+    -- Goal: (iso H_map).ofDual ⊓ (iso I_p).ofDual = (iso (H_map ⊔ I_p)).ofDual
+    -- Use ← ofDual_sup: ofDual a ⊓ ofDual b = ofDual (a ⊔ b), then ← map_sup.
+    rw [← ofDual_sup, ← (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ).map_sup]
+  -- Sub-step D: cardinality via card_subgroupOrderIsoSubgroupMulChar.
+  rw [hInter]
+  simp only [MulChar.card_subgroupOrderIsoSubgroupMulChar]
+  -- Goal: Nat.card ((ZMod n)ˣ ⧸ (H_map ⊔ I_p)) = Nat.card Y / ramificationIdxIn p (𝓞 F).
+  -- Sub-step E (sorry): arithmetic identity.
+  -- (a) |Y| = |(ZMod n)ˣ ⧸ H_map| via hY_eq + card_subgroupOrderIsoSubgroupMulChar.
+  -- (b) |(ZMod n)ˣ ⧸ (H_map ⊔ I_p)| = |(ZMod n)ˣ| / |H_map ⊔ I_p|.
+  -- (c) |H_map ⊔ I_p| / |H_map| = |I_p| / |H_map ∩ I_p| (2nd isomorphism theorem).
+  -- (d) |I_p / (H_map ∩ I_p)| = ramificationIdxIn p (𝓞 F):
+  --     under galEquivZMod, I_p corresponds to the inertia group of p in Kn/ℚ;
+  --     H_map ∩ I_p corresponds to the inertia of p within the fixing group of F;
+  --     the quotient = inertia group of p in F/ℚ, order = ramificationIdxIn p (𝓞 F)
+  --     (by card_inertia_eq_ramificationIdxIn).
+  sorry
+
 /-- **Phase 4 (sorry).** The image of `evalAtPrime` is cyclic of order equal to the
 inertia degree. This is the Frobenius identification: the eval at `p` corresponds to
 evaluating the Galois character at the Frobenius element σ_p ∈ Gal(F/ℚ), whose order
