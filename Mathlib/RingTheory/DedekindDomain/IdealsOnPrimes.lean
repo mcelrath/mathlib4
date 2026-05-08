@@ -208,6 +208,7 @@ section Summation
 
 variable {M : Type*} [NormedCommRing M] [CompleteSpace M]
 
+omit [CompleteSpace M] in
 /-- Helper: applying a completely-multiplicative `f` to a prime power times an `s`-factored
 ideal factors as a product. -/
 lemma factoredOnPrimes_map_prime_pow_mul {f : Ideal R → M}
@@ -216,19 +217,15 @@ lemma factoredOnPrimes_map_prime_pow_mul {f : Ideal R → M}
     f ((𝔭 ^ e * I.1 : Ideal R)) = f (𝔭 ^ e) * f I.1 :=
   hf_mul _ _ (pow_ne_zero _ h𝔭.ne_zero) I.2.1
 
+set_option maxHeartbeats 400000 in
+-- The induction on `s` and the `summable_mul_of_summable_norm` chain create a long
+-- elaboration; the default heartbeat budget times out on the inductive step.
 /-- HasSum analog of the Mathlib lemma
 `EulerProduct.summable_and_hasSum_factoredNumbers_prod_filter_prime_tsum` for ideals.
 
 For `f : Ideal R → M` with `f ⊤ = 1` and completely multiplicative on nonzero arguments, and a
 Finset `s` of prime ideals such that the per-prime-power norm series is summable, the sum over
-`factoredOnPrimes s` equals the product over `s` of the per-prime-power sums.
-
-Proof status: sorry placeholder. The proof structure mirrors
-`EulerProduct.summable_and_hasSum_factoredNumbers_prod_filter_prime_tsum` —
-induction on `s` using `equivProdNatFactoredOnPrimes`. The Lean elaboration in the empty case
-(reducing `factoredOnPrimes ∅` to the singleton `{⊤}` and matching `hasSum_singleton`'s
-`Set.restrict` form) and in the inductive case (composing the equiv with multiplicativity to
-get a product-summable form) hits typeclass-search timeouts under `v4.30.0-rc2`. -/
+`factoredOnPrimes s` equals the product over `s` of the per-prime-power sums. -/
 theorem summable_and_hasSum_factoredOnPrimes
     {f : Ideal R → M} (hf_top : f ⊤ = 1)
     (hf_mul : ∀ I J : Ideal R, I ≠ ⊥ → J ≠ ⊥ → f (I * J) = f I * f J)
@@ -236,7 +233,63 @@ theorem summable_and_hasSum_factoredOnPrimes
     {s : Finset (Ideal R)} (hs_prime : ∀ 𝔭 ∈ s, Prime 𝔭) :
     Summable (fun I : factoredOnPrimes s ↦ ‖f I.1‖) ∧
       HasSum (fun I : factoredOnPrimes s ↦ f I.1) (∏ 𝔭 ∈ s, ∑' n : ℕ, f (𝔭 ^ n)) := by
-  sorry
+  classical
+  induction s using Finset.induction with
+  | empty =>
+    rw [Finset.prod_empty]
+    -- Index type is Unique (just ⊤).
+    have hmem : (⊤ : Ideal R) ∈ factoredOnPrimes (∅ : Finset (Ideal R)) :=
+      top_mem_factoredOnPrimes ∅
+    haveI : Unique ↥(factoredOnPrimes (∅ : Finset (Ideal R))) :=
+      { default := ⟨⊤, hmem⟩
+        uniq := fun I => Subtype.ext <| by
+          have heq : (factoredOnPrimes (∅ : Finset (Ideal R)) : Set (Ideal R)) =
+              ({⊤} : Set (Ideal R)) := factoredOnPrimes_empty
+          have hmem' : I.1 ∈ ({⊤} : Set (Ideal R)) := heq ▸ I.2
+          exact Set.mem_singleton_iff.mp hmem' }
+    refine ⟨?_, ?_⟩
+    · -- Summable on a Unique-indexed type via Fintype
+      exact summable_of_hasFiniteSupport (Set.toFinite _)
+    · -- HasSum (fun _ ↦ f I.1) (f ⊤) since the unique element has I.1 = ⊤
+      have hfun : (fun I : ↥(factoredOnPrimes (∅ : Finset (Ideal R))) ↦ f I.1) =
+          fun _ ↦ f ⊤ := by
+        funext I
+        congr 1
+        exact congrArg Subtype.val (Subsingleton.elim I ⟨⊤, hmem⟩)
+      rw [hfun]
+      exact hf_top ▸ hasSum_unique (fun _ : ↥(factoredOnPrimes (∅ : Finset (Ideal R))) ↦ f ⊤)
+  | insert 𝔭 s h𝔭_notin ih =>
+    have h𝔭_prime : Prime 𝔭 := hs_prime 𝔭 (Finset.mem_insert_self 𝔭 s)
+    have hs_prime' : ∀ 𝔭' ∈ s, Prime 𝔭' :=
+      fun 𝔭' hp => hs_prime 𝔭' (Finset.mem_insert_of_mem hp)
+    obtain ⟨ih_sum, ih_has⟩ := ih hs_prime'
+    rw [Finset.prod_insert h𝔭_notin]
+    have hsum𝔭 : Summable (fun n : ℕ ↦ ‖f (𝔭 ^ n)‖) := hsum_norm h𝔭_prime
+    -- Set up the equivalence and the multiplicative-decomposed function.
+    set e := equivProdNatFactoredOnPrimes h𝔭_prime h𝔭_notin
+    have heval : ∀ x : ℕ × factoredOnPrimes s,
+        f (e x).1 = f (𝔭 ^ x.1) * f x.2.1 := by
+      intro x
+      change f (𝔭 ^ x.1 * x.2.1) = f (𝔭 ^ x.1) * f x.2.1
+      exact factoredOnPrimes_map_prime_pow_mul hf_mul h𝔭_prime _ _
+    have heval_norm : ∀ x : ℕ × factoredOnPrimes s,
+        ‖f (e x).1‖ ≤ ‖f (𝔭 ^ x.1)‖ * ‖f x.2.1‖ := by
+      intro x; rw [heval]; exact norm_mul_le _ _
+    refine ⟨?_, ?_⟩
+    · -- Summable ‖f‖ on factoredOnPrimes (insert 𝔭 s) via the equiv.
+      rw [← e.summable_iff]
+      refine Summable.of_nonneg_of_le (fun _ => norm_nonneg _) heval_norm
+        (Summable.mul_of_nonneg hsum𝔭 ih_sum (fun _ => norm_nonneg _) (fun _ => norm_nonneg _))
+    · -- HasSum on factoredOnPrimes (insert 𝔭 s).
+      rw [← e.hasSum_iff]
+      have hsum𝔭' : Summable (fun n : ℕ ↦ f (𝔭 ^ n)) := hsum𝔭.of_norm
+      have hmul_sum : Summable fun x : ℕ × factoredOnPrimes s ↦ f (𝔭 ^ x.1) * f x.2.1 :=
+        summable_mul_of_summable_norm (f := fun n : ℕ ↦ f (𝔭 ^ n))
+          (g := fun I : factoredOnPrimes s ↦ f I.1) hsum𝔭 ih_sum
+      have h_prod_has : HasSum (fun x : ℕ × factoredOnPrimes s ↦ f (𝔭 ^ x.1) * f x.2.1)
+          ((∑' n, f (𝔭 ^ n)) * ∏ 𝔭' ∈ s, ∑' n, f (𝔭' ^ n)) :=
+        hsum𝔭'.hasSum.mul ih_has hmul_sum
+      exact h_prod_has.congr_fun heval
 
 /-- The sum of `f` over `factoredOnPrimes s` equals the product of per-prime-power sums (tsum
 form). -/
