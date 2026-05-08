@@ -624,6 +624,52 @@ Step B's proof decomposes into four sub-lemmas, each of independent interest:
 Composing B.1–B.4 gives Step B.
 -/
 
+/-- **B.3 RHS reduction.** The product over primes above `p` in `𝓞 F` of the geometric local
+factor `(1 - (absNorm 𝔭)^(-s))⁻¹` reduces, in a Galois extension, to a single factor raised to
+the power `g = #(primesAboveOf F p)`, where the inertia degree `f = inertiaDegIn` is uniform
+across primes above `p` (since they are all Galois-conjugate). -/
+lemma prod_inertia_eq_pow_of_inertiaDegIn
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    {s : ℂ}
+    {p : ℕ} (hp : p.Prime) :
+    ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ =
+      ((1 - (p : ℂ) ^
+          (-((Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) : ℂ) * s)))⁻¹) ^
+        (primesAboveOf F p).card := by
+  haveI : Fact (Nat.Prime p) := ⟨hp⟩
+  haveI hAG : IsAbelianGalois ℚ (F : Type _) := IsAbelianGalois.tower_bot ℚ F Kn
+  haveI : IsGalois ℚ (F : Type _) := hAG.toIsGalois
+  have hp_ne : (Ideal.span ({(p : ℤ)} : Set ℤ)) ≠ ⊥ := by simp [hp.ne_zero]
+  have h_unif : ∀ 𝔭 ∈ primesAboveOf F p,
+      (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ =
+        (1 - (p : ℂ) ^
+          (-((Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) : ℂ) * s)))⁻¹ := by
+    intro 𝔭 h𝔭
+    have h𝔭_in_set : 𝔭 ∈ Ideal.primesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
+      have h_coe : 𝔭 ∈ ((IsDedekindDomain.primesOverFinset
+          (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) : Finset _) : Set _) :=
+        Finset.mem_coe.mpr h𝔭
+      rwa [IsDedekindDomain.coe_primesOverFinset hp_ne] at h_coe
+    haveI h𝔭_prime : 𝔭.IsPrime := h𝔭_in_set.1
+    haveI h𝔭_lies : 𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) := h𝔭_in_set.2
+    -- absNorm 𝔭 = p ^ inertiaDeg
+    have h_norm : Ideal.absNorm 𝔭 = p ^ ((Ideal.span ({(p : ℤ)} : Set ℤ)).inertiaDeg 𝔭) :=
+      Ideal.absNorm_eq_pow_inertiaDeg' 𝔭 hp
+    -- inertiaDeg = inertiaDegIn (Galois)
+    have h_eq : (Ideal.span ({(p : ℤ)} : Set ℤ)).inertiaDeg 𝔭 =
+        Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) :=
+      (Ideal.inertiaDegIn_eq_inertiaDeg (Ideal.span ({(p : ℤ)} : Set ℤ)) 𝔭 Gal(F/ℚ)).symm
+    set f := Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F)
+    rw [h_norm, h_eq]
+    -- (p^f : ℕ : ℂ)^(-s) = (p:ℂ)^(-(f*s))
+    have : ((p ^ f : ℕ) : ℂ) ^ (-s) = (p : ℂ) ^ (-((f : ℂ) * s)) := by
+      rw [Nat.cast_pow, ← Complex.natCast_cpow_natCast_mul]
+      congr 1; ring
+    rw [this]
+  rw [Finset.prod_congr rfl h_unif, Finset.prod_const]
+
 /-- **Step B (sorry).** The product of primitive Dirichlet local Euler factors over the
 character group `Y` equals the product of geometric series over primes above `p` (in
 absolute-norm form). See section docstring above for the decomposition.
