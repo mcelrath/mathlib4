@@ -150,11 +150,107 @@ lemma tsum_absNorm_pow_neg_geom
     rw [Complex.neg_re]; linarith
   exact Real.rpow_lt_one_of_one_lt_of_neg h1lt hneg_re
 
+/-- The forward direction of the Step A bijection: an ideal of `𝓞 F` with `absNorm = p^e` is
+factored on primes above `p`. Each prime factor `𝔭` of `I` has `absNorm 𝔭 ∣ p^e`, so the rational
+prime under `𝔭` (`absNorm (under ℤ 𝔭)` is itself prime by `Nat.absNorm_under_prime` and divides
+`absNorm 𝔭 ∣ p^e`, hence equals `p`) determines that `under ℤ 𝔭 = span {(p : ℤ)}`. -/
+lemma factoredOnPrimes_of_absNorm_pow
+    {F : Type*} [Field F] [NumberField F]
+    {p : ℕ} (hp : p.Prime) {I : Ideal (𝓞 F)} {e : ℕ} (hI : Ideal.absNorm I = p ^ e) :
+    I ∈ Ideal.factoredOnPrimes (primesAboveOf F p) := by
+  haveI : Fact (Nat.Prime p) := ⟨hp⟩
+  have hp_span_ne : (Ideal.span ({(p : ℤ)} : Set ℤ)) ≠ ⊥ := by
+    simp [hp.ne_zero]
+  refine ⟨?_, ?_⟩
+  · -- I ≠ ⊥
+    intro h_bot
+    rw [h_bot, Ideal.absNorm_bot] at hI
+    exact (pow_pos hp.pos e).ne' hI.symm
+  · intro 𝔭 h𝔭_in
+    -- 𝔭 is a prime factor of I.
+    have h𝔭_prime : Prime 𝔭 :=
+      UniqueFactorizationMonoid.prime_of_normalized_factor 𝔭 h𝔭_in
+    have h𝔭_isPrime : 𝔭.IsPrime := Ideal.isPrime_of_prime h𝔭_prime
+    have h𝔭_ne : 𝔭 ≠ ⊥ := h𝔭_prime.ne_zero
+    haveI : NeZero 𝔭 := ⟨h𝔭_ne⟩
+    -- absNorm (under ℤ 𝔭) is a prime number.
+    have hpunder_prime : (Ideal.absNorm (Ideal.under ℤ 𝔭)).Prime := Nat.absNorm_under_prime 𝔭
+    -- absNorm (under ℤ 𝔭) ∣ absNorm 𝔭.
+    have hpunder_dvd_p𝔭 : Ideal.absNorm (Ideal.under ℤ 𝔭) ∣ Ideal.absNorm 𝔭 :=
+      Int.absNorm_under_dvd_absNorm 𝔭
+    -- 𝔭 ⊇ I (because 𝔭 ∣ I as ideals), hence absNorm 𝔭 ∣ absNorm I = p^e.
+    have h𝔭_dvd_I : 𝔭 ∣ I :=
+      UniqueFactorizationMonoid.dvd_of_mem_normalizedFactors h𝔭_in
+    have hp𝔭_dvd_pI : Ideal.absNorm 𝔭 ∣ Ideal.absNorm I :=
+      Ideal.absNorm_dvd_absNorm_of_le (Ideal.dvd_iff_le.mp h𝔭_dvd_I)
+    have hp𝔭_dvd_pe : Ideal.absNorm 𝔭 ∣ p ^ e := hI ▸ hp𝔭_dvd_pI
+    have hpunder_dvd_pe : Ideal.absNorm (Ideal.under ℤ 𝔭) ∣ p ^ e :=
+      hpunder_dvd_p𝔭.trans hp𝔭_dvd_pe
+    -- A prime divisor of p^e is p.
+    have hpunder_eq_p : Ideal.absNorm (Ideal.under ℤ 𝔭) = p :=
+      (Nat.prime_dvd_prime_iff_eq hpunder_prime hp).mp
+        (hpunder_prime.dvd_of_dvd_pow hpunder_dvd_pe)
+    -- Therefore under ℤ 𝔭 = span {(p:ℤ)}, so 𝔭 lies over span {(p:ℤ)}.
+    have hunder_eq : Ideal.under ℤ 𝔭 = Ideal.span ({(p : ℤ)} : Set ℤ) := by
+      have h1 := Int.ideal_span_absNorm_eq_self (Ideal.under ℤ 𝔭)
+      rw [hpunder_eq_p] at h1
+      exact h1.symm
+    haveI hLies : 𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) := ⟨hunder_eq.symm⟩
+    -- Membership in primesAboveOf F p (which is primesOverFinset (span {(p:ℤ)}) (𝓞 F)).
+    show 𝔭 ∈ IsDedekindDomain.primesOverFinset (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F)
+    rw [IsDedekindDomain.mem_primesOverFinset_iff hp_span_ne]
+    exact ⟨h𝔭_isPrime, hLies⟩
+
+/-- The backward direction of the Step A bijection: an ideal factored on primes above `p` has
+`absNorm` equal to a power of `p`. -/
+lemma exists_absNorm_pow_of_factoredOnPrimes
+    {F : Type*} [Field F] [NumberField F]
+    {p : ℕ} (hp : p.Prime) {I : Ideal (𝓞 F)}
+    (hI : I ∈ Ideal.factoredOnPrimes (primesAboveOf F p)) :
+    ∃ e : ℕ, Ideal.absNorm I = p ^ e := by
+  obtain ⟨hI_ne, hI_factors⟩ := hI
+  haveI : Fact (Nat.Prime p) := ⟨hp⟩
+  have hp_span_ne : (Ideal.span ({(p : ℤ)} : Set ℤ)) ≠ ⊥ := by simp [hp.ne_zero]
+  have hp_span_isPrime : (Ideal.span ({(p : ℤ)} : Set ℤ)).IsPrime :=
+    (Int.ideal_span_isMaximal_of_prime p).isPrime
+  have hN_span : Ideal.absNorm (Ideal.span ({(p : ℤ)} : Set ℤ)) = p := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply]
+    exact Int.card_ideal_quot p
+  refine ⟨_, Nat.eq_prime_pow_of_unique_prime_dvd ?_ ?_⟩
+  · rw [Ne, Ideal.absNorm_eq_zero_iff]; exact hI_ne
+  · intro d hd hd_dvd
+    -- absNorm I = product over normalized factors of absNorm 𝔭.
+    have habs : Ideal.absNorm I =
+        (Multiset.map Ideal.absNorm (UniqueFactorizationMonoid.normalizedFactors I)).prod := by
+      have hprod := UniqueFactorizationMonoid.prod_normalizedFactors_eq hI_ne
+      rw [normalize_eq] at hprod
+      conv_lhs => rw [← hprod]
+      exact Ideal.absNorm.toMonoidHom.map_multiset_prod _
+    rw [habs] at hd_dvd
+    -- d prime divides multiset prod → divides some element.
+    have hd_prime : Prime d := hd.prime
+    obtain ⟨q, hq_in, hd_q⟩ := hd_prime.exists_mem_multiset_dvd hd_dvd
+    rw [Multiset.mem_map] at hq_in
+    obtain ⟨𝔭, h𝔭_in, h𝔭_eq⟩ := hq_in
+    -- 𝔭 ∈ primesAboveOf F p, so 𝔭 lies over span {(p:ℤ)}.
+    have h𝔭_above : 𝔭 ∈ primesAboveOf F p := hI_factors 𝔭 h𝔭_in
+    have h_in_primesOver :
+        𝔭 ∈ Ideal.primesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
+      have h_coe : 𝔭 ∈ ((IsDedekindDomain.primesOverFinset
+          (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) : Finset _) : Set _) :=
+        Finset.mem_coe.mpr h𝔭_above
+      rwa [IsDedekindDomain.coe_primesOverFinset hp_span_ne] at h_coe
+    haveI : 𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) := h_in_primesOver.2
+    -- absNorm 𝔭 = p ^ inertiaDeg, hence d | p^k → d = p.
+    have hN := Ideal.absNorm_eq_pow_inertiaDeg_of_liesOver 𝔭 _ hp_span_isPrime hp_span_ne
+    rw [hN_span] at hN
+    rw [← h𝔭_eq, hN] at hd_q
+    exact (Nat.prime_dvd_prime_iff_eq hd hp).mp (hd.dvd_of_dvd_pow hd_q)
+
 /-- **Step A reindex (sorry):** the prime-power Dedekind sum equals the sum of `absNorm(I)^(-s)`
 over ideals of `𝓞 F` whose prime support lies above `p`. The bijection is `(e, I)` with
 `absNorm I = p^e` ↔ `I ∈ factoredOnPrimes (primesAboveOf F p)`, with `e` recovered as
-`log_p (absNorm I)`. Surjectivity uses that every prime factor `𝔭` of an ideal with absNorm
-a power of `p` lies above `p` (since `absNorm (Ideal.under ℤ 𝔭) ∣ absNorm 𝔭 ∣ p^e`). -/
+`log_p (absNorm I)`. -/
 theorem tsum_dedekindZetaSummand_pow_eq_tsum_factoredOnPrimes
     (F : Type*) [Field F] [NumberField F]
     {p : ℕ} (hp : p.Prime) {s : ℂ} (hs : 1 < s.re) :
