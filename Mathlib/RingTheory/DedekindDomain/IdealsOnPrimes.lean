@@ -5,6 +5,7 @@ Authors: Bob McElrath
 -/
 module
 
+public import Mathlib.Analysis.Normed.Ring.InfiniteSum
 public import Mathlib.RingTheory.DedekindDomain.Ideal.Basic
 public import Mathlib.RingTheory.UniqueFactorizationDomain.Multiplicity
 public import Mathlib.RingTheory.UniqueFactorizationDomain.NormalizedFactors
@@ -193,5 +194,60 @@ noncomputable def equivProdNatFactoredOnPrimes {s : Finset (Ideal R)} {𝔭 : Id
 lemma equivProdNatFactoredOnPrimes_apply {s : Finset (Ideal R)} {𝔭 : Ideal R} (h𝔭 : Prime 𝔭)
     (hs : 𝔭 ∉ s) (e : ℕ) (I : factoredOnPrimes s) :
     (equivProdNatFactoredOnPrimes h𝔭 hs (e, I) : Ideal R) = 𝔭 ^ e * I.1 := rfl
+
+/-! ### HasSum / Summable for completely multiplicative functions
+
+For a function `f : Ideal R → M` (where `M` is a complete normed commutative ring) that
+vanishes at `⊥`, equals `1` at `⊤`, and is completely multiplicative on nonzero arguments,
+the sum over `factoredOnPrimes s` equals the product over `s` of geometric sums. This is the
+ideal-theoretic analog of
+`EulerProduct.summable_and_hasSum_factoredNumbers_prod_filter_prime_tsum`.
+-/
+
+section Summation
+
+variable {M : Type*} [NormedCommRing M] [CompleteSpace M]
+
+/-- Helper: applying a completely-multiplicative `f` to a prime power times an `s`-factored
+ideal factors as a product. -/
+lemma factoredOnPrimes_map_prime_pow_mul {f : Ideal R → M}
+    (hf_mul : ∀ I J : Ideal R, I ≠ ⊥ → J ≠ ⊥ → f (I * J) = f I * f J)
+    {𝔭 : Ideal R} (h𝔭 : Prime 𝔭) {s : Finset (Ideal R)} (e : ℕ) (I : factoredOnPrimes s) :
+    f ((𝔭 ^ e * I.1 : Ideal R)) = f (𝔭 ^ e) * f I.1 :=
+  hf_mul _ _ (pow_ne_zero _ h𝔭.ne_zero) I.2.1
+
+/-- HasSum analog of the Mathlib lemma
+`EulerProduct.summable_and_hasSum_factoredNumbers_prod_filter_prime_tsum` for ideals.
+
+For `f : Ideal R → M` with `f ⊤ = 1` and completely multiplicative on nonzero arguments, and a
+Finset `s` of prime ideals such that the per-prime-power norm series is summable, the sum over
+`factoredOnPrimes s` equals the product over `s` of the per-prime-power sums.
+
+Proof status: sorry placeholder. The proof structure mirrors
+`EulerProduct.summable_and_hasSum_factoredNumbers_prod_filter_prime_tsum` —
+induction on `s` using `equivProdNatFactoredOnPrimes`. The Lean elaboration in the empty case
+(reducing `factoredOnPrimes ∅` to the singleton `{⊤}` and matching `hasSum_singleton`'s
+`Set.restrict` form) and in the inductive case (composing the equiv with multiplicativity to
+get a product-summable form) hits typeclass-search timeouts under `v4.30.0-rc2`. -/
+theorem summable_and_hasSum_factoredOnPrimes
+    {f : Ideal R → M} (hf_top : f ⊤ = 1)
+    (hf_mul : ∀ I J : Ideal R, I ≠ ⊥ → J ≠ ⊥ → f (I * J) = f I * f J)
+    (hsum_norm : ∀ {𝔭 : Ideal R}, Prime 𝔭 → Summable (fun n : ℕ ↦ ‖f (𝔭 ^ n)‖))
+    {s : Finset (Ideal R)} (hs_prime : ∀ 𝔭 ∈ s, Prime 𝔭) :
+    Summable (fun I : factoredOnPrimes s ↦ ‖f I.1‖) ∧
+      HasSum (fun I : factoredOnPrimes s ↦ f I.1) (∏ 𝔭 ∈ s, ∑' n : ℕ, f (𝔭 ^ n)) := by
+  sorry
+
+/-- The sum of `f` over `factoredOnPrimes s` equals the product of per-prime-power sums (tsum
+form). -/
+theorem tsum_factoredOnPrimes_eq_prod_tsum
+    {f : Ideal R → M} (hf_top : f ⊤ = 1)
+    (hf_mul : ∀ I J : Ideal R, I ≠ ⊥ → J ≠ ⊥ → f (I * J) = f I * f J)
+    (hsum_norm : ∀ {𝔭 : Ideal R}, Prime 𝔭 → Summable (fun n : ℕ ↦ ‖f (𝔭 ^ n)‖))
+    {s : Finset (Ideal R)} (hs_prime : ∀ 𝔭 ∈ s, Prime 𝔭) :
+    ∑' I : factoredOnPrimes s, f I.1 = ∏ 𝔭 ∈ s, ∑' n : ℕ, f (𝔭 ^ n) :=
+  (summable_and_hasSum_factoredOnPrimes hf_top hf_mul hsum_norm hs_prime).2.tsum_eq
+
+end Summation
 
 end Ideal

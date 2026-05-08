@@ -14,6 +14,7 @@ public import Mathlib.NumberTheory.LSeries.DirichletContinuation
 public import Mathlib.NumberTheory.NumberField.Cyclotomic.Galois
 public import Mathlib.NumberTheory.NumberField.DedekindZeta
 public import Mathlib.NumberTheory.NumberField.DedekindZetaEulerProduct
+public import Mathlib.RingTheory.DedekindDomain.IdealsOnPrimes
 
 /-!
 # The Dedekind zeta function of an abelian number field as a product of Dirichlet L-functions
@@ -120,12 +121,41 @@ noncomputable def primesAboveOf (F : Type*) [Field F] [NumberField F] (p : ℕ) 
     Finset (Ideal (𝓞 F)) :=
   IsDedekindDomain.primesOverFinset (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F)
 
-/-- **Step A (analytic side, sorry).** The prime-power Dedekind summand factorizes as a product
+/-- **A.5 (geometric series at one prime).** For a nonzero prime ideal `𝔭` of `𝓞 F` and `s` in
+the absolute-convergence half-plane, the geometric series `∑'k absNorm(𝔭)^(-ks)` equals the
+local Euler factor `(1 - absNorm(𝔭)^(-s))⁻¹`. -/
+lemma tsum_absNorm_pow_neg_geom
+    {F : Type*} [Field F] [NumberField F]
+    {𝔭 : Ideal (𝓞 F)} (h𝔭_p : 𝔭.IsPrime) (h𝔭_ne : 𝔭 ≠ ⊥)
+    {s : ℂ} (hs : 1 < s.re) :
+    ∑' k : ℕ, ((Ideal.absNorm 𝔭 : ℂ) ^ (-s)) ^ k = (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
+  refine tsum_geometric_of_norm_lt_one ?_
+  -- absNorm 𝔭 ≥ 2: prime ideal in 𝓞 F with N(𝔭) > 1 (since 𝔭 ≠ ⊤).
+  have h𝔭_prime : Prime 𝔭 := Ideal.prime_of_isPrime h𝔭_ne h𝔭_p
+  have h_norm_pos : 0 < Ideal.absNorm 𝔭 := by
+    rw [Nat.pos_iff_ne_zero]
+    exact fun h => h𝔭_ne (Ideal.absNorm_eq_zero_iff.mp h)
+  have h_norm_ne_one : Ideal.absNorm 𝔭 ≠ 1 := by
+    intro h
+    have hutop : 𝔭 = ⊤ := Ideal.absNorm_eq_one_iff.mp h
+    apply h𝔭_prime.not_unit
+    rw [hutop, ← Ideal.one_eq_top]
+    exact isUnit_one
+  have h2 : 2 ≤ Ideal.absNorm 𝔭 := by omega
+  rw [Complex.norm_natCast_cpow_of_pos h_norm_pos]
+  -- (absNorm 𝔭 : ℝ)^(-s).re < 1.  Since (-s).re = -re s < -1 < 0, and absNorm ≥ 2 > 1.
+  have h2real : (2 : ℝ) ≤ (Ideal.absNorm 𝔭 : ℝ) := by exact_mod_cast h2
+  have h1lt : (1 : ℝ) < (Ideal.absNorm 𝔭 : ℝ) := lt_of_lt_of_le one_lt_two h2real
+  have hneg_re : (-s).re < 0 := by
+    rw [Complex.neg_re]; linarith
+  exact Real.rpow_lt_one_of_one_lt_of_neg h1lt hneg_re
+
+/-- **Step A (sorry).** The prime-power Dedekind summand factorizes as a product
 of geometric series over the primes of `𝓞 F` lying above `p`. Reduces to (i) the bijection
 between ideals of `𝓞 F` of norm `p^e` and tuples `(k_𝔭)_𝔭∣p ∈ (primesAbove p) → ℕ` with
 `∑ k_𝔭 · inertiaDeg 𝔭 = e`, given by unique factorization; (ii) Fubini-swap
 `∑'e ∑'(k:tuple,sum=e) X = ∑'(k:tuple) X = ∏_𝔭 ∑'k_𝔭 X` for absolutely-convergent geometric
-series; (iii) the standard `(1 - T^{f})⁻¹ = ∑'k T^{kf}` identity. -/
+series; (iii) the geometric-series step `tsum_absNorm_pow_neg_geom` above. -/
 theorem dedekindZetaSummand_localSum_eq_prod_inertia
     (F : Type*) [Field F] [NumberField F]
     {p : ℕ} (hp : p.Prime) {s : ℂ} (hs : 1 < s.re) :
