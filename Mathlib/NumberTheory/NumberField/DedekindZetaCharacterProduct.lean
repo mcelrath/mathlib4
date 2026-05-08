@@ -197,7 +197,7 @@ lemma factoredOnPrimes_of_absNorm_pow
       exact h1.symm
     haveI hLies : 𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) := ⟨hunder_eq.symm⟩
     -- Membership in primesAboveOf F p (which is primesOverFinset (span {(p:ℤ)}) (𝓞 F)).
-    show 𝔭 ∈ IsDedekindDomain.primesOverFinset (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F)
+    change 𝔭 ∈ IsDedekindDomain.primesOverFinset (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F)
     rw [IsDedekindDomain.mem_primesOverFinset_iff hp_span_ne]
     exact ⟨h𝔭_isPrime, hLies⟩
 
@@ -247,17 +247,113 @@ lemma exists_absNorm_pow_of_factoredOnPrimes
     rw [← h𝔭_eq, hN] at hd_q
     exact (Nat.prime_dvd_prime_iff_eq hd hp).mp (hd.dvd_of_dvd_pow hd_q)
 
-/-- **Step A reindex (sorry):** the prime-power Dedekind sum equals the sum of `absNorm(I)^(-s)`
-over ideals of `𝓞 F` whose prime support lies above `p`. The bijection is `(e, I)` with
-`absNorm I = p^e` ↔ `I ∈ factoredOnPrimes (primesAboveOf F p)`, with `e` recovered as
-`log_p (absNorm I)`. -/
+/-- The bijection witnessing that ideals in `factoredOnPrimes (primesAboveOf F p)` correspond
+to pairs `(e, I)` with `absNorm I = p^e`. -/
+private noncomputable def factoredOnPrimes_equiv_sigmaNormFiber
+    {F : Type*} [Field F] [NumberField F] {p : ℕ} (hp : p.Prime) :
+    (Σ e : ℕ, NumberField.NormFiber F (p ^ e)) ≃
+      Ideal.factoredOnPrimes (primesAboveOf F p) :=
+  Equiv.ofBijective
+    (fun σ => ⟨σ.2.1, factoredOnPrimes_of_absNorm_pow hp σ.2.2⟩)
+    ⟨by
+      -- Injective.
+      rintro ⟨e₁, I₁, hI₁⟩ ⟨e₂, I₂, hI₂⟩ heq
+      have hI_eq : I₁ = I₂ := congrArg Subtype.val heq
+      have he_eq : e₁ = e₂ :=
+        Nat.pow_right_injective hp.two_le (hI₁.symm.trans (hI_eq ▸ hI₂))
+      subst he_eq
+      subst hI_eq
+      rfl,
+     by
+      -- Surjective.
+      rintro ⟨I, hI⟩
+      obtain ⟨e, he⟩ := exists_absNorm_pow_of_factoredOnPrimes hp hI
+      exact ⟨⟨e, ⟨I, he⟩⟩, rfl⟩⟩
+
+@[simp]
+private lemma factoredOnPrimes_equiv_sigmaNormFiber_apply
+    {F : Type*} [Field F] [NumberField F] {p : ℕ} (hp : p.Prime)
+    (σ : Σ e : ℕ, NumberField.NormFiber F (p ^ e)) :
+    ((factoredOnPrimes_equiv_sigmaNormFiber hp σ : Ideal.factoredOnPrimes (primesAboveOf F p)).1)
+      = σ.2.1 := rfl
+
+/-- **Step A reindex.** The prime-power Dedekind sum equals the sum of `absNorm(I)^(-s)`
+over ideals of `𝓞 F` whose prime support lies above `p`. -/
 theorem tsum_dedekindZetaSummand_pow_eq_tsum_factoredOnPrimes
     (F : Type*) [Field F] [NumberField F]
     {p : ℕ} (hp : p.Prime) {s : ℂ} (hs : 1 < s.re) :
     ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
       ∑' I : Ideal.factoredOnPrimes (primesAboveOf F p),
         (Ideal.absNorm I.1 : ℂ) ^ (-s) := by
-  sorry
+  have hpe_ne : ∀ e : ℕ, (p ^ e : ℕ) ≠ 0 := fun e => pow_ne_zero e hp.ne_zero
+  -- NormFiber Finite/Fintype instances.
+  haveI : ∀ e : ℕ, Finite (NumberField.NormFiber F (p ^ e)) := by
+    intro e
+    change Finite {I : Ideal (𝓞 F) // Ideal.absNorm I = p ^ e}
+    exact (Ideal.finite_setOf_absNorm_eq _).to_subtype
+  haveI : ∀ e : ℕ, Fintype (NumberField.NormFiber F (p ^ e)) := fun e => Fintype.ofFinite _
+  -- Unfold dedekindZetaSummand for nonzero argument.
+  have hsummand : ∀ e : ℕ,
+      dedekindZetaSummand F s (p ^ e) =
+        (NumberField.idealNormCount F (p ^ e) : ℂ) * ((p ^ e : ℕ) : ℂ) ^ (-s) := by
+    intro e
+    rw [NumberField.dedekindZetaSummand_apply, LSeries.term_def₀ (by simp)]
+  -- Step 1: Inner sum over NormFiber F (p^e) equals dedekindZetaSummand F s (p^e).
+  have hinner : ∀ e : ℕ,
+      ∑' I : NumberField.NormFiber F (p ^ e), (Ideal.absNorm I.1 : ℂ) ^ (-s) =
+        dedekindZetaSummand F s (p ^ e) := by
+    intro e
+    rw [tsum_eq_sum (s := (Finset.univ : Finset (NumberField.NormFiber F (p ^ e))))
+      (fun I hI => absurd (Finset.mem_univ I) hI)]
+    have hconst : ∀ I : NumberField.NormFiber F (p ^ e),
+        ((Ideal.absNorm I.1 : ℂ) ^ (-s)) = ((p ^ e : ℕ) : ℂ) ^ (-s) := fun I => by rw [I.2]
+    rw [Finset.sum_congr rfl (fun I _ => hconst I), Finset.sum_const, Finset.card_univ]
+    have hcard : (Fintype.card (NumberField.NormFiber F (p ^ e)) : ℂ) =
+        (NumberField.idealNormCount F (p ^ e) : ℂ) := by
+      rw [NumberField.idealNormCount_apply_of_ne_zero F (hpe_ne e), Fintype.card_eq_nat_card]
+      rfl
+    rw [hsummand, nsmul_eq_mul, hcard]
+  -- Step 2: Inner summable for each e (Fintype).
+  have hsumInner : ∀ e : ℕ,
+      Summable (fun I : NumberField.NormFiber F (p ^ e) ↦ (Ideal.absNorm I.1 : ℂ) ^ (-s)) :=
+    fun e => Summable.of_finite
+  -- Step 3: Sigma sum is summable: reduces to summability of LHS via norms.
+  have hinner_norm : ∀ e : ℕ,
+      ∑' I : NumberField.NormFiber F (p ^ e), ‖(Ideal.absNorm I.1 : ℂ) ^ (-s)‖ =
+        ‖dedekindZetaSummand F s (p ^ e)‖ := by
+    intro e
+    rw [tsum_eq_sum (s := (Finset.univ : Finset _))
+      (fun I hI => absurd (Finset.mem_univ I) hI)]
+    have hconst : ∀ I : NumberField.NormFiber F (p ^ e),
+        ‖((Ideal.absNorm I.1 : ℂ) ^ (-s))‖ = ‖(((p ^ e : ℕ) : ℂ) ^ (-s))‖ := fun I => by rw [I.2]
+    rw [Finset.sum_congr rfl (fun I _ => hconst I), Finset.sum_const, Finset.card_univ]
+    rw [hsummand, norm_mul]
+    have hcardR : (Fintype.card (NumberField.NormFiber F (p ^ e)) : ℝ) =
+        ‖(NumberField.idealNormCount F (p ^ e) : ℂ)‖ := by
+      rw [NumberField.idealNormCount_apply_of_ne_zero F (hpe_ne e), Complex.norm_natCast,
+        Fintype.card_eq_nat_card]
+      rfl
+    rw [nsmul_eq_mul]
+    push_cast
+    rw [hcardR]
+  have hsumSigma : Summable
+      (fun σ : (Σ e : ℕ, NumberField.NormFiber F (p ^ e)) ↦
+        (Ideal.absNorm σ.2.1 : ℂ) ^ (-s)) := by
+    rw [← summable_norm_iff]
+    refine (summable_sigma_of_nonneg (fun _ => norm_nonneg _)).mpr ⟨fun e => (hsumInner e).norm, ?_⟩
+    have hsumLHS : Summable (fun e : ℕ ↦ ‖dedekindZetaSummand F s (p ^ e)‖) :=
+      (summable_dedekindZetaSummand F s hs).comp_injective
+        (fun e e' h => Nat.pow_right_injective hp.two_le h)
+    exact hsumLHS.congr fun e => (hinner_norm e).symm
+  -- Step 4: Apply tsum_sigma' and equiv
+  have hLHS : ∑' e : ℕ, dedekindZetaSummand F s (p ^ e) =
+      ∑' σ : (Σ e : ℕ, NumberField.NormFiber F (p ^ e)),
+        (Ideal.absNorm σ.2.1 : ℂ) ^ (-s) := by
+    rw [hsumSigma.tsum_sigma' hsumInner]
+    exact tsum_congr fun e => (hinner e).symm
+  rw [hLHS, ← (factoredOnPrimes_equiv_sigmaNormFiber hp).tsum_eq
+    (fun I : Ideal.factoredOnPrimes (primesAboveOf F p) ↦ (Ideal.absNorm I.1 : ℂ) ^ (-s))]
+  rfl
 
 /-- **Step A.** The prime-power Dedekind summand factorizes as a product of local Euler factors
 over the primes of `𝓞 F` lying above `p`. Composes the reindex
@@ -281,7 +377,7 @@ theorem dedekindZetaSummand_localSum_eq_prod_inertia
   have hpow_eq : ∀ (𝔭 : Ideal (𝓞 F)) (k : ℕ),
       f (𝔭 ^ k) = ((Ideal.absNorm 𝔭 : ℂ) ^ (-s)) ^ k := by
     intro 𝔭 k
-    show ((Ideal.absNorm (𝔭 ^ k) : ℕ) : ℂ) ^ (-s) = ((Ideal.absNorm 𝔭 : ℂ) ^ (-s)) ^ k
+    change ((Ideal.absNorm (𝔭 ^ k) : ℕ) : ℂ) ^ (-s) = ((Ideal.absNorm 𝔭 : ℂ) ^ (-s)) ^ k
     rw [map_pow, Nat.cast_pow, ← Complex.natCast_cpow_natCast_mul, Complex.cpow_nat_mul]
   have hsum_norm : ∀ {𝔭 : Ideal (𝓞 F)}, Prime 𝔭 →
       Summable (fun n : ℕ ↦ ‖f (𝔭 ^ n)‖) := by
