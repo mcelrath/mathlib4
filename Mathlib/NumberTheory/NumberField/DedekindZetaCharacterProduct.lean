@@ -102,23 +102,36 @@ theorem dedekindZeta_eulerProduct_tprod (s : ℂ) (hs : 1 < s.re) :
 The local Euler factor of `dedekindZeta F` at the rational prime `p` is the inner sum
 `∑' e, dedekindZetaSummand F s (p ^ e)`. The standard theory of Dedekind zeta factorization
 identifies this with a product of geometric series indexed by primitive Dirichlet characters
-arising from the Galois group `Gal(F/ℚ)`. We state this as the local-factor identity below;
-the proof in a follow-on session uses `IsCyclotomicExtension.Rat.galEquivZMod_stabilizer`
-(Frobenius compatibility), unique factorization of ideals in `𝓞 F`, and the change-of-level
-identity `changeLevel_primitiveCharacter` for ramified primes.
+arising from `Gal(F/ℚ)`. The proof of the local factor identity decomposes naturally into
+two steps:
+
+**Step A (analytic side).** Let `g` denote the number of distinct primes `𝔭₁,…,𝔭_g` of `𝓞 F`
+above `p`, with inertia degrees `f₁,…,f_g`. Unique factorization in `𝓞 F` gives a bijection
+between norm-`p^e` ideals and tuples `(k₁,…,k_g) ∈ ℕ^g` with `∑ kᵢ fᵢ = e`. Computing the
+generating function:
+  `∑' e, idealNormCount F (p^e) · T^e = ∏ᵢ (1 - T^{fᵢ})⁻¹`  (with `T = p^(-s)`).
+
+**Step B (character side).** Frobenius `σ_p ∈ Gal(F/ℚ)` has order `f` (= the common inertia
+degree at all `g` primes above `p`, in the abelian-Galois case where decomposition group is
+cyclic). Via `IsCyclotomicExtension.Rat.galEquivZMod_stabilizer`, `σ_p` corresponds to
+`(p : (ZMod n)ˣ)`, and `χ.primitiveCharacter p = χ(σ_p)` for `χ ∈ Y` (away from the conductor).
+The cyclic-group character identity `∏_{χ ∈ Y} (1 - χ(g) T) = (1 - T^{ord g})^{|Y|/ord g}` gives:
+  `∏_{χ ∈ Y} (1 - χ̃(p) p^(-s))⁻¹ = ((1 - p^{-fs}))⁻ᵍ = ∏ᵢ (1 - p^{-fᵢs})⁻¹`.
+
+Steps A and B together give the local factor identity. **Both steps require Mathlib
+infrastructure that doesn't yet exist** — specifically, a `Finset` of primes above `p` in `𝓞 F`
+and a Frobenius-orbit decomposition of `Y` — and are deferred to follow-on sessions.
 -/
 
 /-- **Local-factor matching (sorry).** For an intermediate field `F` of `ℚ(ζₙ)/ℚ`, the
 prime-power Dedekind summand at any rational prime `p` factorizes as a product of primitive
 Dirichlet local Euler factors indexed by the character subgroup `Y` corresponding to `F`.
 
-This is the non-trivial local statement: it reduces to the identity
-`∑_{k ≥ 0} a_{p^k} p^{-ks} = ∏_χ (1 - χ̃(p) p^{-s})^{-1}`,
-where `a_m = idealNormCount F m` and `χ̃ = χ.primitiveCharacter` is the primitive character of
-`χ`. The use of primitive characters is what makes this hold uniformly at all primes, including
-those ramified in `F`: at primes `p` dividing `n` but not the conductor of `χ̃`, the value
-`χ̃ p` is non-zero (the unit value at `p mod conductor χ̃`) and contributes the missing Euler
-factor that the imprimitive `χ p` would zero out. -/
+This is the deepest piece of the abelian factorization theorem. See the section docstring above
+for the proof outline (Step A: unique factorization + generating function on the analytic side;
+Step B: Frobenius cycle structure + cyclic-group character orthogonality on the L-function
+side). The use of *primitive* characters is what makes the identity hold uniformly at all
+primes, including those ramified in `F`. -/
 theorem dedekindZeta_localFactor_eq_prod_dirichletLocal
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
