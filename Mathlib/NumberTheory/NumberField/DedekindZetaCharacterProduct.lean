@@ -1358,6 +1358,67 @@ private lemma galEquivZMod_mapSubgroup_inertia_eq_kernel
         (hfirst_iso.trans hram_tot.symm)
     linarith [hcard_inertia, hcard_ker]
 
+section R4
+
+open scoped Pointwise
+
+/-- **R4.** The order of the Frobenius modulo inertia: for any prime `PF` of `𝓞 F` above `p`,
+the cardinality of the decomposition group divided by the cardinality of the inertia group equals
+the inertia degree.
+
+**Proof:** `card_stabilizer_eq` gives `|stab| = e * f`; `card_inertia_in_F_eq_ramificationIdxIn`
+(R2) gives `|inertia| = e`; so `|stab| / |inertia| = e * f / e = f`. -/
+private lemma orderOf_decompositionRep_mod_inertia
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    {p : ℕ} [hp : Fact p.Prime]
+    (P : Ideal (𝓞 Kn)) [hPmax : P.IsMaximal]
+    [hPover : P.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ))] :
+    haveI : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+    Nat.card (MulAction.stabilizer Gal(F/ℚ) (P.comap (algebraMap (𝓞 F) (𝓞 Kn)))) /
+      Nat.card ((P.comap (algebraMap (𝓞 F) (𝓞 Kn))).inertia Gal(F/ℚ)) =
+        Ideal.inertiaDegIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
+  haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  haveI hGalFQ : IsGaloisGroup Gal(F/ℚ) ℚ F := IsGaloisGroup.of_isGalois ℚ F
+  haveI hGalFZ : IsGaloisGroup Gal(F/ℚ) ℤ (𝓞 F) := inferInstance
+  let p_ideal := Ideal.span ({(p : ℤ)} : Set ℤ)
+  have hp_ideal_ne_bot : p_ideal ≠ ⊥ := by
+    simp only [p_ideal, ne_eq, Ideal.span_singleton_eq_bot]
+    exact_mod_cast hp.out.ne_zero
+  let PF := P.comap (algebraMap (𝓞 F) (𝓞 Kn))
+  haveI h_PF_max : PF.IsMaximal :=
+    Ideal.isMaximal_comap_of_isIntegral_of_isMaximal P
+  have hPF_ne_bot : PF ≠ ⊥ :=
+    Ring.ne_bot_of_isMaximal_of_not_isField h_PF_max (RingOfIntegers.not_isField F)
+  letI hFieldZ : Field (ℤ ⧸ p_ideal) := Ideal.Quotient.field _
+  letI hFieldF : Field (𝓞 F ⧸ PF) := Ideal.Quotient.field _
+  haveI h_isSep : Algebra.IsSeparable (ℤ ⧸ p_ideal) (𝓞 F ⧸ PF) := by
+    haveI : Finite (𝓞 F ⧸ PF) := Ring.HasFiniteQuotients.finiteQuotient hPF_ne_bot
+    haveI : Finite (ℤ ⧸ p_ideal) := inferInstance
+    haveI : PerfectField (ℤ ⧸ p_ideal) := inferInstance
+    haveI : Module.Finite (ℤ ⧸ p_ideal) (𝓞 F ⧸ PF) :=
+      (Module.finite_iff_finite (R := ℤ ⧸ p_ideal)).mpr ‹_›
+    haveI : Algebra.IsAlgebraic (ℤ ⧸ p_ideal) (𝓞 F ⧸ PF) :=
+      Algebra.IsAlgebraic.of_finite (ℤ ⧸ p_ideal) (𝓞 F ⧸ PF)
+    exact inferInstance
+  -- |stabilizer| = e * f
+  have h_stab : Nat.card (MulAction.stabilizer Gal(F/ℚ) PF) =
+      p_ideal.ramificationIdxIn (𝓞 F) * p_ideal.inertiaDegIn (𝓞 F) :=
+    Ideal.card_stabilizer_eq (G := Gal(F/ℚ)) p_ideal hp_ideal_ne_bot PF
+  -- |inertia| = e (by R2)
+  haveI h_PF_liesover : PF.LiesOver p_ideal := inferInstance
+  have h_inertia : Nat.card (PF.inertia Gal(F/ℚ)) =
+      Ideal.ramificationIdxIn p_ideal (𝓞 F) :=
+    card_inertia_in_F_eq_ramificationIdxIn (n := n) (Kn := Kn) F PF
+  -- e ≠ 0
+  have he_ne_zero : p_ideal.ramificationIdxIn (𝓞 F) ≠ 0 :=
+    Ideal.ramificationIdxIn_ne_zero (G := Gal(F/ℚ)) hp_ideal_ne_bot
+  -- |stab| / |inertia| = e * f / e = f
+  rw [h_stab, h_inertia, Nat.mul_div_cancel_left _ (Nat.pos_of_ne_zero he_ne_zero)]
+
+end R4
+
 /-! ### Lemma A.3 — cardinality of `Y ⊓ subgroupOfCoprimeConductor p`
 
 The intersection of the character subgroup `Y` with the coprime-conductor subgroup `Y_p`
