@@ -1187,6 +1187,44 @@ private lemma card_subgroupOfCoprimeConductor_eq_quotient
     simp only [← MulChar.coe_toUnitHom, Units.val_eq_one]
   rw [h_sg_eq]
   exact MulChar.card_subgroupOrderIsoSubgroupMulChar
+/-- **R2.** The cardinality of the inertia group of `Gal(F/ℚ)` at a prime `PF` of `𝓞 F` above `p`
+equals the ramification index of `p` in `𝓞 F`.
+
+This is a thin wrapper around `Ideal.card_inertia_eq_ramificationIdxIn`, specialized to the
+setting of an intermediate field `F` of a cyclotomic abelian extension `Kn/ℚ`. -/
+private lemma card_inertia_in_F_eq_ramificationIdxIn
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    {p : ℕ} [hpFact : Fact p.Prime]
+    (PF : Ideal (𝓞 F)) [hPFmax : PF.IsMaximal]
+    [hPFlies : PF.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ))] :
+    haveI : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+    Nat.card (PF.inertia Gal(F/ℚ)) =
+      Ideal.ramificationIdxIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
+  haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+  haveI hGalFQ : IsGaloisGroup Gal(F/ℚ) ℚ F := IsGaloisGroup.of_isGalois ℚ F
+  haveI hGalFZ : IsGaloisGroup Gal(F/ℚ) ℤ (𝓞 F) := inferInstance
+  have hp := hpFact.out
+  let p_ideal := Ideal.span ({(p : ℤ)} : Set ℤ)
+  have hp_ideal_ne_bot : p_ideal ≠ ⊥ := by
+    simp only [p_ideal, ne_eq, Ideal.span_singleton_eq_bot]
+    exact_mod_cast hp.ne_zero
+  have hPF_ne_bot : PF ≠ ⊥ :=
+    Ring.ne_bot_of_isMaximal_of_not_isField hPFmax (RingOfIntegers.not_isField F)
+  letI hFieldZ : Field (ℤ ⧸ p_ideal) := Ideal.Quotient.field _
+  letI hFieldF : Field (𝓞 F ⧸ PF) := Ideal.Quotient.field _
+  haveI h_isSep : Algebra.IsSeparable (ℤ ⧸ p_ideal) (𝓞 F ⧸ PF) := by
+    haveI : Finite (𝓞 F ⧸ PF) := Ring.HasFiniteQuotients.finiteQuotient hPF_ne_bot
+    haveI : Finite (ℤ ⧸ p_ideal) := inferInstance
+    haveI : PerfectField (ℤ ⧸ p_ideal) := inferInstance
+    haveI : Module.Finite (ℤ ⧸ p_ideal) (𝓞 F ⧸ PF) :=
+      (Module.finite_iff_finite (R := ℤ ⧸ p_ideal)).mpr ‹_›
+    haveI : Algebra.IsAlgebraic (ℤ ⧸ p_ideal) (𝓞 F ⧸ PF) :=
+      Algebra.IsAlgebraic.of_finite (ℤ ⧸ p_ideal) (𝓞 F ⧸ PF)
+    exact inferInstance
+  exact Ideal.card_inertia_eq_ramificationIdxIn (G := Gal(F/ℚ)) p_ideal hp_ideal_ne_bot PF
+
 /-! ### Lemma A.3 — cardinality of `Y ⊓ subgroupOfCoprimeConductor p`
 
 The intersection of the character subgroup `Y` with the coprime-conductor subgroup `Y_p`
