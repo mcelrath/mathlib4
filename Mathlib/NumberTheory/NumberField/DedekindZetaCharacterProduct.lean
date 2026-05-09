@@ -92,6 +92,9 @@ follows by composition of the per-prime local factor identity (over all primes) 
 `prod_dirichletLocal_eq_prod_LFunction`.
 -/
 
+-- The file is long due to the extended proof content for the global factorization theorem.
+set_option linter.style.longFile 2200 in
+
 @[expose] public section
 
 noncomputable section
@@ -1841,27 +1844,56 @@ These are left as `sorry` markers below.
 -/
 
 /-- **Conductor of `changeLevel`.** Lifting a character to a higher level preserves conductor.
-The conductor of `changeLevel h χ` equals the conductor of `χ`, because both characters have
-the same primitive character: `changeLevel h χ = changeLevel (conductor_dvd_level.trans h) χ.primitiveCharacter`.
 
-Both directions:
-- `(changeLevel h χ).conductor ∣ χ.conductor`: `changeLevel h χ` factors through `χ.primitiveCharacter`
-  at level `conductor(χ)` (via `changeLevel_trans` + `changeLevel_primitiveCharacter`), so conductor
-  of `changeLevel h χ` divides `conductor(χ)` by minimality.
-- `χ.conductor ∣ (changeLevel h χ).conductor`: Since `χ.primitiveCharacter` is primitive and
-  `changeLevel (conductor_dvd_level.trans h) χ.primitiveCharacter = changeLevel h χ`, any factoring
-  of `changeLevel h χ` through level `d` must have `conductor(χ) ∣ d`, so the conductor of
-  `changeLevel h χ` is ≥ `conductor(χ)`.
-
-TODO: Formalize the second direction (requires showing primitive characters induce equal conductors). -/
+The key equivalence: for `c ∣ m`, `FactorsThrough (changeLevel h χ) c ↔ FactorsThrough χ c`.
+This follows from `changeLevel_injective h` and `changeLevel_trans`.
+Since both `conductor(χ)` and `conductor(changeLevel h χ)` are the minimum of their respective
+conductor sets restricted to divisors of `m`, and these sets agree, the conductors are equal. -/
 private lemma conductor_changeLevel {n m : ℕ} [NeZero n] [NeZero m] (h : m ∣ n)
     (χ : DirichletCharacter ℂ m) :
     (DirichletCharacter.changeLevel h χ).conductor = χ.conductor := by
-  -- Proof uses the fact that both sides share the same primitive character.
-  -- The formal proof requires that conductor is determined by the primitive character,
-  -- i.e., `conductor(changeLevel h χ) = level(χ.primitiveCharacter) = conductor(χ)`.
-  -- TODO: close this with IsPrimitive uniqueness argument.
-  sorry
+  -- Key equivalence: for c ∣ m, FactorsThrough (changeLevel h χ) c ↔ FactorsThrough χ c.
+  -- Proof: changeLevel h χ = changeLevel (c_dvd_n) ξ iff χ = changeLevel (c_dvd_m) ξ
+  --        by changeLevel_trans + changeLevel_injective h.
+  have key : ∀ (c : ℕ) (_ : c ∣ m),
+      (DirichletCharacter.changeLevel h χ).FactorsThrough c ↔ χ.FactorsThrough c := fun c hc ↦ by
+    constructor
+    · -- Forward: changeLevel h χ = changeLevel hc_n ξ (hc_n : c ∣ n), so χ = changeLevel hc ξ.
+      rintro ⟨hc_n, ξ, hξ⟩
+      refine ⟨hc, ξ, DirichletCharacter.changeLevel_injective h ?_⟩
+      -- Goal: changeLevel h χ = changeLevel h (changeLevel hc ξ)
+      -- Rewrite RHS: changeLevel h (changeLevel hc ξ) = changeLevel (dvd_trans hc h) ξ [trans]
+      --            = changeLevel hc_n ξ [proof irrel] = LHS [by hξ.symm]
+      have hrw : DirichletCharacter.changeLevel h (DirichletCharacter.changeLevel hc ξ) =
+                 DirichletCharacter.changeLevel hc_n ξ :=
+        by rw [← DirichletCharacter.changeLevel_trans]
+      rw [hrw]; exact hξ
+    · -- Backward: χ = changeLevel hc_m ξ (hc_m : c ∣ m), so changeLevel h χ = changeLevel hc_n ξ.
+      rintro ⟨hc_m, ξ, hξ⟩
+      refine ⟨hc.trans h, ξ, ?_⟩
+      -- Goal: changeLevel h χ = changeLevel (hc.trans h) ξ
+      -- changeLevel h (changeLevel hc_m ξ) = changeLevel (hc_m.trans h) ξ [trans]
+      --                                    = changeLevel (hc.trans h) ξ   [proof irrel]
+      have hrw : DirichletCharacter.changeLevel h (DirichletCharacter.changeLevel hc_m ξ) =
+                 DirichletCharacter.changeLevel (hc.trans h) ξ :=
+        by rw [← DirichletCharacter.changeLevel_trans]
+      rw [hξ]; exact hrw
+  -- conductor(χ) ∈ conductorSet(changeLevel h χ)
+  have h1 : χ.conductor ∈ (DirichletCharacter.changeLevel h χ).conductorSet :=
+    (DirichletCharacter.mem_conductorSet_iff _).mpr
+      ((key _ χ.conductor_dvd_level).mpr (DirichletCharacter.factorsThrough_conductor χ))
+  -- conductor(changeLevel h χ) ∣ conductor(χ)  [direction 1]
+  have hdir1 : (DirichletCharacter.changeLevel h χ).conductor ∣ χ.conductor :=
+    DirichletCharacter.conductor_dvd_of_mem_conductorSet _ h1
+  -- conductor(changeLevel h χ) ∣ m  (since it divides conductor(χ) which divides m)
+  have hc_dvd_m : (DirichletCharacter.changeLevel h χ).conductor ∣ m :=
+    hdir1.trans χ.conductor_dvd_level
+  -- conductor(changeLevel h χ) ∈ conductorSet(χ)
+  have h2 : (DirichletCharacter.changeLevel h χ).conductor ∈ χ.conductorSet :=
+    (DirichletCharacter.mem_conductorSet_iff _).mpr
+      ((key _ hc_dvd_m).mp (DirichletCharacter.factorsThrough_conductor _))
+  -- conclude: conductor(χ) ∣ conductor(changeLevel h χ), then both divide each other
+  exact Nat.dvd_antisymm hdir1 (DirichletCharacter.conductor_dvd_of_mem_conductorSet _ h2)
 
 -- NOTE: `primitiveCharacter_changeLevel` is omitted here because:
 -- (1) The statement `(changeLevel h χ).primitiveCharacter = χ.primitiveCharacter` is ill-typed
