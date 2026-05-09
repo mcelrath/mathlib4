@@ -1895,14 +1895,14 @@ private lemma conductor_changeLevel {n m : ℕ} [NeZero n] [NeZero m] (h : m ∣
   -- conclude: conductor(χ) ∣ conductor(changeLevel h χ), then both divide each other
   exact Nat.dvd_antisymm hdir1 (DirichletCharacter.conductor_dvd_of_mem_conductorSet _ h2)
 
--- NOTE: `primitiveCharacter_changeLevel` is omitted here because:
--- (1) The statement `(changeLevel h χ).primitiveCharacter = χ.primitiveCharacter` is ill-typed
---     unless `conductor_changeLevel` is proved first (both sides have types indexed by
---     `(changeLevel h χ).conductor` and `χ.conductor` respectively).
--- (2) It is only needed in `prod_chars_eq_prod_inertia_ramified` which is currently a sorry.
--- Once `conductor_changeLevel` is proved, the correct statement would be:
---   `conductor_changeLevel h χ ▸ (changeLevel h χ).primitiveCharacter = χ.primitiveCharacter`
--- proved by `changeLevel_injective` at the conductor level.
+-- NOTE: `primitiveCharacter_changeLevel` needs careful formulation.
+-- Since conductor_changeLevel h χ : (changeLevel h χ).conductor = χ.conductor,
+-- both primitiveCharacters have types `DirichletCharacter ℂ (changeLevel h χ).conductor`
+-- and `DirichletCharacter ℂ χ.conductor` respectively. After transport they are equal.
+-- The key application (evaluation at a prime p) is:
+--   (changeLevel h χ).primitiveCharacter (p : ℕ) = χ.primitiveCharacter (p : ℕ)
+-- which follows from conductor_changeLevel by DFunLike.congr or cast.
+-- This is left for future work as it's only needed in prod_chars_eq_prod_inertia_ramified.
 
 /-- **Ramified-case Step B.** For `p ∣ n` and `F` an intermediate field of `ℚ(ζₙ)/ℚ`, the
 character product `∏ χ : Y, (1 - χ.val.primitiveCharacter p * T)⁻¹` equals the prime product
