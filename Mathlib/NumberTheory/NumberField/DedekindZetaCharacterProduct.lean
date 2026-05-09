@@ -70,7 +70,7 @@ Mathlib-PR-shaped utility lemmas added in this file (independently of the analyt
   `∏ x : G, (1 - (φ x : ℂ) · T) = (1 - T^|range|)^|ker|`.
 * `subgroupOfCoprimeConductor_iff_trivial_on_unitsMap_ker` — Pontryagin-conductor equivalence.
 * `card_subgroupOfCoprimeConductor_eq_quotient` — cardinality via Pontryagin.
-* `card_inter_Y_subgroupOfCoprimeConductor` — `|Y ⊓ Y_p| = |Y|/e` (for `p` coprime to `n`).
+* `card_inter_Y_subgroupOfCoprimeConductor` — `|Y ⊓ Y_p| = |Y|/e` (general, for any prime `p`).
 * `frobeniusAt` — the Frobenius element `σ_p ∈ Gal(F/ℚ)` for `p` coprime to `n`.
 * `orderOf_restrictNormal_eq_inertiaDegIn` — `orderOf (σ_p|_F) = inertiaDegIn`.
 * `evalAtPrime` (definition) — evaluation hom `Y_p →* ℂˣ`.
@@ -1456,7 +1456,7 @@ The proof proceeds via Pontryagin duality:
   under `MulChar.subgroupOrderIsoSubgroupMulChar`.
 - Use the anti-isomorphism's sup/inf exchange: intersection = dual of join.
 - Apply `card_subgroupOrderIsoSubgroupMulChar` to get the quotient cardinality.
-- Identify the quotient cardinality as `|Y|/e` via second-isomorphism + Galois inertia.
+- Identify the quotient cardinality as `|Y|/e` via R1 (inertia identification) + R2 (cardinality).
 
 Proof sub-steps:
 - `hYp_eq`: `subgroupOfCoprimeConductor p = dual of (ZMod.unitsMap hm_dvd).ker`
@@ -1464,8 +1464,8 @@ Proof sub-steps:
 - `hY_eq`: `Y = dual of (galEquivZMod n Kn).mapSubgroup F.fixingSubgroup` via
   `mem_intermediateFieldEquivSubgroupChar_iff`.
 - `hInter`: intersection of duals = dual of sup, via `OrderIso.map_sup` in the dual order.
-- Cardinality conclusion: `MulChar.card_subgroupOrderIsoSubgroupMulChar` + the unramified-case
-  reduction `e = 1`, `I_p = ⊥` (via `divMaxPow n p = n` for `p.Coprime n`).
+- Sub-step E: Use R1 + relIndex chain + first iso to identify
+  `|(ZMod n)ˣ ⧸ (H_map ⊔ I_p)| = |Y| / ramificationIdxIn p (𝓞 F)`.
 -/
 private lemma card_inter_Y_subgroupOfCoprimeConductor
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
@@ -1473,7 +1473,7 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
     (F : IntermediateField ℚ Kn) [NumberField F]
     (Y : Subgroup (DirichletCharacter ℂ n))
     (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
-    {p : ℕ} (hp : p.Prime) (hp_n : p.Coprime n) :
+    {p : ℕ} (hp : p.Prime) :
     Nat.card (↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p)) =
       Nat.card Y / Ideal.ramificationIdxIn (Ideal.span ({(p : ℤ)} : Set ℤ)) (𝓞 F) := by
   -- H_map: image of F.fixingSubgroup in (ZMod n)ˣ under galEquivZMod.
@@ -1487,14 +1487,6 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
   let I_p := (ZMod.unitsMap hm_dvd).ker
   -- Sub-step A: subgroupOfCoprimeConductor p = dual of I_p under
   -- subgroupOrderIsoSubgroupMulChar.
-  -- Proof chain: p.Coprime χ.conductor
-  --   ↔ χ.conductor ∣ Nat.divMaxPow n p  (since χ.conductor ∣ n, p ∤ divMaxPow n p)
-  --   ↔ FactorsThrough χ (Nat.divMaxPow n p)  (conductor_dvd and factorsThrough)
-  --   ↔ (ZMod.unitsMap hm_dvd).ker ≤ χ.toUnitHom.ker  (factorsThrough_iff_ker_unitsMap)
-  --   ↔ ∀ u ∈ I_p, χ.toUnitHom u = 1  (definition of ker ≤ ker)
-  --   ↔ ∀ u ∈ I_p, χ u = 1            (by coe_toUnitHom)
-  --   ↔ χ ∈ (subgroupOrderIsoSubgroupMulChar ... I_p).ofDual
-  --     (by mem_subgroupOrderIsoSubgroupMulChar_iff).
   have hYp_eq : DirichletCharacter.subgroupOfCoprimeConductor (R := ℂ) (n := n) p =
       (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ I_p).ofDual := by
     rw [show I_p = (ZMod.unitsMap (divMaxPow_dvd' n p)).ker from rfl]
@@ -1503,13 +1495,6 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
         MulChar.mem_subgroupOrderIsoSubgroupMulChar_iff]
     simp only [← MulChar.coe_toUnitHom, Units.val_eq_one]
   -- Sub-step B: Y = dual of H_map under subgroupOrderIsoSubgroupMulChar.
-  -- From mem_intermediateFieldEquivSubgroupChar_iff:
-  --   χ ∈ Y ↔ ∀ σ ∈ F.fixingSubgroup, χ (galEquivZMod n Kn σ) = 1
-  -- From Subgroup.mem_map (H_map = mapSubgroup(F.fixingSubgroup)):
-  --   u ∈ H_map ↔ ∃ σ ∈ F.fixingSubgroup, galEquivZMod n Kn σ = u
-  -- Combined with mem_subgroupOrderIsoSubgroupMulChar_iff:
-  --   χ ∈ (subgroupOrderIsoSubgroupMulChar ... H_map).ofDual ↔ ∀ u ∈ H_map, χ u = 1
-  --   ↔ ∀ σ ∈ F.fixingSubgroup, χ (galEquivZMod n Kn σ) = 1  ↔ χ ∈ Y.
   have hY_eq : Y = (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ H_map).ofDual := by
     rw [hY]
     ext χ
@@ -1517,70 +1502,39 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
         IsCyclotomicExtension.Rat.mem_intermediateFieldEquivSubgroupChar_iff]
     constructor
     · intro h u hu
-      -- hu : u ∈ H_map = mapSubgroup(F.fixingSubgroup) = Subgroup.map galEquivZMod F.fixingSubgroup
       simp only [H_map, MulEquiv.coe_mapSubgroup, Subgroup.mem_map] at hu
       obtain ⟨σ, hσ, rfl⟩ := hu
       exact h σ hσ
     · intro h σ hσ
-      -- galEquivZMod σ ∈ H_map since σ ∈ F.fixingSubgroup.
       apply h
       simp only [H_map, MulEquiv.coe_mapSubgroup, Subgroup.mem_map]
       exact ⟨σ, hσ, rfl⟩
   -- Sub-step C: Y ⊓ Y_p = dual of (H_map ⊔ I_p).
-  -- subgroupOrderIsoSubgroupMulChar : Subgroup Mˣ ≃o (Subgroup (MulChar M R))ᵒᵈ
-  -- preserves ⊔ (order-isomorphism). Taking ofDual converts ⊔ᵒᵈ to ⊓.
   have hInter : Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor (R := ℂ) (n := n) p =
       (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ (H_map ⊔ I_p)).ofDual := by
     rw [hY_eq, hYp_eq]
-    -- Goal: (iso H_map).ofDual ⊓ (iso I_p).ofDual = (iso (H_map ⊔ I_p)).ofDual
-    -- Use ← ofDual_sup: ofDual a ⊓ ofDual b = ofDual (a ⊔ b), then ← map_sup.
     rw [← ofDual_sup, ← (MulChar.subgroupOrderIsoSubgroupMulChar (ZMod n) ℂ).map_sup]
   -- Sub-step D: cardinality via card_subgroupOrderIsoSubgroupMulChar.
   rw [hInter]
   simp only [MulChar.card_subgroupOrderIsoSubgroupMulChar]
   -- Goal: Nat.card ((ZMod n)ˣ ⧸ (H_map ⊔ I_p)) = Nat.card Y / ramificationIdxIn p (𝓞 F).
-  -- Sub-step E: unramified case (hp_n : p.Coprime n).
-  -- Since p ∤ n: divMaxPow n p = n, so I_p = ⊥, H_map ⊔ I_p = H_map,
-  -- ramificationIdxIn = 1 (tower law), and Nat.card Y = |(ZMod n)ˣ ⧸ H_map| by duality.
-  -- (i) p ∤ n and divMaxPow n p = n.
-  have hp_not_dvd : ¬ p ∣ n := hp.coprime_iff_not_dvd.mp hp_n
-  have hm_eq : Nat.divMaxPow n p = n := by
-    simp [Nat.divMaxPow, Nat.maxPowDvdDiv_of_not_dvd hp_not_dvd]
-  -- (ii) I_p = ⊥: ZMod.unitsMap hm_dvd is injective when divMaxPow n p = n.
-  have hI_p_bot : I_p = ⊥ := by
-    rw [eq_bot_iff]
-    intro u hu
-    rw [Subgroup.mem_bot]
-    simp only [I_p, MonoidHom.mem_ker] at hu
-    -- hu : ZMod.unitsMap hm_dvd u = 1, i.e. cast of u in ZMod (divMaxPow n p) is 1
-    have hval : ((u : ZMod n).cast : ZMod (Nat.divMaxPow n p)) = 1 := by
-      have := congr_arg Units.val hu
-      rwa [ZMod.unitsMap_val, Units.val_one] at this
-    -- When divMaxPow n p = n, the cast is the identity ZMod.cast_id
-    rw [hm_eq, ZMod.cast_id] at hval
-    exact Units.val_eq_one.mp hval
-  -- (iii) H_map ⊔ I_p = H_map.
-  rw [hI_p_bot, sup_bot_eq]
-  -- Goal: Nat.card ((ZMod n)ˣ ⧸ H_map) = Nat.card Y / ramificationIdxIn p (𝓞 F).
-  -- (iv) ramificationIdxIn p (𝓞 F) = 1 via tower law Kn/F/ℚ.
+  -- Sub-step E: general case via R1 + relIndex chain + first iso.
   haveI hpFact : Fact (Nat.Prime p) := ⟨hp⟩
   haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
   haveI hKnGal : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
   let p_ideal := Ideal.span ({(p : ℤ)} : Set ℤ)
   have hp_ideal_ne_bot : p_ideal ≠ ⊥ := by
-    simp only [p_ideal, ne_eq, Ideal.span_singleton_eq_bot]
-    exact_mod_cast hp.ne_zero
-  -- Get a prime P of 𝓞 Kn above p_ideal, then take PF = P.comap.
+    simp only [p_ideal, ne_eq, Ideal.span_singleton_eq_bot]; exact_mod_cast hp.ne_zero
+  -- Obtain a prime P of 𝓞 Kn above p_ideal, set PF = P.comap in 𝓞 F.
   obtain ⟨⟨P, hPprime, hPover⟩⟩ := p_ideal.nonempty_primesOver (S := 𝓞 Kn)
-  haveI : P.LiesOver p_ideal := hPover
-  haveI : P.IsPrime := hPprime
+  haveI hP_IsPrime : P.IsPrime := hPprime
+  haveI hP_LiesOver : P.LiesOver p_ideal := hPover
   have h_P_ne_bot : P ≠ ⊥ :=
     Ideal.ne_bot_of_mem_primesOver hp_ideal_ne_bot ⟨hPprime, hPover⟩
   haveI hPmax : P.IsMaximal := hPprime.isMaximal h_P_ne_bot
   let PF := P.comap (algebraMap (𝓞 F) (𝓞 Kn))
   haveI h_PF_liesover_p : PF.LiesOver p_ideal := inferInstance
-  haveI h_PF_max : PF.IsMaximal :=
-    Ideal.isMaximal_comap_of_isIntegral_of_isMaximal P
+  haveI h_PF_max : PF.IsMaximal := Ideal.isMaximal_comap_of_isIntegral_of_isMaximal P
   have hPF_ne_bot : PF ≠ ⊥ :=
     Ring.ne_bot_of_isMaximal_of_not_isField h_PF_max (RingOfIntegers.not_isField F)
   haveI hGalFKn : IsGaloisGroup F.fixingSubgroup F Kn := isGaloisGroup_fixingSubgroup F
@@ -1588,22 +1542,137 @@ private lemma card_inter_Y_subgroupOfCoprimeConductor
   letI hsd : SMulDistribClass (↥F.fixingSubgroup) (𝓞 Kn) Kn := inferInstance
   haveI hGalFKn_oi : IsGaloisGroup F.fixingSubgroup (𝓞 F) (𝓞 Kn) :=
     IsGaloisGroup.of_isFractionRing F.fixingSubgroup (𝓞 F) (𝓞 Kn) F Kn
-  have hramIdx_Kn : p_ideal.ramificationIdxIn (𝓞 Kn) = 1 :=
-    IsCyclotomicExtension.Rat.ramificationIdxIn_eq_of_not_dvd p Kn hp_not_dvd
+  -- (E.1) Nat.card Y = Nat.card ((ZMod n)ˣ ⧸ H_map) by Pontryagin duality.
+  have hcard_Y : Nat.card Y = Nat.card ((ZMod n)ˣ ⧸ H_map) := by
+    rw [hY_eq]; exact MulChar.card_subgroupOrderIsoSubgroupMulChar
+  -- (E.2) H_map is normal in the abelian group (ZMod n)ˣ.
+  haveI hH_map_normal : H_map.Normal :=
+    ⟨fun n hn g => by rw [mul_comm g n, mul_assoc, mul_inv_cancel g, mul_one]; exact hn⟩
+  -- (E.3) relIndex chain:
+  -- H_map.relIndex(H_map ⊔ I_p) = H_map.relIndex(I_p) [relIndex_sup_left].
+  have hrel_sup : H_map.relIndex (H_map ⊔ I_p) = H_map.relIndex I_p :=
+    @Subgroup.relIndex_sup_left _ _ I_p H_map hH_map_normal
+  -- R1: I_p = galEquivZMod.mapSubgroup(P.inertia Gal(Kn/ℚ)).
+  have hI_p_eq : I_p = (IsCyclotomicExtension.Rat.galEquivZMod n Kn).mapSubgroup
+      (P.inertia Gal(Kn/ℚ)) :=
+    (galEquivZMod_mapSubgroup_inertia_eq_kernel p P).symm
+  -- H_map.relIndex(I_p) = F.fixingSubgroup.relIndex(P.inertia Gal(Kn/ℚ))
+  -- [relIndex_map_map_of_injective].
+  have hrel_galois : H_map.relIndex I_p =
+      F.fixingSubgroup.relIndex (P.inertia Gal(Kn/ℚ)) := by
+    rw [hI_p_eq]
+    simp only [H_map, MulEquiv.coe_mapSubgroup]
+    exact Subgroup.relIndex_map_map_of_injective _ _
+      (IsCyclotomicExtension.Rat.galEquivZMod n Kn).injective
+  -- F.fixingSubgroup.relIndex(P.inertia) = Nat.card(image) [relIndex_ker].
+  let restrictF : Gal(Kn/ℚ) →* Gal(F/ℚ) := AlgEquiv.restrictNormalHom F
+  have hker_F_eq : restrictF.ker = F.fixingSubgroup :=
+    IntermediateField.restrictNormalHom_ker F
+  have hrel_restrict : F.fixingSubgroup.relIndex (P.inertia Gal(Kn/ℚ)) =
+      Nat.card ((P.inertia Gal(Kn/ℚ)).map restrictF) := by
+    have h := Subgroup.relIndex_ker (f := restrictF) (K := P.inertia Gal(Kn/ℚ))
+    rw [hker_F_eq] at h
+    exact h
+  -- (E.4) Compute Nat.card(image) = ramificationIdxIn p (𝓞 F) via first iso.
+  -- Let f_r = restrictF restricted to (P.inertia Gal(Kn/ℚ)).
+  let f_r := restrictF.restrict (P.inertia Gal(Kn/ℚ))
+  have hrange_f_r : f_r.range = (P.inertia Gal(Kn/ℚ)).map restrictF :=
+    MonoidHom.restrict_range _ _
+  -- First iso: Nat.card(f_r.ker) * Nat.card(f_r.range) = Nat.card(P.inertia Gal(Kn/ℚ)).
+  have hfirst_iso : Nat.card f_r.ker * Nat.card f_r.range =
+      Nat.card (P.inertia Gal(Kn/ℚ)) := by
+    have h := f_r.ker.card_mul_index
+    rw [Subgroup.index_ker] at h
+    exact h
+  -- Kernel of f_r: (restrictNormalHom F).ker.subgroupOf(P.inertia).
+  have hker_f_r : f_r.ker = F.fixingSubgroup.subgroupOf (P.inertia Gal(Kn/ℚ)) := by
+    rw [MonoidHom.ker_restrict, hker_F_eq]
+  -- Nat.card(F.fixingSubgroup.subgroupOf(P.inertia)) = Nat.card(P.inertia F.fixingSubgroup).
+  -- Use: (H.subgroupOf K).map K.subtype = H ⊓ K (subgroupOf_map_subtype)
+  -- and equivMapOfInjective for cardinality.
+  have hcard_ker_f_r : Nat.card f_r.ker = Nat.card (P.inertia F.fixingSubgroup) := by
+    rw [hker_f_r]
+    -- f_r.ker = F.fixingSubgroup.subgroupOf (P.inertia Gal(Kn/ℚ)) as a subgroup of P.inertia Gal(Kn/ℚ)
+    -- P.inertia F.fixingSubgroup = (P.inertia Gal(Kn/ℚ)).subgroupOf F.fixingSubgroup via subgroupOf_inertia
+    have h1 : Nat.card ↥(F.fixingSubgroup.subgroupOf (P.inertia Gal(Kn/ℚ))) =
+        Nat.card ↥((F.fixingSubgroup.subgroupOf (P.inertia Gal(Kn/ℚ))).map
+          (P.inertia Gal(Kn/ℚ)).subtype) :=
+      Nat.card_congr (Subgroup.equivMapOfInjective _ _ (Subgroup.subtype_injective _)).toEquiv
+    have h2 : (F.fixingSubgroup.subgroupOf (P.inertia Gal(Kn/ℚ))).map
+        (P.inertia Gal(Kn/ℚ)).subtype = F.fixingSubgroup ⊓ P.inertia Gal(Kn/ℚ) :=
+      Subgroup.subgroupOf_map_subtype _ _
+    have h3 : Nat.card ↥(P.inertia F.fixingSubgroup) =
+        Nat.card ↥((P.inertia F.fixingSubgroup).map F.fixingSubgroup.subtype) :=
+      Nat.card_congr (Subgroup.equivMapOfInjective _ _ (Subgroup.subtype_injective _)).toEquiv
+    have h4 : (P.inertia F.fixingSubgroup).map F.fixingSubgroup.subtype =
+        P.inertia Gal(Kn/ℚ) ⊓ F.fixingSubgroup :=
+      AddSubgroup.inertia_map_subtype P.toAddSubgroup F.fixingSubgroup
+    rw [h1, h2, h3, h4, inf_comm]
+  -- Nat.card(P.inertia Gal(Kn/ℚ)) = ramificationIdxIn p (𝓞 Kn) [from R1 proof].
+  haveI hGalKnQ : IsGaloisGroup Gal(Kn/ℚ) ℚ Kn := IsGaloisGroup.of_isGalois ℚ Kn
+  haveI hGalKnZ : IsGaloisGroup Gal(Kn/ℚ) ℤ (𝓞 Kn) := inferInstance
+  letI hFieldZ : Field (ℤ ⧸ p_ideal) := Ideal.Quotient.field _
+  letI hFieldKn : Field (𝓞 Kn ⧸ P) := Ideal.Quotient.field _
+  haveI h_isSepKn : Algebra.IsSeparable (ℤ ⧸ p_ideal) (𝓞 Kn ⧸ P) := by
+    haveI : Finite (𝓞 Kn ⧸ P) := Ring.HasFiniteQuotients.finiteQuotient h_P_ne_bot
+    haveI : PerfectField (ℤ ⧸ p_ideal) := inferInstance
+    haveI : Module.Finite (ℤ ⧸ p_ideal) (𝓞 Kn ⧸ P) :=
+      (Module.finite_iff_finite (R := ℤ ⧸ p_ideal)).mpr ‹_›
+    haveI : Algebra.IsAlgebraic (ℤ ⧸ p_ideal) (𝓞 Kn ⧸ P) :=
+      Algebra.IsAlgebraic.of_finite _ _
+    exact inferInstance
+  have hcard_inertia_Kn : Nat.card (P.inertia Gal(Kn/ℚ)) =
+      p_ideal.ramificationIdxIn (𝓞 Kn) :=
+    Ideal.card_inertia_eq_ramificationIdxIn (G := Gal(Kn/ℚ)) p_ideal hp_ideal_ne_bot P
+  -- Nat.card(P.inertia F.fixingSubgroup) = PF.ramificationIdxIn(𝓞 Kn).
+  haveI hP_LiesOver_PF : P.LiesOver PF := inferInstance
+  letI hFieldF : Field (𝓞 F ⧸ PF) := Ideal.Quotient.field _
+  haveI h_isSepFKn : Algebra.IsSeparable (𝓞 F ⧸ PF) (𝓞 Kn ⧸ P) := by
+    haveI : Finite (𝓞 Kn ⧸ P) := Ring.HasFiniteQuotients.finiteQuotient h_P_ne_bot
+    haveI : Finite (𝓞 F ⧸ PF) := Ring.HasFiniteQuotients.finiteQuotient hPF_ne_bot
+    haveI : PerfectField (𝓞 F ⧸ PF) := inferInstance
+    haveI : Module.Finite (𝓞 F ⧸ PF) (𝓞 Kn ⧸ P) :=
+      (Module.finite_iff_finite (R := 𝓞 F ⧸ PF)).mpr ‹_›
+    haveI : Algebra.IsAlgebraic (𝓞 F ⧸ PF) (𝓞 Kn ⧸ P) :=
+      Algebra.IsAlgebraic.of_finite _ _
+    exact inferInstance
+  have hcard_inertia_FKn : Nat.card (P.inertia F.fixingSubgroup) =
+      PF.ramificationIdxIn (𝓞 Kn) :=
+    Ideal.card_inertia_eq_ramificationIdxIn (G := F.fixingSubgroup) PF hPF_ne_bot P
+  -- Tower law: ramificationIdxIn p (𝓞 F) * PF.ramificationIdxIn(𝓞 Kn) = ramificationIdxIn p (𝓞 Kn).
   have htower : p_ideal.ramificationIdxIn (𝓞 F) * PF.ramificationIdxIn (𝓞 Kn) =
       p_ideal.ramificationIdxIn (𝓞 Kn) :=
     Ideal.ramificationIdxIn_mul_ramificationIdxIn' PF
       (G := Gal(F/ℚ)) (GAC := Gal(Kn/ℚ)) (GBC := F.fixingSubgroup) (𝓞 Kn)
-  rw [hramIdx_Kn] at htower
-  have h1 : p_ideal.ramificationIdxIn (𝓞 F) ≠ 0 :=
+  -- Non-zero values.
+  have hram_F_ne_zero : p_ideal.ramificationIdxIn (𝓞 F) ≠ 0 :=
     Ideal.ramificationIdxIn_ne_zero (G := Gal(F/ℚ)) hp_ideal_ne_bot
-  have h2 : PF.ramificationIdxIn (𝓞 Kn) ≠ 0 :=
+  have hram_FKn_ne_zero : PF.ramificationIdxIn (𝓞 Kn) ≠ 0 :=
     Ideal.ramificationIdxIn_ne_zero (G := F.fixingSubgroup) hPF_ne_bot
-  have hramIdx_F : p_ideal.ramificationIdxIn (𝓞 F) = 1 := by
-    nlinarith [Nat.one_le_iff_ne_zero.mpr h1, Nat.one_le_iff_ne_zero.mpr h2]
-  -- (v) Conclude: |(ZMod n)ˣ ⧸ H_map| = Nat.card Y by Pontryagin duality (hY_eq).
-  rw [hramIdx_F, Nat.div_one]
-  conv_rhs => rw [hY_eq, MulChar.card_subgroupOrderIsoSubgroupMulChar]
+  -- From first iso: Nat.card(image) = ramificationIdxIn p (𝓞 F).
+  have hcard_image : Nat.card f_r.range = p_ideal.ramificationIdxIn (𝓞 F) := by
+    have hfiso2 := hfirst_iso
+    rw [hcard_ker_f_r, hcard_inertia_FKn, hcard_inertia_Kn] at hfiso2
+    -- hfiso2 : PF.ramificationIdxIn(𝓞 Kn) * Nat.card(range) = ramificationIdxIn p (𝓞 Kn)
+    -- htower: p_ideal.ramificationIdxIn(𝓞 F) * PF.ramificationIdxIn(𝓞 Kn) = ramificationIdxIn p(𝓞 Kn)
+    -- So PF.ramIdx * card = PF.ramIdx * ram_F, cancel PF.ramIdx.
+    have hkey : PF.ramificationIdxIn (𝓞 Kn) * Nat.card f_r.range =
+        PF.ramificationIdxIn (𝓞 Kn) * p_ideal.ramificationIdxIn (𝓞 F) := by
+      rw [hfiso2, ← htower, mul_comm]
+    exact Nat.eq_of_mul_eq_mul_left (Nat.pos_of_ne_zero hram_FKn_ne_zero) hkey
+  -- (E.5) Put it all together.
+  -- relIndex chain: H_map.relIndex(H_map ⊔ I_p) = Nat.card(image) = ramificationIdxIn p F.
+  have hrelIndex_eq : H_map.relIndex (H_map ⊔ I_p) = p_ideal.ramificationIdxIn (𝓞 F) := by
+    rw [hrel_sup, hrel_galois, hrel_restrict, ← hrange_f_r, hcard_image]
+  -- |(ZMod n)ˣ / (H_map ⊔ I_p)| = |(ZMod n)ˣ / H_map| / relIndex.
+  have hle : H_map ≤ H_map ⊔ I_p := le_sup_left
+  have hrelIndex_mul : H_map.relIndex (H_map ⊔ I_p) *
+      Nat.card ((ZMod n)ˣ ⧸ (H_map ⊔ I_p)) = Nat.card ((ZMod n)ˣ ⧸ H_map) := by
+    have h := H_map.relIndex_mul_index hle
+    rw [Subgroup.index_eq_card, Subgroup.index_eq_card] at h
+    exact h
+  rw [hcard_Y, ← hrelIndex_mul, hrelIndex_eq]
+  exact (Nat.mul_div_cancel_left _ (Nat.pos_of_ne_zero hram_F_ne_zero)).symm
 
 /-- **Phase 4.** The image of `evalAtPrime` has cardinality equal to the inertia degree,
 for primes `p` coprime to the level `n`. This is the Frobenius identification: the eval
