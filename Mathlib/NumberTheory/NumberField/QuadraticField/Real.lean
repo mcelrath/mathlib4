@@ -532,4 +532,74 @@ instance isIntegralClosure_zsqrtd3 : IsIntegralClosure (Zsqrtd 3) ℤ Qsqrt3 whe
 noncomputable def ringOfIntegersEquiv : 𝓞 Qsqrt3 ≃+* Zsqrtd 3 :=
   @RingOfIntegers.equiv Qsqrt3 _ (Zsqrtd 3) _ _ isIntegralClosure_zsqrtd3
 
+/-! ### Bridge `(ℤ[√3])ˣ ≃* Pell.Solution₁ 3`
+
+The Pell equation `x^2 - 3 y^2 = -1` has no integer solutions (mod-3 argument),
+so every unit of `ℤ[√3]` has norm `+1`, identifying `(ℤ[√3])ˣ` with the set of
+Pell-1 solutions, which Mathlib defines as `Pell.Solution₁ 3 = unitary (ℤ√3)`. -/
+
+/-- The negative Pell equation `x^2 - 3 y^2 = -1` has no integer solutions.
+Mod-3 argument: `x^2 mod 3 ∈ {0, 1}`, so `x^2 - 3 y^2 ≡ x^2 mod 3 ∈ {0, 1}`,
+which never equals `-1 mod 3 = 2`. -/
+theorem no_neg_pell_three : ¬ ∃ x y : ℤ, x ^ 2 - 3 * y ^ 2 = -1 := by
+  rintro ⟨x, y, hxy⟩
+  have hmod : (x ^ 2 - 3 * y ^ 2) % 3 = (-1 : ℤ) % 3 := by rw [hxy]
+  have hx2 : x ^ 2 % 3 = (x % 3) * (x % 3) % 3 := by
+    rw [sq, Int.mul_emod]
+  have hcase : x % 3 = 0 ∨ x % 3 = 1 ∨ x % 3 = 2 := by omega
+  have hx2_red : x ^ 2 % 3 = 0 ∨ x ^ 2 % 3 = 1 := by
+    rcases hcase with h | h | h <;> rw [hx2, h] <;> decide
+  omega
+
+/-- For `d = 3`, every unit of `ℤ[√3]` has norm exactly `+1` (not `-1`). -/
+theorem Zsqrt3.units_norm_eq_one (u : (Zsqrtd 3)ˣ) :
+    (u : Zsqrtd 3).norm = 1 := by
+  set z : Zsqrtd 3 := (u : Zsqrtd 3) with hz_def
+  have hUnit : IsUnit z := u.isUnit
+  have habs : z.norm.natAbs = 1 := Zsqrtd.norm_eq_one_iff.mpr hUnit
+  -- `z.norm = 1 ∨ z.norm = -1`; rule out `-1` via `no_neg_pell_three`.
+  have hcases : z.norm = 1 ∨ z.norm = -1 := by
+    rcases Int.natAbs_eq z.norm with h | h
+    · left; omega
+    · right; omega
+  rcases hcases with h | h
+  · exact h
+  · exfalso
+    apply no_neg_pell_three
+    refine ⟨z.re, z.im, ?_⟩
+    have := Zsqrtd.norm_def z
+    -- `z.norm = z.re*z.re - 3*z.im*z.im` and `z.norm = -1` ⇒ `re^2 - 3 im^2 = -1`.
+    have h2 : z.re * z.re - 3 * z.im * z.im = -1 := by rw [← this]; exact h
+    nlinarith [h2]
+
+/-- The bridge isomorphism: units of `ℤ[√3]` ≃* Pell solutions to `x² - 3 y² = 1`.
+The forward map takes a unit to its underlying element viewed as a Pell solution
+(possible because units have norm `+1` for `d = 3`); the inverse is
+`Unitary.toUnits`. -/
+noncomputable def Zsqrt3.unitsEquivSolution₁ :
+    (Zsqrtd 3)ˣ ≃* Pell.Solution₁ 3 where
+  toFun u :=
+    ⟨(u : Zsqrtd 3),
+      (Zsqrtd.norm_eq_one_iff_mem_unitary).mp (Zsqrt3.units_norm_eq_one u)⟩
+  invFun s := Unitary.toUnits s
+  left_inv u := by
+    apply Units.ext
+    rfl
+  right_inv s := by
+    apply Subtype.ext
+    rfl
+  map_mul' u v := by
+    apply Subtype.ext
+    rfl
+
+@[simp]
+theorem Zsqrt3.unitsEquivSolution₁_coe (u : (Zsqrtd 3)ˣ) :
+    ((Zsqrt3.unitsEquivSolution₁ u : Pell.Solution₁ 3) : Zsqrtd 3) = (u : Zsqrtd 3) :=
+  rfl
+
+@[simp]
+theorem Zsqrt3.unitsEquivSolution₁_symm_coe (s : Pell.Solution₁ 3) :
+    ((Zsqrt3.unitsEquivSolution₁.symm s : (Zsqrtd 3)ˣ) : Zsqrtd 3) = (s : Zsqrtd 3) :=
+  rfl
+
 end Qsqrt3
