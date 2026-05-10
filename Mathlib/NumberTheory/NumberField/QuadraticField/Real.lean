@@ -6,6 +6,7 @@ Authors: Bob McElrath
 import Mathlib.NumberTheory.NumberField.Basic
 import Mathlib.NumberTheory.Real.Irrational
 import Mathlib.FieldTheory.KummerPolynomial
+import Mathlib.NumberTheory.Pell
 
 /-!
 # The real quadratic number field `ℚ(√3)`
@@ -69,5 +70,19 @@ theorem finrank_eq_two : Module.finrank ℚ Qsqrt3 = 2 := by
   have hne : (X ^ 2 - C (3 : ℚ)) ≠ 0 := irreducible_X_sq_sub_three.ne_zero
   rw [(AdjoinRoot.powerBasis hne).finrank, AdjoinRoot.powerBasis_dim,
       natDegree_X_pow_sub_C]
+
+/-- The Pell solution `(2, 1)` for `d = 3`, i.e. `2^2 - 3 · 1^2 = 1`. -/
+def pellSolutionThree : Pell.Solution₁ 3 :=
+  Pell.Solution₁.mk 2 1 (by decide)
+
+/-- The solution `(2, 1)` is the fundamental Pell solution for `d = 3`. -/
+theorem pellSolutionThree_isFundamental :
+    Pell.IsFundamental pellSolutionThree := by
+  refine ⟨?_, ?_, ?_⟩
+  · rw [pellSolutionThree, Pell.Solution₁.x_mk]; decide
+  · rw [pellSolutionThree, Pell.Solution₁.y_mk]; decide
+  · intro b hb
+    rw [pellSolutionThree, Pell.Solution₁.x_mk]
+    omega
 
 end Qsqrt3
