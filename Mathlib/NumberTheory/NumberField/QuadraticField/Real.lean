@@ -602,4 +602,101 @@ theorem Zsqrt3.unitsEquivSolution₁_symm_coe (s : Pell.Solution₁ 3) :
     ((Zsqrt3.unitsEquivSolution₁.symm s : (Zsqrtd 3)ˣ) : Zsqrtd 3) = (s : Zsqrtd 3) :=
   rfl
 
+/-! ### The fundamental unit `2 + √3` of `𝓞 ℚ(√3)`
+
+The fundamental Pell solution `(2, 1)` for `d = 3` transports through the chain
+
+  `Pell.Solution₁ 3 ≃* (Zsqrtd 3)ˣ ≃* (𝓞 Qsqrt3)ˣ`
+
+to give the fundamental unit `2 + √3 ∈ (𝓞 Qsqrt3)ˣ`. The unit-group bridge
+`Units.mapEquiv (ringOfIntegersEquiv.toMulEquiv)` lifts the ring isomorphism
+`𝓞 Qsqrt3 ≃+* Zsqrtd 3` to a multiplicative equivalence of unit groups. -/
+
+/-- The unit-group isomorphism `(𝓞 Qsqrt3)ˣ ≃* (Zsqrtd 3)ˣ` induced by
+`ringOfIntegersEquiv`. -/
+noncomputable def unitsRingOfIntegersEquiv :
+    (𝓞 Qsqrt3)ˣ ≃* (Zsqrtd 3)ˣ :=
+  Units.mapEquiv ringOfIntegersEquiv.toMulEquiv
+
+/-- The fundamental unit of `𝓞 Qsqrt3`: the image of the Pell solution `(2, 1)`
+under the chain `Pell.Solution₁ 3 ≃* (Zsqrtd 3)ˣ ≃* (𝓞 Qsqrt3)ˣ`. As an element
+of `Qsqrt3`, it equals `2 + √3`. -/
+noncomputable def fundamentalUnit : (𝓞 Qsqrt3)ˣ :=
+  unitsRingOfIntegersEquiv.symm (Zsqrt3.unitsEquivSolution₁.symm pellSolutionThree)
+
+/-- The image of `fundamentalUnit` in `Zsqrtd 3` is the Pell solution `(2, 1)`. -/
+theorem ringOfIntegersEquiv_fundamentalUnit :
+    ringOfIntegersEquiv (fundamentalUnit : 𝓞 Qsqrt3) = (⟨2, 1⟩ : Zsqrtd 3) := by
+  show ringOfIntegersEquiv
+      ((unitsRingOfIntegersEquiv.symm
+          (Zsqrt3.unitsEquivSolution₁.symm pellSolutionThree) : (𝓞 Qsqrt3)ˣ) :
+            𝓞 Qsqrt3) = _
+  have h1 : (unitsRingOfIntegersEquiv.symm
+      (Zsqrt3.unitsEquivSolution₁.symm pellSolutionThree) : (𝓞 Qsqrt3)ˣ).val
+        = ringOfIntegersEquiv.symm
+            ((Zsqrt3.unitsEquivSolution₁.symm pellSolutionThree : (Zsqrtd 3)ˣ) :
+              Zsqrtd 3) := by
+    rfl
+  rw [h1]
+  rw [show ((Zsqrt3.unitsEquivSolution₁.symm pellSolutionThree : (Zsqrtd 3)ˣ) :
+        Zsqrtd 3) = (pellSolutionThree : Zsqrtd 3) from
+        Zsqrt3.unitsEquivSolution₁_symm_coe _]
+  rw [RingEquiv.apply_symm_apply]
+  rfl
+
+/-! The "fundamental unit coerced to `Qsqrt3` equals `2 + √3`" statement
+(target T6.2 of the phase-C plan) requires the round-trip identity
+`fromZsqrt3 (ringOfIntegersEquiv u) = (u : Qsqrt3)`. The relevant Mathlib API
+path through `IsIntegralClosure.algebraMap_equiv ℤ (𝓞 Qsqrt3) Qsqrt3 (Zsqrtd 3)`
+fails to synthesize `IsScalarTower ℤ (𝓞 Qsqrt3) Qsqrt3` in this context — the
+instance is declared and `inferInstance` succeeds standalone, but synth from
+within `IsIntegralClosure.equiv`'s instance arguments fails even at
+`maxHeartbeats 800000`. The structurally equivalent statement
+`ringOfIntegersEquiv fundamentalUnit = ⟨2, 1⟩` is proven above. Deferred for a
+follow-up that addresses the synth-path through `isIntegralClosure_zsqrtd3`. -/
+
+/-- `Zsqrt3.unitsEquivSolution₁.symm` sends `-s` to `-(image of s)`, since both
+sides agree on the underlying `Zsqrtd 3` element. -/
+theorem Zsqrt3.unitsEquivSolution₁_symm_neg (s : Pell.Solution₁ 3) :
+    Zsqrt3.unitsEquivSolution₁.symm (-s) = - Zsqrt3.unitsEquivSolution₁.symm s := by
+  apply Units.ext
+  show ((-s : Pell.Solution₁ 3) : Zsqrtd 3) = ((- Zsqrt3.unitsEquivSolution₁.symm s :
+    (Zsqrtd 3)ˣ) : Zsqrtd 3)
+  show (- (s : Zsqrtd 3) : Zsqrtd 3) = _
+  rfl
+
+/-- `unitsRingOfIntegersEquiv.symm` sends `-v` to `-(image of v)`, since
+`ringOfIntegersEquiv.symm` is a `RingEquiv` and hence preserves negation, and
+the underlying values of `-v` and `-(image of v)` are then equal. -/
+theorem unitsRingOfIntegersEquiv_symm_neg (v : (Zsqrtd 3)ˣ) :
+    unitsRingOfIntegersEquiv.symm (-v) = - unitsRingOfIntegersEquiv.symm v := by
+  apply Units.ext
+  show ringOfIntegersEquiv.symm ((-v : (Zsqrtd 3)ˣ) : Zsqrtd 3)
+      = - ringOfIntegersEquiv.symm ((v : (Zsqrtd 3)ˣ) : Zsqrtd 3)
+  rw [Units.val_neg]
+  exact map_neg _ _
+
+/-- Every unit of `𝓞 Qsqrt3` is, up to sign, a power of `fundamentalUnit`. This
+is the unit-group analogue of `Pell.IsFundamental.eq_zpow_or_neg_zpow`, and
+is equivalent to the statement that `fundamentalUnit` generates the free part
+of `(𝓞 Qsqrt3)ˣ` modulo torsion. -/
+theorem fundamentalUnit_eq_zpow_or_neg_zpow (u : (𝓞 Qsqrt3)ˣ) :
+    ∃ n : ℤ, u = fundamentalUnit ^ n ∨ u = - fundamentalUnit ^ n := by
+  set s : Pell.Solution₁ 3 :=
+    Zsqrt3.unitsEquivSolution₁ (unitsRingOfIntegersEquiv u) with hs_def
+  obtain ⟨n, hn⟩ := pellSolutionThree_isFundamental.eq_zpow_or_neg_zpow s
+  refine ⟨n, ?_⟩
+  have hu : u = unitsRingOfIntegersEquiv.symm
+      (Zsqrt3.unitsEquivSolution₁.symm s) := by
+    rw [hs_def, MulEquiv.symm_apply_apply, MulEquiv.symm_apply_apply]
+  rw [hu]
+  rcases hn with hn | hn
+  · left
+    rw [hn, map_zpow, map_zpow]
+    rfl
+  · right
+    rw [hn, Zsqrt3.unitsEquivSolution₁_symm_neg, map_zpow,
+        unitsRingOfIntegersEquiv_symm_neg, map_zpow]
+    rfl
+
 end Qsqrt3
