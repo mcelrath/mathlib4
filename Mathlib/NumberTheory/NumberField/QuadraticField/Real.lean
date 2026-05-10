@@ -8,6 +8,7 @@ import Mathlib.NumberTheory.Real.Irrational
 import Mathlib.FieldTheory.KummerPolynomial
 import Mathlib.NumberTheory.Pell
 import Mathlib.NumberTheory.Zsqrtd.Basic
+import Mathlib.Data.Real.Sqrt
 
 /-!
 # The real quadratic number field `ℚ(√3)`
@@ -186,5 +187,99 @@ theorem isIntegral_fromZsqrt3 (z : Zsqrtd 3) : IsIntegral ℤ (fromZsqrt3 z) := 
           + (b : Qsqrt3) * (b : Qsqrt3) * (sqrt3 * sqrt3) := by ring
     rw [hexp, h3]
     ring
+
+/-! ### The two real embeddings `ℚ(√3) ↪ ℝ` -/
+
+/-- The evaluation `(X^2 - C 3).eval₂ (algebraMap ℚ ℝ) (Real.sqrt 3) = 0`,
+packaged for `AdjoinRoot.lift`. -/
+private theorem eval₂_sqrt3_real :
+    (X ^ 2 - C (3 : ℚ)).eval₂ (algebraMap ℚ ℝ) (Real.sqrt 3) = 0 := by
+  have h : Real.sqrt 3 ^ 2 = 3 := Real.sq_sqrt (by norm_num : (0 : ℝ) ≤ 3)
+  simp [eval₂_sub, eval₂_pow, eval₂_X, eval₂_C, h]
+
+/-- Same as `eval₂_sqrt3_real` but with `-Real.sqrt 3`. -/
+private theorem eval₂_neg_sqrt3_real :
+    (X ^ 2 - C (3 : ℚ)).eval₂ (algebraMap ℚ ℝ) (-Real.sqrt 3) = 0 := by
+  have h : Real.sqrt 3 ^ 2 = 3 := Real.sq_sqrt (by norm_num : (0 : ℝ) ≤ 3)
+  have h2 : (-Real.sqrt 3) ^ 2 = 3 := by rw [neg_pow, h]; ring
+  simp [eval₂_sub, eval₂_pow, eval₂_X, eval₂_C, h2]
+
+/-- The positive real embedding `ℚ(√3) ↪ ℝ` sending `√3 ↦ Real.sqrt 3`. -/
+noncomputable def embedPos : Qsqrt3 →+* ℝ :=
+  AdjoinRoot.lift (algebraMap ℚ ℝ) (Real.sqrt 3) eval₂_sqrt3_real
+
+/-- The negative real embedding `ℚ(√3) ↪ ℝ` sending `√3 ↦ -Real.sqrt 3`. -/
+noncomputable def embedNeg : Qsqrt3 →+* ℝ :=
+  AdjoinRoot.lift (algebraMap ℚ ℝ) (-Real.sqrt 3) eval₂_neg_sqrt3_real
+
+@[simp]
+theorem embedPos_sqrt3 : embedPos sqrt3 = Real.sqrt 3 :=
+  AdjoinRoot.lift_root _
+
+@[simp]
+theorem embedNeg_sqrt3 : embedNeg sqrt3 = -Real.sqrt 3 :=
+  AdjoinRoot.lift_root _
+
+theorem embedPos_intCast (n : ℤ) : embedPos (n : Qsqrt3) = (n : ℝ) := by
+  simp
+
+theorem embedNeg_intCast (n : ℤ) : embedNeg (n : Qsqrt3) = (n : ℝ) := by
+  simp
+
+@[simp]
+theorem embedPos_fromZsqrt3 (z : Zsqrtd 3) :
+    embedPos (fromZsqrt3 z) = (z.re : ℝ) + (z.im : ℝ) * Real.sqrt 3 := by
+  obtain ⟨a, b⟩ := z
+  rw [fromZsqrt3_mk]
+  simp
+
+@[simp]
+theorem embedNeg_fromZsqrt3 (z : Zsqrtd 3) :
+    embedNeg (fromZsqrt3 z) = (z.re : ℝ) - (z.im : ℝ) * Real.sqrt 3 := by
+  obtain ⟨a, b⟩ := z
+  rw [fromZsqrt3_mk]
+  simp [sub_eq_add_neg, mul_neg]
+
+/-! ### Galois conjugation `σ : √3 ↦ -√3` -/
+
+/-- The defining relation for `galConj`: `(-sqrt3)^2 = 3` inside `Qsqrt3`. -/
+private theorem eval₂_neg_sqrt3_self :
+    (X ^ 2 - C (3 : ℚ)).eval₂ (algebraMap ℚ Qsqrt3) (-sqrt3) = 0 := by
+  have h3 : (algebraMap ℚ Qsqrt3) 3 = (3 : Qsqrt3) := by simp [map_ofNat]
+  have hs : sqrt3 * sqrt3 = (3 : Qsqrt3) := sqrt3_sq
+  simp [eval₂_sub, eval₂_X, eval₂_C, h3, sq, hs]
+
+/-- The non-trivial Galois automorphism `σ : Qsqrt3 →+* Qsqrt3` sending
+`√3 ↦ -√3`. -/
+noncomputable def galConj : Qsqrt3 →+* Qsqrt3 :=
+  AdjoinRoot.lift (algebraMap ℚ Qsqrt3) (-sqrt3) eval₂_neg_sqrt3_self
+
+@[simp]
+theorem galConj_sqrt3 : galConj sqrt3 = -sqrt3 :=
+  AdjoinRoot.lift_root _
+
+/-- `embedNeg` is `embedPos` precomposed with Galois conjugation. -/
+theorem embedNeg_eq_embedPos_comp_galConj :
+    embedNeg = embedPos.comp galConj := by
+  refine AdjoinRoot.ringHom_ext ?_ ?_
+  · ext q
+    change embedNeg (algebraMap ℚ Qsqrt3 q) = embedPos (galConj (algebraMap ℚ Qsqrt3 q))
+    rw [show galConj (algebraMap ℚ Qsqrt3 q) = algebraMap ℚ Qsqrt3 q from
+          AdjoinRoot.lift_of _,
+        show embedNeg (algebraMap ℚ Qsqrt3 q) = algebraMap ℚ ℝ q from
+          AdjoinRoot.lift_of _,
+        show embedPos (algebraMap ℚ Qsqrt3 q) = algebraMap ℚ ℝ q from
+          AdjoinRoot.lift_of _]
+  · change embedNeg sqrt3 = embedPos (galConj sqrt3)
+    rw [galConj_sqrt3, embedNeg_sqrt3, map_neg, embedPos_sqrt3]
+
+/-- The two real embeddings are distinct. -/
+theorem embedPos_ne_embedNeg : embedPos ≠ embedNeg := by
+  intro h
+  have hkey : Real.sqrt 3 = -Real.sqrt 3 := by
+    have := congrArg (fun f => f sqrt3) h
+    simpa using this
+  have hpos : Real.sqrt 3 > 0 := Real.sqrt_pos.mpr (by norm_num)
+  linarith
 
 end Qsqrt3
