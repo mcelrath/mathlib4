@@ -9,6 +9,9 @@ import Mathlib.FieldTheory.KummerPolynomial
 import Mathlib.NumberTheory.Pell
 import Mathlib.NumberTheory.Zsqrtd.Basic
 import Mathlib.Data.Real.Sqrt
+import Mathlib.RingTheory.IntegralClosure.IntegrallyClosed
+import Mathlib.RingTheory.IntegralClosure.IsIntegralClosure.Basic
+import Mathlib.Algebra.GCDMonoid.IntegrallyClosed
 
 /-!
 # The real quadratic number field `ℚ(√3)`
@@ -40,7 +43,7 @@ with `Zsqrtd 3 = ℤ[√3]`.
   `d ≡ 3 (mod 4)`.
 -/
 
-open Polynomial
+open Polynomial NumberField
 
 namespace Qsqrt3
 
@@ -281,5 +284,252 @@ theorem embedPos_ne_embedNeg : embedPos ≠ embedNeg := by
     simpa using this
   have hpos : Real.sqrt 3 > 0 := Real.sqrt_pos.mpr (by norm_num)
   linarith
+
+/-! ### Ring of integers `𝓞 ℚ(√3) ≃+* ℤ[√3]` -/
+
+@[simp] theorem galConj_algebraMap (q : ℚ) :
+    galConj ((algebraMap ℚ Qsqrt3) q) = (algebraMap ℚ Qsqrt3) q := by
+  unfold galConj
+  exact AdjoinRoot.lift_of _
+
+/-- Decomposition of an arbitrary `x : Qsqrt3` along the basis `{1, √3}`. -/
+theorem exists_rat_decomp (x : Qsqrt3) :
+    ∃ p q : ℚ, x = (algebraMap ℚ Qsqrt3) p + (algebraMap ℚ Qsqrt3) q * sqrt3 := by
+  obtain ⟨f⟩ := x
+  refine ⟨(f %ₘ (X ^ 2 - C (3 : ℚ))).coeff 0, (f %ₘ (X ^ 2 - C (3 : ℚ))).coeff 1, ?_⟩
+  have hmonic : Monic (X ^ 2 - C (3 : ℚ)) := by
+    refine monic_X_pow_sub_C 3 (by decide)
+  have hmod : AdjoinRoot.mk (X ^ 2 - C (3 : ℚ)) f
+              = AdjoinRoot.mk _ (f %ₘ (X ^ 2 - C (3 : ℚ))) := by
+    have hd := modByMonic_add_div f (X ^ 2 - C (3 : ℚ))
+    conv_lhs => rw [← hd]
+    rw [map_add, map_mul, AdjoinRoot.mk_self, zero_mul, add_zero]
+  set r := f %ₘ (X ^ 2 - C (3 : ℚ))
+  have hdeg : r.degree < 2 := by
+    have hlt := degree_modByMonic_lt f hmonic
+    rw [degree_X_pow_sub_C (by decide : (0 : ℕ) < 2) (3 : ℚ)] at hlt
+    exact_mod_cast hlt
+  have hreq : r = C (r.coeff 0) + C (r.coeff 1) * X := by
+    have hndeg : r.natDegree ≤ 1 := by
+      by_cases h0 : r = 0
+      · rw [h0]; simp
+      · have := (natDegree_lt_iff_degree_lt h0 (n := 2)).mpr (by exact_mod_cast hdeg)
+        omega
+    ext n
+    rcases n with _ | _ | n
+    · simp
+    · simp
+    · simp only [coeff_add, coeff_C, coeff_C_mul_X]
+      rw [if_neg (by omega : ¬ (n + 1 + 1 = 0)), if_neg (by omega : ¬ (n + 1 + 1 = 1))]
+      have : r.coeff (n + 1 + 1) = 0 :=
+        coeff_eq_zero_of_natDegree_lt (by omega)
+      simp [this]
+  change AdjoinRoot.mk _ f = _
+  rw [hmod, hreq, map_add, map_mul]
+  have hC0 : AdjoinRoot.mk (X ^ 2 - C (3 : ℚ)) (C (r.coeff 0))
+      = (algebraMap ℚ Qsqrt3) (r.coeff 0) := rfl
+  have hC1 : AdjoinRoot.mk (X ^ 2 - C (3 : ℚ)) (C (r.coeff 1))
+      = (algebraMap ℚ Qsqrt3) (r.coeff 1) := rfl
+  have hX : AdjoinRoot.mk (X ^ 2 - C (3 : ℚ)) X = sqrt3 := rfl
+  rw [hC0, hC1, hX]
+  simp
+
+theorem galConj_decomp (p q : ℚ) :
+    galConj ((algebraMap ℚ Qsqrt3) p + (algebraMap ℚ Qsqrt3) q * sqrt3)
+      = (algebraMap ℚ Qsqrt3) p - (algebraMap ℚ Qsqrt3) q * sqrt3 := by
+  simp [galConj_sqrt3, sub_eq_add_neg, mul_neg]
+
+theorem add_galConj (p q : ℚ) :
+    ((algebraMap ℚ Qsqrt3) p + (algebraMap ℚ Qsqrt3) q * sqrt3)
+      + galConj ((algebraMap ℚ Qsqrt3) p + (algebraMap ℚ Qsqrt3) q * sqrt3)
+      = (algebraMap ℚ Qsqrt3) (2 * p) := by
+  rw [galConj_decomp, map_mul]
+  have h2 : (algebraMap ℚ Qsqrt3) 2 = (2 : Qsqrt3) := by simp [map_ofNat]
+  rw [h2]; ring
+
+theorem mul_galConj (p q : ℚ) :
+    ((algebraMap ℚ Qsqrt3) p + (algebraMap ℚ Qsqrt3) q * sqrt3)
+      * galConj ((algebraMap ℚ Qsqrt3) p + (algebraMap ℚ Qsqrt3) q * sqrt3)
+      = (algebraMap ℚ Qsqrt3) (p ^ 2 - 3 * q ^ 2) := by
+  rw [galConj_decomp]
+  have h3 : sqrt3 * sqrt3 = (3 : Qsqrt3) := sqrt3_sq
+  have hexp : ((algebraMap ℚ Qsqrt3) p + (algebraMap ℚ Qsqrt3) q * sqrt3) *
+      ((algebraMap ℚ Qsqrt3) p - (algebraMap ℚ Qsqrt3) q * sqrt3)
+      = (algebraMap ℚ Qsqrt3) p * (algebraMap ℚ Qsqrt3) p
+        - (algebraMap ℚ Qsqrt3) q * (algebraMap ℚ Qsqrt3) q * (sqrt3 * sqrt3) := by ring
+  rw [hexp, h3]
+  have hmap3 : (algebraMap ℚ Qsqrt3) 3 = (3 : Qsqrt3) := by simp [map_ofNat]
+  rw [map_sub, map_mul, map_pow, map_pow, hmap3]
+  ring
+
+theorem rat_isIntegral_of_isIntegral_in_Qsqrt3 {q : ℚ}
+    (hq : IsIntegral ℤ ((algebraMap ℚ Qsqrt3) q)) : ∃ n : ℤ, (n : ℚ) = q := by
+  have hinj : Function.Injective (algebraMap ℚ Qsqrt3) :=
+    FaithfulSMul.algebraMap_injective ℚ Qsqrt3
+  have hQ : IsIntegral ℤ q := (isIntegral_algebraMap_iff hinj).mp hq
+  letI : IsIntegrallyClosed ℤ := GCDMonoid.toIsIntegrallyClosed
+  obtain ⟨n, hn⟩ := (isIntegrallyClosed_iff (R := ℤ) (K := ℚ)).mp ‹_› hQ
+  exact ⟨n, by simpa using hn⟩
+
+private lemma sq_mod_four (a : ℤ) : a ^ 2 % 4 = 0 ∨ a ^ 2 % 4 = 1 := by
+  have hsq : a ^ 2 = a * a := sq a
+  have ekey : a * a % 4 = (a % 4) * (a % 4) % 4 := by
+    conv_lhs => rw [Int.mul_emod]
+  have h4 : a % 4 = 0 ∨ a % 4 = 1 ∨ a % 4 = 2 ∨ a % 4 = 3 := by omega
+  rw [hsq, ekey]
+  rcases h4 with h | h | h | h <;> rw [h] <;> decide
+
+theorem rat_pq_integral {p q : ℚ} (htr : ∃ a : ℤ, (a : ℚ) = 2 * p)
+    (hnm : ∃ d : ℤ, (d : ℚ) = p ^ 2 - 3 * q ^ 2) :
+    (∃ a : ℤ, (a : ℚ) = p) ∧ (∃ b : ℤ, (b : ℚ) = q) := by
+  obtain ⟨a, ha⟩ := htr
+  obtain ⟨D, hD⟩ := hnm
+  have hp : (a : ℚ) = 2 * p := ha
+  have h12q2 : (12 : ℚ) * q ^ 2 = (a : ℚ) ^ 2 - 4 * D := by
+    have hp2 : (a : ℚ) ^ 2 = 4 * p ^ 2 := by rw [hp]; ring
+    nlinarith [hD, hp2]
+  have hqden_eq : (q : ℚ) = (q.num : ℚ) / (q.den : ℚ) := (Rat.num_div_den q).symm
+  have hqden_ne : (q.den : ℚ) ≠ 0 := by exact_mod_cast q.den_ne_zero
+  have hMint : (12 : ℤ) * q.num ^ 2 = (a ^ 2 - 4 * D) * (q.den : ℤ) ^ 2 := by
+    have hq2 : (q : ℚ) ^ 2 * (q.den : ℚ) ^ 2 = (q.num : ℚ) ^ 2 := by
+      have hnd : (q.num : ℚ) = q * (q.den : ℚ) := by
+        have h := Rat.num_div_den q
+        field_simp at h
+        linarith
+      have h2 : (q.num : ℚ) ^ 2 = (q * (q.den : ℚ)) ^ 2 := by rw [hnd]
+      rw [h2]; ring
+    have hQ : (12 : ℚ) * (q.num : ℚ) ^ 2 = ((a : ℚ) ^ 2 - 4 * D) * (q.den : ℚ) ^ 2 := by
+      have hmul : ((12 : ℚ) * q ^ 2) * (q.den : ℚ) ^ 2
+          = ((a : ℚ) ^ 2 - 4 * D) * (q.den : ℚ) ^ 2 := by
+        rw [h12q2]
+      have : (12 : ℚ) * ((q : ℚ) ^ 2 * (q.den : ℚ) ^ 2)
+          = ((a : ℚ) ^ 2 - 4 * D) * (q.den : ℚ) ^ 2 := by linarith [hmul]
+      rw [hq2] at this
+      linarith
+    exact_mod_cast hQ
+  have hcop : IsCoprime ((q.den : ℤ) ^ 2) (q.num ^ 2) := by
+    have h0 : IsCoprime ((q.den : ℤ)) q.num := by
+      rw [Int.isCoprime_iff_gcd_eq_one, Int.gcd_comm]
+      have hred := q.reduced
+      simpa [Int.gcd] using hred
+    exact h0.pow
+  have hq_den : (q.den : ℤ) ^ 2 ∣ 12 := by
+    have hdvd : ((q.den : ℤ) ^ 2) ∣ (12 * q.num ^ 2) := ⟨a ^ 2 - 4 * D, by linarith [hMint]⟩
+    exact hcop.dvd_of_dvd_mul_right hdvd
+  have hden_pos : 0 < (q.den : ℤ) := by exact_mod_cast q.den_pos
+  have hsq_pos : 0 < (q.den : ℤ) ^ 2 := by positivity
+  have hsq_le : (q.den : ℤ) ^ 2 ≤ 12 := Int.le_of_dvd (by decide) hq_den
+  have hden_le : (q.den : ℤ) ≤ 12 := by nlinarith
+  have hv12 : (q.den : ℤ) = 1 ∨ (q.den : ℤ) = 2 := by
+    interval_cases ((q.den : ℤ))
+    all_goals first
+      | (left; rfl)
+      | (right; rfl)
+      | (exfalso; revert hq_den; decide)
+  rcases hv12 with hv | hv
+  · have hqden_eq1 : (q.den : ℚ) = 1 := by exact_mod_cast hv
+    have hqZ_eq : (q.num : ℚ) = q := by
+      conv_rhs => rw [hqden_eq]
+      rw [hqden_eq1, div_one]
+    have hp2eq : (a : ℚ) ^ 2 = 4 * D + 12 * q.num ^ 2 := by
+      have h4p2 : (4 : ℚ) * p ^ 2 = (a : ℚ) ^ 2 := by rw [hp]; ring
+      have : (4 : ℚ) * (D + 3 * q ^ 2) = 4 * D + 12 * q ^ 2 := by ring
+      have h4D : (4 : ℚ) * p ^ 2 = 4 * D + 12 * q ^ 2 := by linarith [hD]
+      have hq2num : (q : ℚ) ^ 2 = (q.num : ℚ) ^ 2 := by rw [hqZ_eq]
+      rw [hq2num] at h4D
+      linarith
+    have hZ : a ^ 2 = 4 * D + 12 * q.num ^ 2 := by exact_mod_cast hp2eq
+    have h4 : (4 : ℤ) ∣ a ^ 2 := ⟨D + 3 * q.num ^ 2, by linarith⟩
+    have ha_even : (2 : ℤ) ∣ a := by
+      have h2 : (2 : ℤ) ∣ a ^ 2 := dvd_trans (by decide : (2 : ℤ) ∣ 4) h4
+      exact Int.prime_two.dvd_of_dvd_pow h2
+    obtain ⟨k, hk⟩ := ha_even
+    refine ⟨⟨k, ?_⟩, ⟨q.num, hqZ_eq⟩⟩
+    have hk' : (a : ℚ) = 2 * (k : ℚ) := by exact_mod_cast hk
+    have : (k : ℚ) * 2 = 2 * p := by linarith [hp]
+    linarith
+  · exfalso
+    have hv2 : (q.den : ℤ) = 2 := hv
+    have hu_coprime : Nat.Coprime q.num.natAbs q.den := q.reduced
+    have hu_odd : ¬ (2 ∣ q.num) := by
+      intro h2
+      have h2nat : 2 ∣ q.num.natAbs := by
+        rcases h2 with ⟨k, hk⟩
+        refine ⟨k.natAbs, ?_⟩
+        rw [hk]; exact (Int.natAbs_mul 2 k).trans rfl
+      have h2den : 2 ∣ q.den := by
+        have : (2 : ℕ) = (2 : ℤ).natAbs := rfl
+        have h := Int.natAbs_dvd_natAbs.mpr (show (2 : ℤ) ∣ (q.den : ℤ) from ⟨1, by linarith [hv2]⟩)
+        simpa using h
+      have hgcd : Nat.gcd q.num.natAbs q.den ≥ 2 :=
+        Nat.le_of_dvd (by omega) (Nat.dvd_gcd h2nat h2den)
+      omega
+    have hMint' : (12 : ℤ) * q.num ^ 2 = (a ^ 2 - 4 * D) * 4 := by
+      have : ((q.den : ℤ)) ^ 2 = 4 := by rw [hv2]; ring
+      rw [this] at hMint; exact hMint
+    have hZ : 3 * q.num ^ 2 = a ^ 2 - 4 * D := by linarith
+    have hmod : a ^ 2 % 4 = (3 * q.num ^ 2) % 4 := by omega
+    have hnum_sq : q.num ^ 2 % 4 = 1 := by
+      rcases sq_mod_four q.num with h | h
+      · exfalso
+        have h2 : (2 : ℤ) ∣ q.num := by
+          have h4 : (4 : ℤ) ∣ q.num ^ 2 := Int.dvd_of_emod_eq_zero h
+          have : (2 : ℤ) ∣ q.num ^ 2 := dvd_trans (by decide) h4
+          exact Int.prime_two.dvd_of_dvd_pow this
+        exact hu_odd h2
+      · exact h
+    have h3rhs : (3 * q.num ^ 2) % 4 = 3 := by
+      have e : (3 * q.num ^ 2) % 4 = (3 * (q.num ^ 2 % 4)) % 4 := by
+        rw [Int.mul_emod]; rfl
+      rw [e, hnum_sq]; decide
+    rcases sq_mod_four a with h | h <;> omega
+
+theorem isIntegral_iff_mem_range (x : Qsqrt3) :
+    IsIntegral ℤ x ↔ x ∈ Set.range fromZsqrt3 := by
+  refine ⟨fun hx => ?_, ?_⟩
+  · obtain ⟨p, q, hx_eq⟩ := exists_rat_decomp x
+    have hsigma : IsIntegral ℤ (galConj x) := by
+      obtain ⟨p, hpm, hpe⟩ := hx
+      refine ⟨p, hpm, ?_⟩
+      have h1 := congrArg galConj hpe
+      rw [map_zero, Polynomial.hom_eval₂] at h1
+      have hcomp : galConj.comp (algebraMap ℤ Qsqrt3) = algebraMap ℤ Qsqrt3 := by
+        ext n
+        change galConj ((n : ℤ) : Qsqrt3) = ((n : ℤ) : Qsqrt3)
+        rw [show ((n : ℤ) : Qsqrt3) = (algebraMap ℚ Qsqrt3) ((n : ℤ) : ℚ) from by
+              simp]
+        exact galConj_algebraMap _
+      rw [hcomp] at h1
+      exact h1
+    have hsum : IsIntegral ℤ (x + galConj x) := hx.add hsigma
+    have hprod : IsIntegral ℤ (x * galConj x) := hx.mul hsigma
+    rw [hx_eq, add_galConj] at hsum
+    rw [hx_eq, mul_galConj] at hprod
+    obtain ⟨a, ha⟩ := rat_isIntegral_of_isIntegral_in_Qsqrt3 hsum
+    obtain ⟨D, hD⟩ := rat_isIntegral_of_isIntegral_in_Qsqrt3 hprod
+    obtain ⟨⟨m, hm⟩, ⟨n, hn⟩⟩ :=
+      rat_pq_integral (p := p) (q := q) ⟨a, ha⟩ ⟨D, hD⟩
+    refine ⟨⟨m, n⟩, ?_⟩
+    rw [fromZsqrt3_mk, hx_eq]
+    have c1 : ((m : ℤ) : Qsqrt3) = (algebraMap ℚ Qsqrt3) p := by
+      have e : ((m : ℤ) : Qsqrt3) = (algebraMap ℚ Qsqrt3) ((m : ℚ)) := by simp
+      rw [e, hm]
+    have c2 : ((n : ℤ) : Qsqrt3) = (algebraMap ℚ Qsqrt3) q := by
+      have e : ((n : ℤ) : Qsqrt3) = (algebraMap ℚ Qsqrt3) ((n : ℚ)) := by simp
+      rw [e, hn]
+    rw [c1, c2]
+  · rintro ⟨z, rfl⟩; exact isIntegral_fromZsqrt3 z
+
+/-- `Zsqrtd 3` is the integral closure of `ℤ` in `Qsqrt3`. -/
+instance isIntegralClosure_zsqrtd3 : IsIntegralClosure (Zsqrtd 3) ℤ Qsqrt3 where
+  algebraMap_injective := fromZsqrt3_injective
+  isIntegral_iff := by
+    intro x
+    rw [isIntegral_iff_mem_range, algebraMap_zsqrtd3]
+    exact Iff.rfl
+
+/-- The canonical identification of the ring of integers of `ℚ(√3)` with `ℤ[√3]`. -/
+noncomputable def ringOfIntegersEquiv : 𝓞 Qsqrt3 ≃+* Zsqrtd 3 :=
+  @RingOfIntegers.equiv Qsqrt3 _ (Zsqrtd 3) _ _ isIntegralClosure_zsqrtd3
 
 end Qsqrt3
