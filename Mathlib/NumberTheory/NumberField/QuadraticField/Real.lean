@@ -699,4 +699,44 @@ theorem fundamentalUnit_eq_zpow_or_neg_zpow (u : (𝓞 Qsqrt3)ˣ) :
         unitsRingOfIntegersEquiv_symm_neg, map_zpow]
     rfl
 
+/-! ### Coercion of `fundamentalUnit` to `Qsqrt3` (Phase C T7 — DEFERRED)
+
+The remaining target of Phase C item (a) is
+
+```
+algebraMap_fundamentalUnit :
+    algebraMap (𝓞 Qsqrt3) Qsqrt3 (fundamentalUnit : 𝓞 Qsqrt3) = 2 + sqrt3
+```
+
+from which `regulator_eq_log_two_add_sqrt_three` follows by standard `regOfFamily_eq_det`
+machinery (1×1 determinant in the rank-1 totally-real case).
+
+The structural blocker for this last step is `IsIntegralClosure.algebraMap_equiv`, which
+requires an `IsScalarTower ℤ (𝓞 Qsqrt3) Qsqrt3` instance. The instance is declarable at
+top level (via `IsScalarTower.subalgebra'` applied to `integralClosure ℤ Qsqrt3 :
+Subalgebra ℤ Qsqrt3`), and `example : IsScalarTower ℤ (𝓞 Qsqrt3) Qsqrt3 := inferInstance`
+succeeds. But the instance is NOT picked up by typeclass synthesis inside the
+`IsIntegralClosure.equiv` call: there are two competing `IsIntegralClosure _ ℤ Qsqrt3`
+candidates (`(𝓞 Qsqrt3)` and `Zsqrtd 3`) and the synth-time unification of the implicit
+`A` parameter against the explicit type triggers a `whnf` timeout that recurs even at
+`maxHeartbeats 2000000` and `synthInstance.maxHeartbeats 800000`.
+
+This is the same obstruction documented at lines 647–657 of this file's earlier draft. It is
+NOT specific to the predecessor's choice of formulation: both the "direct algebraMap_equiv"
+path and the "Zsqrtd.hom_ext + injectivity-via-mk'" path hit the same wall once they need to
+relate `ringOfIntegersEquiv.symm` to the underlying integral closure.
+
+To discharge this in a follow-up, one of the following Mathlib refactors is needed:
+
+1. Add a global instance `IsScalarTower ℤ (𝓞 K) K` (currently absent — see
+   `Mathlib/NumberTheory/NumberField/Basic.lean` lines 281–289, only
+   `IsScalarTower (𝓞 K) K L` is declared).
+2. Add a characterization lemma `algebraMap_ringOfIntegersEquiv_symm` directly to
+   `Mathlib/NumberTheory/NumberField/Basic.lean` that does not go through
+   `IsIntegralClosure.equiv`.
+3. Lower the transparency requirement of `RingOfIntegers` (change `def` to `abbrev`),
+   which would let instance synthesis unfold to `integralClosure ℤ K` automatically.
+
+KB record for prior-art: `kb-20260510-183235-883919` (predecessor's report). -/
+
 end Qsqrt3
