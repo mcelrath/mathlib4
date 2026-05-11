@@ -116,6 +116,25 @@ are cosmetic and useful for future readers.
   `native_decide` per equation; derive every downstream identity by
   `rw` / `Matrix.mul_assoc` / `Matrix.trace_mul_comm`. The native
   compiler is invoked only on atoms.
+- **Atomic-cost taxonomy**: cheap atoms have RHS `1`, `0`, or a scalar
+  (det, trace). **Expensive atoms** have non-trivial Mat16 literal on
+  the RHS, e.g. `Sw·X·Swᵀ = K`. Each expensive atom can allocate ~4–15
+  GB in native code, with no upper bound from `maxHeartbeats`. NEVER
+  stack 16+ expensive atoms in one file. For expensive atoms use the
+  **precomputed-product pattern**: introduce a `def XY_value : Mat16
+  := <Python-computed literal>`, prove `X * Y = XY_value` (one big
+  native_decide for the forward computation), then derive any further
+  identity `XY_value = K` via cheap kernel `decide` or `rfl`. This (a)
+  bounds each native_decide call's RAM and (b) surfaces theorem-
+  statement bugs immediately — the cheap kernel check fails fast if
+  K was incorrectly claimed to equal the actual product.
+- **Verify theorems are TRUE before fixing OOM**. Observed 2026-05-11
+  on Cl(4,4) `TrialityIntertwinerCorrectness.lean`: 12 of 16
+  `Sw_intertwines_Cij` statements were mathematically false because
+  the σ-relabeling did not account for Jordan-Wigner phases. Python
+  ground-truth via `cl44.rep48._signed_triality_intertwiner_mp` and
+  `cl44.centralizer.gl4_generators` makes this discoverable in
+  seconds; native_decide takes 20+ minutes per false statement.
 
 ## Mathlib API quirks documented during this session
 
