@@ -1373,4 +1373,13 @@ theorem tate_fd_factor_diagonal {E : Type*} [NormedAddCommGroup E] [NormedSpace 
       (2 * NumberField.Units.regulator Qsqrt3) • ∫ v, G v := by
   rw [MeasureTheory.setIntegral_const, measureReal_logUnitFD]
 
+/-- C1.4: Tate factor with the regulator substituted by its closed form
+`log (2 + √3)`. Combines `tate_fd_factor_diagonal` with
+`regulator_eq_log_two_add_sqrt_three`. -/
+theorem tate_fd_factor_diagonal_explicit {E : Type*}
+    [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E] (G : ℝ → E) :
+    ∫ _ in Qsqrt3.logUnitFD, ∫ v, G v =
+      (2 * Real.log (2 + Real.sqrt 3)) • ∫ v, G v := by
+  rw [tate_fd_factor_diagonal, regulator_eq_log_two_add_sqrt_three]
+
 end Qsqrt3
