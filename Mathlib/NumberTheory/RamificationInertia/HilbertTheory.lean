@@ -270,6 +270,79 @@ theorem integralClosure.isFractionRing_intermediateField [IsDomain A] :
 recorded here for documentation.) -/
 example : IsScalarTower A (integralClosure A E) E := inferInstance
 
+/-!
+#### Algebra structure and scalar towers `integralClosure A E → B`
+
+Every element of `integralClosure A E` is, by definition, integral over `A` in `E`; its image
+in `L` (via `algebraMap E L`) is then integral over `A` in `L`, hence lies in any `B` with
+`[IsIntegralClosure B A L]`. This induces a canonical `A`-algebra map
+`integralClosure A E →ₐ[A] B`, which we turn into an `Algebra (integralClosure A E) B` instance
+together with the scalar towers `A → integralClosure A E → B` and
+`integralClosure A E → E → L` / `integralClosure A E → B → L`.
+-/
+
+/-- The canonical `A`-algebra map `integralClosure A E →ₐ[A] B` arising from
+`integralClosure A E ↪ E → L` and the fact that `B = integralClosure A L`. -/
+noncomputable def integralClosure.intermediateFieldToAlgHom
+    (B' : Type*) [CommRing B'] [Algebra A B'] [Algebra B' L] [IsScalarTower A B' L]
+    [IsIntegralClosure B' A L] :
+    integralClosure A E →ₐ[A] B' :=
+  (IsIntegralClosure.equiv A (integralClosure A L) L B').toAlgHom.comp
+    ((IsScalarTower.toAlgHom A E L).mapIntegralClosure)
+
+@[simp]
+lemma integralClosure.algebraMap_intermediateFieldToAlgHom_apply
+    (B' : Type*) [CommRing B'] [Algebra A B'] [Algebra B' L] [IsScalarTower A B' L]
+    [IsIntegralClosure B' A L] (x : integralClosure A E) :
+    algebraMap B' L (integralClosure.intermediateFieldToAlgHom A L E B' x) =
+      algebraMap E L (x : E) := by
+  unfold integralClosure.intermediateFieldToAlgHom
+  simp [Subalgebra.algebraMap_eq, IsScalarTower.coe_toAlgHom']
+
+/-- The canonical `Algebra (integralClosure A E) B` structure when `B` is the integral closure of
+`A` in `L`.
+
+Stated as a `def` (not an `instance`) because Lean cannot synthesize the underlying `A`-algebra
+map `integralClosure A E →ₐ[A] B` automatically. Downstream consumers should pull it in with
+`haveI` or `letI`. -/
+@[reducible] noncomputable def integralClosure.algebra_intermediateField
+    (B' : Type*) [CommRing B'] [Algebra A B'] [Algebra B' L] [IsScalarTower A B' L]
+    [IsIntegralClosure B' A L] :
+    Algebra (integralClosure A E) B' :=
+  (integralClosure.intermediateFieldToAlgHom A L E B').toRingHom.toAlgebra
+
+/-- With `Algebra (integralClosure A E) B` from `integralClosure.algebra_intermediateField`,
+`B` is a scalar tower over `A` through `integralClosure A E`. -/
+theorem integralClosure.isScalarTower_intermediateField
+    (B' : Type*) [CommRing B'] [Algebra A B'] [Algebra B' L] [IsScalarTower A B' L]
+    [IsIntegralClosure B' A L] :
+    letI := integralClosure.algebra_intermediateField A L E B'
+    IsScalarTower A (integralClosure A E) B' := by
+  letI := integralClosure.algebra_intermediateField A L E B'
+  refine IsScalarTower.of_algebraMap_eq fun a ↦ ?_
+  apply IsIntegralClosure.algebraMap_injective B' A L
+  have hcoe : ∀ y : integralClosure A E,
+      (algebraMap (integralClosure A E) B') y =
+        integralClosure.intermediateFieldToAlgHom A L E B' y := fun _ ↦ rfl
+  rw [hcoe, integralClosure.algebraMap_intermediateFieldToAlgHom_apply]
+  rw [← IsScalarTower.algebraMap_apply A B' L,
+    show ((algebraMap A (integralClosure A E)) a : E) = algebraMap A E a from rfl,
+    ← IsScalarTower.algebraMap_apply A E L]
+
+/-- The scalar tower `integralClosure A E → B → L` (i.e. the embedding `B_E ↪ B` is compatible
+with the embeddings into `L`). -/
+theorem integralClosure.isScalarTower_intermediateField_right
+    (B' : Type*) [CommRing B'] [Algebra A B'] [Algebra B' L] [IsScalarTower A B' L]
+    [IsIntegralClosure B' A L] :
+    letI := integralClosure.algebra_intermediateField A L E B'
+    IsScalarTower (integralClosure A E) B' L := by
+  letI := integralClosure.algebra_intermediateField A L E B'
+  refine IsScalarTower.of_algebraMap_eq fun x ↦ ?_
+  have hcoe : (algebraMap (integralClosure A E) B') x =
+      integralClosure.intermediateFieldToAlgHom A L E B' x := rfl
+  rw [hcoe, integralClosure.algebraMap_intermediateFieldToAlgHom_apply]
+  exact (IsScalarTower.algebraMap_apply (integralClosure A E) E L x).symm
+
 end integralClosure_inertia
 
 section inertia_action_inertia_field
