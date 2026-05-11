@@ -2481,10 +2481,108 @@ private lemma primesAboveOf_F_tame_eq_F_of_totally_ramified
         𝔭.IsTotallyRamifiedIn (𝓞 F)) :
     ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ =
       ∏ 𝔭 ∈ primesAboveOf F_tame p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
-  -- Witness `F/F_tame` totally ramified at each prime of `F_tame` over `p` (via `hF_tame_ramified`).
-  -- Build the prime bijection `primesAboveOf F p ≃ primesAboveOf F_tame p` sending
-  -- 𝔓 ↦ 𝔓 ∩ 𝓞 F_tame, with `absNorm` preserved because `f(𝔓|𝔭) = 1`. Reindex the product.
-  sorry
+  -- The bijection `primesAboveOf F p ≃ primesAboveOf F_tame p` sends 𝔓 ↦ 𝔓 ∩ 𝓞 F_tame,
+  -- with `absNorm` preserved because `f(𝔓|𝔭) = 1` by total ramification.
+  classical
+  haveI : Fact (Nat.Prime p) := ⟨hp⟩
+  have hp_span_ne : (Ideal.span ({(p : ℤ)} : Set ℤ)) ≠ ⊥ := by simp [hp.ne_zero]
+  have h_mem_F : ∀ 𝔓 : Ideal (𝓞 F),
+      𝔓 ∈ primesAboveOf F p ↔
+        𝔓.IsPrime ∧ 𝔓.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) := by
+    intro 𝔓
+    change 𝔓 ∈ IsDedekindDomain.primesOverFinset _ (𝓞 F) ↔ _
+    rw [IsDedekindDomain.mem_primesOverFinset_iff hp_span_ne]
+    exact ⟨fun h => ⟨h.1, h.2⟩, fun h => ⟨h.1, h.2⟩⟩
+  have h_mem_Ft : ∀ 𝔭 : Ideal (𝓞 F_tame),
+      𝔭 ∈ primesAboveOf F_tame p ↔
+        𝔭.IsPrime ∧ 𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) := by
+    intro 𝔭
+    change 𝔭 ∈ IsDedekindDomain.primesOverFinset _ (𝓞 F_tame) ↔ _
+    rw [IsDedekindDomain.mem_primesOverFinset_iff hp_span_ne]
+    exact ⟨fun h => ⟨h.1, h.2⟩, fun h => ⟨h.1, h.2⟩⟩
+  haveI : Module.Finite (𝓞 F_tame) (𝓞 F) := Module.IsNoetherian.finite _ _
+  haveI : NoZeroSMulDivisors (𝓞 F_tame) (𝓞 F) := by
+    refine ⟨fun {c x} h => ?_⟩
+    rw [Algebra.smul_def] at h
+    rcases mul_eq_zero.mp h with h | h
+    · left
+      exact (FaithfulSMul.algebraMap_injective (𝓞 F_tame) (𝓞 F))
+        (by simp [h])
+    · right; exact h
+  refine Finset.prod_nbij (fun 𝔓 => 𝔓.under (𝓞 F_tame)) ?hi ?hinj ?hsurj ?heq
+  · intro 𝔓 h𝔓
+    obtain ⟨h𝔓_prime, h𝔓_lies⟩ := (h_mem_F 𝔓).mp h𝔓
+    refine (h_mem_Ft _).mpr ⟨Ideal.IsPrime.under (𝓞 F_tame) 𝔓, ?_⟩
+    haveI := h𝔓_lies
+    exact Ideal.under_liesOver_of_liesOver (B := 𝓞 F_tame) 𝔓 _
+  · intro 𝔓₁ h𝔓₁ 𝔓₂ h𝔓₂ heq
+    rw [Finset.mem_coe] at h𝔓₁ h𝔓₂
+    obtain ⟨h𝔓₁_prime, h𝔓₁_lies⟩ := (h_mem_F 𝔓₁).mp h𝔓₁
+    obtain ⟨h𝔓₂_prime, h𝔓₂_lies⟩ := (h_mem_F 𝔓₂).mp h𝔓₂
+    set 𝔭 := 𝔓₁.under (𝓞 F_tame) with h𝔭_def
+    haveI h𝔭_prime : 𝔭.IsPrime := Ideal.IsPrime.under (𝓞 F_tame) 𝔓₁
+    haveI h𝔭_lies : 𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) := by
+      haveI := h𝔓₁_lies
+      exact Ideal.under_liesOver_of_liesOver (B := 𝓞 F_tame) 𝔓₁ _
+    haveI h𝔓₁_over_𝔭 : 𝔓₁.LiesOver 𝔭 := ⟨rfl⟩
+    haveI h𝔓₂_over_𝔭 : 𝔓₂.LiesOver 𝔭 := ⟨heq⟩
+    have h_tr := hF_tame_ramified 𝔭 h𝔭_prime h𝔭_lies
+    have h𝔭_ne : 𝔭 ≠ ⊥ := by
+      intro hbot
+      apply hp_span_ne
+      have hover := h𝔭_lies.over
+      rw [hbot, Ideal.under_def,
+        Ideal.comap_bot_of_injective _ (FaithfulSMul.algebraMap_injective ℤ (𝓞 F_tame))]
+        at hover
+      exact hover
+    haveI h𝔭_max : 𝔭.IsMaximal := h𝔭_prime.isMaximal h𝔭_ne
+    obtain ⟨P, hsingle, _, _, _, _⟩ :=
+      h_tr.primesOverFinset_eq_singleton F_tame F h𝔭_ne
+    have h₁mem : 𝔓₁ ∈ IsDedekindDomain.primesOverFinset 𝔭 (𝓞 F) :=
+      (IsDedekindDomain.mem_primesOverFinset_iff h𝔭_ne _).mpr ⟨h𝔓₁_prime, h𝔓₁_over_𝔭⟩
+    have h₂mem : 𝔓₂ ∈ IsDedekindDomain.primesOverFinset 𝔭 (𝓞 F) :=
+      (IsDedekindDomain.mem_primesOverFinset_iff h𝔭_ne _).mpr ⟨h𝔓₂_prime, h𝔓₂_over_𝔭⟩
+    rw [hsingle, Finset.mem_singleton] at h₁mem h₂mem
+    exact h₁mem.trans h₂mem.symm
+  · intro 𝔭 h𝔭
+    rw [Finset.mem_coe] at h𝔭
+    obtain ⟨h𝔭_prime, h𝔭_lies⟩ := (h_mem_Ft 𝔭).mp h𝔭
+    have h_tr := hF_tame_ramified 𝔭 h𝔭_prime h𝔭_lies
+    obtain ⟨𝔓, h𝔓p, h𝔓o, _, _⟩ := h_tr.exists
+    refine ⟨𝔓, ?_, ?_⟩
+    · rw [Finset.mem_coe]
+      refine (h_mem_F 𝔓).mpr ⟨h𝔓p, ?_⟩
+      haveI := h𝔓o
+      haveI := h𝔭_lies
+      exact Ideal.LiesOver.trans 𝔓 𝔭 _
+    · exact h𝔓o.over.symm
+  · intro 𝔓 h𝔓
+    obtain ⟨h𝔓_prime, h𝔓_lies⟩ := (h_mem_F 𝔓).mp h𝔓
+    set 𝔭 := 𝔓.under (𝓞 F_tame) with h𝔭_def
+    haveI h𝔭_prime : 𝔭.IsPrime := Ideal.IsPrime.under (𝓞 F_tame) 𝔓
+    haveI h𝔭_lies : 𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) := by
+      haveI := h𝔓_lies
+      exact Ideal.under_liesOver_of_liesOver (B := 𝓞 F_tame) 𝔓 _
+    haveI h𝔓_over_𝔭 : 𝔓.LiesOver 𝔭 := ⟨rfl⟩
+    have h_tr := hF_tame_ramified 𝔭 h𝔭_prime h𝔭_lies
+    have h𝔭_ne : 𝔭 ≠ ⊥ := by
+      intro hbot
+      apply hp_span_ne
+      have hover := h𝔭_lies.over
+      rw [hbot, Ideal.under_def,
+        Ideal.comap_bot_of_injective _ (FaithfulSMul.algebraMap_injective ℤ (𝓞 F_tame))]
+        at hover
+      exact hover
+    haveI h𝔭_max : 𝔭.IsMaximal := h𝔭_prime.isMaximal h𝔭_ne
+    obtain ⟨P, hsingle, _, _, _, hPf⟩ :=
+      h_tr.primesOverFinset_eq_singleton F_tame F h𝔭_ne
+    have h𝔓_mem : 𝔓 ∈ IsDedekindDomain.primesOverFinset 𝔭 (𝓞 F) :=
+      (IsDedekindDomain.mem_primesOverFinset_iff h𝔭_ne _).mpr ⟨h𝔓_prime, h𝔓_over_𝔭⟩
+    rw [hsingle, Finset.mem_singleton] at h𝔓_mem
+    have h𝔓_f : Ideal.inertiaDeg 𝔭 𝔓 = 1 := h𝔓_mem ▸ hPf
+    have hN := Ideal.absNorm_eq_pow_inertiaDeg_of_liesOver (S := 𝓞 F_tame) 𝔓 𝔭 h𝔭_prime h𝔭_ne
+    rw [h𝔓_f, pow_one] at hN
+    rw [hN]
 
 /-- **Ramified-case scaffold (d): unramified case at the tame level `m`.** With `p.Coprime m`,
 the existing unramified result `prod_chars_eq_prod_inertia` applies inside `Km/ℚ` to the

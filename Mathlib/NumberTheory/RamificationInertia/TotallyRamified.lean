@@ -160,6 +160,65 @@ theorem isTotallyRamifiedIn_iff_exists_ramificationIdx_eq_finrank
     rw [hsingle, Finset.mem_singleton] at hQmem
     exact hQmem
 
+/-- Under Dedekind-domain hypotheses, total ramification of `p` in `S` makes
+`IsDedekindDomain.primesOverFinset p S` the singleton consisting of the unique prime
+witnessing total ramification. -/
+theorem IsTotallyRamifiedIn.primesOverFinset_eq_singleton
+    (K L : Type*) [Field K] [Field L] [IsDedekindDomain R] [IsDedekindDomain S]
+    [Algebra R K] [IsFractionRing R K]
+    [Algebra S L] [IsFractionRing S L] [Algebra K L] [Algebra R L] [IsScalarTower R S L]
+    [IsScalarTower R K L] [Module.Finite R S] [NoZeroSMulDivisors R S]
+    {p : Ideal R} [p.IsMaximal] (hp0 : p ≠ ⊥)
+    (h : p.IsTotallyRamifiedIn S) :
+    ∃ P : Ideal S, IsDedekindDomain.primesOverFinset p S = {P} ∧
+      P.IsPrime ∧ P.LiesOver p ∧
+      ramificationIdx p P = Module.finrank R S ∧ inertiaDeg p P = 1 := by
+  classical
+  obtain ⟨P, hPp, hPo, hPe, hPf⟩ := h.exists
+  refine ⟨P, ?_, hPp, hPo, hPe, hPf⟩
+  -- The argument is the singleton part of
+  -- `isTotallyRamifiedIn_iff_exists_ramificationIdx_eq_finrank`.
+  have hfaith : FaithfulSMul R S := FaithfulSMul.of_field_isFractionRing R S K L
+  have halg : Algebra.IsAlgebraic R S := Algebra.IsAlgebraic.of_finite R S
+  have hfr : Module.finrank K L = Module.finrank R S :=
+    Algebra.IsAlgebraic.finrank_of_isFractionRing R K S L
+  have hPmem : P ∈ IsDedekindDomain.primesOverFinset p S :=
+    (IsDedekindDomain.mem_primesOverFinset_iff hp0 _).mpr ⟨hPp, hPo⟩
+  have hsum := sum_ramification_inertia S K L (p := p) hp0
+  have hpos_e_other : ∀ Q ∈ IsDedekindDomain.primesOverFinset p S,
+      0 < ramificationIdx p Q * inertiaDeg p Q := by
+    intro Q hQ
+    have hQp' : Q.IsPrime := ((IsDedekindDomain.mem_primesOverFinset_iff hp0 _).mp hQ).1
+    have hQo' : Q.LiesOver p := ((IsDedekindDomain.mem_primesOverFinset_iff hp0 _).mp hQ).2
+    refine Nat.mul_pos ?_ ?_
+    · exact Nat.pos_iff_ne_zero.mpr <|
+        IsDedekindDomain.ramificationIdx_ne_zero_of_liesOver _ hp0
+    · exact Nat.pos_iff_ne_zero.mpr <| inertiaDeg_ne_zero p Q
+  refine Finset.eq_singleton_iff_unique_mem.mpr ⟨hPmem, fun Q hQ ↦ ?_⟩
+  by_contra hQne
+  have hsplit :
+      ∑ Q' ∈ IsDedekindDomain.primesOverFinset p S,
+          ramificationIdx p Q' * inertiaDeg p Q' =
+        ramificationIdx p P * inertiaDeg p P +
+          ∑ Q' ∈ (IsDedekindDomain.primesOverFinset p S).erase P,
+            ramificationIdx p Q' * inertiaDeg p Q' :=
+    (Finset.add_sum_erase _ _ hPmem).symm
+  have hQmem_erase : Q ∈ (IsDedekindDomain.primesOverFinset p S).erase P :=
+    Finset.mem_erase.mpr ⟨hQne, hQ⟩
+  have herase_pos :
+      0 < ∑ Q' ∈ (IsDedekindDomain.primesOverFinset p S).erase P,
+            ramificationIdx p Q' * inertiaDeg p Q' :=
+    Finset.sum_pos
+      (fun Q' hQ' ↦ hpos_e_other Q' (Finset.mem_of_mem_erase hQ'))
+      ⟨Q, hQmem_erase⟩
+  have hPef : ramificationIdx p P * inertiaDeg p P = Module.finrank R S := by
+    rw [hPe, hPf, Nat.mul_one]
+  have hbig : ∑ Q' ∈ IsDedekindDomain.primesOverFinset p S,
+      ramificationIdx p Q' * inertiaDeg p Q' > Module.finrank R S := by
+    rw [hsplit, hPef]; omega
+  rw [hsum, hfr] at hbig
+  exact lt_irrefl _ hbig
+
 /-- One-direction wrapper: existence of a prime `P` of `S` over `p` with `e(P|p) = finrank R S`
 implies total ramification (under standard Dedekind hypotheses). -/
 theorem isTotallyRamifiedIn_of_ramificationIdx_eq_finrank
