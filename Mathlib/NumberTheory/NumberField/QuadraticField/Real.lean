@@ -987,4 +987,125 @@ theorem regulator_eq_log_two_add_sqrt_three :
     linarith
   exact abs_of_pos (Real.log_pos hpos1)
 
+/-! ### Phase C item (c1.1): unit action on `(ℝ_+)²` via the two real embeddings
+
+The standard Dirichlet-unit action: a unit `u ∈ (𝓞 ℚ(√3))ˣ` acts on `(t₁, t₂)` by
+`(|σ₁ u| · t₁, |σ₂ u| · t₂)` where `σ₁ = embedPos`, `σ₂ = embedNeg`. The carrier
+`PosReal := {x : ℝ // 0 < x}` is the standard `ℝ_+` subtype; this composes cleanly
+with `Real.log` since positivity is type-level. For units of `𝓞 ℚ(√3)`, the
+two embedding values are nonzero and their product equals the algebraic norm,
+which is `+1` (by `Zsqrt3.units_norm_eq_one`); hence the action preserves
+`log t₁ + log t₂`. -/
+
+/-- The strictly-positive reals, used as the carrier `ℝ_+` for the unit action. -/
+abbrev PosReal : Type := {x : ℝ // 0 < x}
+
+/-- `embedPos` applied to a unit of `𝓞 Qsqrt3` is nonzero. -/
+theorem embedPos_unit_ne_zero (u : (𝓞 Qsqrt3)ˣ) :
+    embedPos (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3)) ≠ 0 := by
+  intro h
+  have hu : (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3)) *
+      (algebraMap (𝓞 Qsqrt3) Qsqrt3 ((u⁻¹ : (𝓞 Qsqrt3)ˣ) : 𝓞 Qsqrt3)) = 1 := by
+    rw [← map_mul]; simp
+  apply_fun embedPos at hu
+  rw [map_mul, map_one, h, zero_mul] at hu
+  exact zero_ne_one hu
+
+/-- `embedNeg` applied to a unit of `𝓞 Qsqrt3` is nonzero. -/
+theorem embedNeg_unit_ne_zero (u : (𝓞 Qsqrt3)ˣ) :
+    embedNeg (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3)) ≠ 0 := by
+  intro h
+  have hu : (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3)) *
+      (algebraMap (𝓞 Qsqrt3) Qsqrt3 ((u⁻¹ : (𝓞 Qsqrt3)ˣ) : 𝓞 Qsqrt3)) = 1 := by
+    rw [← map_mul]; simp
+  apply_fun embedNeg at hu
+  rw [map_mul, map_one, h, zero_mul] at hu
+  exact zero_ne_one hu
+
+/-- For a unit `u` of `𝓞 Qsqrt3`, the product of the two real embeddings equals `1`
+(the algebraic norm of a unit; for `d = 3` there are no norm `-1` units). -/
+theorem embedPos_mul_embedNeg_unit (u : (𝓞 Qsqrt3)ˣ) :
+    embedPos (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3)) *
+      embedNeg (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3)) = 1 := by
+  set zu : (Zsqrtd 3)ˣ := unitsRingOfIntegersEquiv u with hzu_def
+  set z : Zsqrtd 3 := (zu : Zsqrtd 3) with hz_def
+  have hu_eq : algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3) = fromZsqrt3 z := by
+    have h1 : (u : 𝓞 Qsqrt3) = ringOfIntegersEquiv.symm z := by
+      apply ringOfIntegersEquiv.injective
+      simp [hz_def, hzu_def, unitsRingOfIntegersEquiv]
+    rw [h1, algebraMap_ringOfIntegersEquiv_symm]
+  rw [hu_eq, embedPos_fromZsqrt3, embedNeg_fromZsqrt3]
+  have hnorm : z.norm = 1 := Zsqrt3.units_norm_eq_one zu
+  have hnorm_def : z.re * z.re - 3 * z.im * z.im = 1 := by
+    have := Zsqrtd.norm_def z
+    omega
+  have hsq3 : Real.sqrt 3 * Real.sqrt 3 = 3 :=
+    Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 3)
+  have : ((z.re : ℝ) + (z.im : ℝ) * Real.sqrt 3) *
+      ((z.re : ℝ) - (z.im : ℝ) * Real.sqrt 3) =
+      ((z.re * z.re - 3 * z.im * z.im : ℤ) : ℝ) := by
+    push_cast
+    linear_combination -((z.im : ℝ) ^ 2) * hsq3
+  rw [this, hnorm_def]; norm_num
+
+/-- The unit `u` acts on `PosReal × PosReal` componentwise by multiplication with
+`|embedPos u|` and `|embedNeg u|`. -/
+noncomputable def unitAction (u : (𝓞 Qsqrt3)ˣ) (t : PosReal × PosReal) :
+    PosReal × PosReal :=
+  (⟨|embedPos (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3))| * t.1.val,
+    mul_pos (abs_pos.mpr (embedPos_unit_ne_zero u)) t.1.property⟩,
+   ⟨|embedNeg (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3))| * t.2.val,
+    mul_pos (abs_pos.mpr (embedNeg_unit_ne_zero u)) t.2.property⟩)
+
+@[simp]
+theorem unitAction_fst (u : (𝓞 Qsqrt3)ˣ) (t : PosReal × PosReal) :
+    ((unitAction u t).1 : ℝ) =
+      |embedPos (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3))| * t.1.val := rfl
+
+@[simp]
+theorem unitAction_snd (u : (𝓞 Qsqrt3)ˣ) (t : PosReal × PosReal) :
+    ((unitAction u t).2 : ℝ) =
+      |embedNeg (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3))| * t.2.val := rfl
+
+/-- Multiplicativity: `unitAction (u * v) = unitAction u ∘ unitAction v`. -/
+theorem unitAction_mul (u v : (𝓞 Qsqrt3)ˣ) :
+    unitAction (u * v) = unitAction u ∘ unitAction v := by
+  funext t
+  refine Prod.ext (Subtype.ext ?_) (Subtype.ext ?_) <;>
+    simp only [unitAction_fst, unitAction_snd, Function.comp_apply,
+      Units.val_mul, map_mul, abs_mul] <;> ring
+
+/-- The identity unit acts as the identity. -/
+theorem unitAction_one : unitAction (1 : (𝓞 Qsqrt3)ˣ) = id := by
+  funext t
+  refine Prod.ext (Subtype.ext ?_) (Subtype.ext ?_) <;>
+    simp [unitAction_fst, unitAction_snd]
+
+/-- Trace-preserving property: the action preserves `log t₁ + log t₂`. The
+shift is `log |σ₁ u| + log |σ₂ u| = log |σ₁ u · σ₂ u| = log 1 = 0`. -/
+theorem log_unitAction_trace (u : (𝓞 Qsqrt3)ˣ) (t : PosReal × PosReal) :
+    Real.log ((unitAction u t).1 : ℝ) + Real.log ((unitAction u t).2 : ℝ) =
+      Real.log (t.1.val) + Real.log (t.2.val) := by
+  simp only [unitAction_fst, unitAction_snd]
+  have hpos1 := abs_pos.mpr (embedPos_unit_ne_zero u)
+  have hpos2 := abs_pos.mpr (embedNeg_unit_ne_zero u)
+  rw [Real.log_mul (ne_of_gt hpos1) (ne_of_gt t.1.property),
+      Real.log_mul (ne_of_gt hpos2) (ne_of_gt t.2.property)]
+  have habs_prod :
+      |embedPos (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3))| *
+        |embedNeg (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3))| = 1 := by
+    rw [← abs_mul, embedPos_mul_embedNeg_unit, abs_one]
+  have hsum : Real.log |embedPos (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3))| +
+      Real.log |embedNeg (algebraMap (𝓞 Qsqrt3) Qsqrt3 (u : 𝓞 Qsqrt3))| = 0 := by
+    rw [← Real.log_mul (ne_of_gt hpos1) (ne_of_gt hpos2), habs_prod, Real.log_one]
+  linarith
+
+/-- The unit action as a `MulAction`. -/
+noncomputable instance : MulAction (𝓞 Qsqrt3)ˣ (PosReal × PosReal) where
+  smul := unitAction
+  one_smul t := by change unitAction 1 t = t; rw [unitAction_one]; rfl
+  mul_smul u v t := by
+    change unitAction (u * v) t = unitAction u (unitAction v t)
+    rw [unitAction_mul]; rfl
+
 end Qsqrt3
