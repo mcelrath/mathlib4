@@ -22,6 +22,9 @@ field `Km ⊆ Kn` is the maximal subextension unramified at primes above `p`, an
 * `IsCyclotomicExtension.Rat.galEquivZMod_mapSubgroup_inertia`:
   the image of the inertia subgroup `P.inertia Gal(Kn/ℚ)` under `galEquivZMod n Kn`
   is the kernel of the natural map `(ZMod n)ˣ → (ZMod m)ˣ`.
+* `IsCyclotomicExtension.Rat.inertia_eq_fixingSubgroup`: field-theoretic restatement:
+  `P.inertia Gal(Kn/ℚ) = Km.fixingSubgroup` where `Km` is the intermediate cyclotomic
+  subfield of order `Nat.divMaxPow n p`.
 -/
 
 open NumberField
@@ -167,5 +170,57 @@ theorem galEquivZMod_mapSubgroup_inertia :
       exact Nat.eq_of_mul_eq_mul_right (Nat.totient_pos.mpr (NeZero.pos m))
         (hfirst_iso.trans hram_tot.symm)
     linarith [hcard_inertia, hcard_ker]
+
+/-- **Cyclotomic inertia, as an intermediate-field fixing subgroup.**
+
+If `Km ⊆ Kn` is the intermediate cyclotomic subfield of order `m = Nat.divMaxPow n p`
+(the `p`-free part of `n`), then the inertia subgroup at any prime `P` of `𝓞 Kn` lying
+over `p` coincides with the subgroup of `Gal(Kn/ℚ)` fixing `Km` pointwise.
+
+This is the field-theoretic restatement of `galEquivZMod_mapSubgroup_inertia`:
+the two subgroups have the same image under the isomorphism `galEquivZMod n Kn`. -/
+theorem inertia_eq_fixingSubgroup
+    (Km : IntermediateField ℚ Kn)
+    [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km] :
+    P.inertia Gal(Kn/ℚ) = Km.fixingSubgroup := by
+  set m := Nat.divMaxPow n p with hm_def
+  have hm_dvd : m ∣ n := Nat.divMaxPow_dvd n p
+  have hm_ne : NeZero m :=
+    ⟨ne_zero_of_dvd_ne_zero (NeZero.ne n) hm_dvd⟩
+  haveI hGalKn : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
+  haveI : NumberField Km := IsCyclotomicExtension.numberField {m} ℚ Km
+  haveI hGalKm : IsGalois ℚ Km := IsCyclotomicExtension.isGalois {m} ℚ Km
+  haveI hNormKm : Normal ℚ Km := IsGalois.to_normal (F := ℚ) (E := (Km : IntermediateField ℚ Kn))
+  -- Both `P.inertia` and `Km.fixingSubgroup` have the same image under `galEquivZMod n Kn`.
+  apply (galEquivZMod n Kn).mapSubgroup.injective
+  rw [galEquivZMod_mapSubgroup_inertia n Kn p P]
+  -- Show: (galEquivZMod n Kn).mapSubgroup Km.fixingSubgroup = (ZMod.unitsMap hm_dvd).ker.
+  have hker_eq : (AlgEquiv.restrictNormalHom (F := ℚ) (K₁ := Kn) Km).ker = Km.fixingSubgroup :=
+    @IntermediateField.restrictNormalHom_ker ℚ Kn _ _ _ Km hNormKm
+  ext u
+  refine ⟨fun hu => ?_, fun hu => ?_⟩
+  ·-- hu : u ∈ (ZMod.unitsMap _).ker; goal : u ∈ mapSubgroup Km.fixingSubgroup
+    rw [MonoidHom.mem_ker] at hu
+    rw [MulEquiv.coe_mapSubgroup, Subgroup.mem_map]
+    refine ⟨(galEquivZMod n Kn).symm u, ?_, ?_⟩
+    · rw [← hker_eq, MonoidHom.mem_ker]
+      have h1 : galEquivZMod m Km
+          (((galEquivZMod n Kn).symm u).restrictNormal Km) = 1 := by
+        rw [galEquivZMod_restrictNormal_apply n Kn (F := Km) hm_dvd,
+          MulEquiv.apply_symm_apply, hu]
+      exact (galEquivZMod m Km).injective (h1.trans (map_one _).symm)
+    · show (galEquivZMod n Kn) ((galEquivZMod n Kn).symm u) = u
+      exact MulEquiv.apply_symm_apply _ _
+  · -- hu : u ∈ mapSubgroup Km.fixingSubgroup; goal : u ∈ (ZMod.unitsMap _).ker
+    rw [MulEquiv.coe_mapSubgroup, Subgroup.mem_map] at hu
+    obtain ⟨σ, hσ, hσu⟩ := hu
+    have hres : σ.restrictNormal Km = 1 := by
+      have hmem : σ ∈ (AlgEquiv.restrictNormalHom (F := ℚ) (K₁ := Kn) Km).ker :=
+        hker_eq.ge hσ
+      rwa [MonoidHom.mem_ker] at hmem
+    have hsq := galEquivZMod_restrictNormal_apply n Kn (F := Km) hm_dvd σ
+    rw [hres, map_one] at hsq
+    rw [MonoidHom.mem_ker, ← hσu]
+    exact hsq.symm
 
 end IsCyclotomicExtension.Rat
