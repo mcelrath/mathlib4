@@ -97,7 +97,7 @@ set_option linter.style.longFile 2200 in
 
 @[expose] public section
 
-noncomputable section
+public noncomputable section
 
 open Filter Complex
 open scoped LSeries.notation Topology
