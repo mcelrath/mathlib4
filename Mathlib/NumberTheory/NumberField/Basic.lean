@@ -125,6 +125,10 @@ instance : IsTorsionFree (𝓞 K) K :=
 instance {L : Type*} [Ring L] [Algebra K L] : IsScalarTower (𝓞 K) K L :=
   inferInstanceAs (IsScalarTower (integralClosure _ _) K L)
 
+/-- The ring of integers `𝓞 K` sits between `ℤ` and the number field `K` as a scalar tower. -/
+instance : IsScalarTower ℤ (𝓞 K) K :=
+  inferInstanceAs (IsScalarTower ℤ (integralClosure ℤ K) K)
+
 instance {G : Type*} [Group G] [MulSemiringAction G K] : MulSemiringAction G (𝓞 K) :=
   inferInstanceAs (MulSemiringAction G (integralClosure ℤ K))
 
