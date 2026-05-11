@@ -2196,14 +2196,55 @@ private lemma conductor_changeLevel {n m : ℕ} [NeZero n] [NeZero m] (h : m ∣
   -- conclude: conductor(χ) ∣ conductor(changeLevel h χ), then both divide each other
   exact Nat.dvd_antisymm hdir1 (DirichletCharacter.conductor_dvd_of_mem_conductorSet _ h2)
 
--- NOTE: `primitiveCharacter_changeLevel` needs careful formulation.
--- Since conductor_changeLevel h χ : (changeLevel h χ).conductor = χ.conductor,
--- both primitiveCharacters have types `DirichletCharacter ℂ (changeLevel h χ).conductor`
--- and `DirichletCharacter ℂ χ.conductor` respectively. After transport they are equal.
--- The key application (evaluation at a prime p) is:
---   (changeLevel h χ).primitiveCharacter (p : ℕ) = χ.primitiveCharacter (p : ℕ)
--- which follows from conductor_changeLevel by DFunLike.congr or cast.
--- This is left for future work as it's only needed in prod_chars_eq_prod_inertia_ramified.
+/-- **`primitiveCharacter` of `changeLevel`.** Lifting a character to a higher level preserves
+its primitive character (up to the conductor equality `conductor_changeLevel`).
+
+Stated in evaluation form: applying `(changeLevel h χ).primitiveCharacter` and
+`χ.primitiveCharacter` to the same natural number `a` (each cast to its own conductor's `ZMod`)
+yields the same value.
+
+Proof: substitute the conductor equality `conductor_changeLevel` to align types, then use that
+both primitive characters lift via `changeLevel` (along divisibilities to level `n`) to
+`changeLevel h χ`, and `changeLevel_injective` to identify them. -/
+private lemma primitiveCharacter_changeLevel {n m : ℕ} [NeZero n] [NeZero m] (h : m ∣ n)
+    (χ : DirichletCharacter ℂ m) (a : ℕ) :
+    (DirichletCharacter.changeLevel h χ).primitiveCharacter
+        ((a : ℕ) : ZMod (DirichletCharacter.changeLevel h χ).conductor) =
+      χ.primitiveCharacter ((a : ℕ) : ZMod χ.conductor) := by
+  -- Conductor equality and the lifting fact `changeLevel_primitiveCharacter` for `changeLevel h χ`.
+  have hcond : (DirichletCharacter.changeLevel h χ).conductor = χ.conductor :=
+    conductor_changeLevel h χ
+  have hlift_lhs : DirichletCharacter.changeLevel
+      (DirichletCharacter.changeLevel h χ).conductor_dvd_level
+      (DirichletCharacter.changeLevel h χ).primitiveCharacter = DirichletCharacter.changeLevel h χ :=
+    DirichletCharacter.changeLevel_primitiveCharacter _
+  -- Package the goal as `∀`-application of a helper that takes the conductor as a fresh
+  -- variable, then we `subst` the conductor equality to merge it with `χ.conductor`.
+  have key : ∀ (c : ℕ) (_hc : c = χ.conductor)
+      (ψ : DirichletCharacter ℂ c)
+      (hdvd : c ∣ n)
+      (_hψ_lift : DirichletCharacter.changeLevel hdvd ψ = DirichletCharacter.changeLevel h χ),
+      ψ ((a : ℕ) : ZMod c) = χ.primitiveCharacter ((a : ℕ) : ZMod χ.conductor) := by
+    intro c hc ψ hdvd hψ_lift
+    subst hc
+    -- Goal: `ψ a = χ.primitiveCharacter a` in `ℂ`, with `ψ, χ.primitiveCharacter :
+    -- DirichletCharacter ℂ χ.conductor`. Show `ψ = χ.primitiveCharacter`, then rewrite.
+    have hψ_eq : ψ = χ.primitiveCharacter := by
+      -- `changeLevel h χ = changeLevel hdvd χ.primitiveCharacter` (since
+      -- `hdvd = χ.conductor_dvd_level.trans h` by proof irrelevance, and
+      -- `changeLevel h χ = changeLevel h (changeLevel χ.conductor_dvd_level χ.primitiveCharacter)
+      --                  = changeLevel (χ.conductor_dvd_level.trans h) χ.primitiveCharacter`).
+      have hrhs : DirichletCharacter.changeLevel hdvd χ.primitiveCharacter
+          = DirichletCharacter.changeLevel h χ := by
+        rw [show hdvd = χ.conductor_dvd_level.trans h from rfl,
+            DirichletCharacter.changeLevel_trans χ.primitiveCharacter χ.conductor_dvd_level h,
+            DirichletCharacter.changeLevel_primitiveCharacter]
+      -- Then `changeLevel hdvd ψ = changeLevel hdvd χ.primitiveCharacter`; use injectivity.
+      exact DirichletCharacter.changeLevel_injective hdvd (hψ_lift.trans hrhs.symm)
+    rw [hψ_eq]
+  exact key (DirichletCharacter.changeLevel h χ).conductor hcond
+    (DirichletCharacter.changeLevel h χ).primitiveCharacter
+    (DirichletCharacter.changeLevel h χ).conductor_dvd_level hlift_lhs
 
 /-- **Ramified-case Step B.** For `p ∣ n` and `F` an intermediate field of `ℚ(ζₙ)/ℚ`, the
 character product `∏ χ : Y, (1 - χ.val.primitiveCharacter p * T)⁻¹` equals the prime product
