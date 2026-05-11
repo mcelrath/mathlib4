@@ -2389,7 +2389,12 @@ Under this bijection, the primitive-character evaluation at `p` is preserved
 Existing API to compose:
 * `primitiveCharacter_changeLevel` — primitive character is preserved under `changeLevel`.
 * `conductor_changeLevel` — conductor is preserved.
-* Bijection level-`n`-tame ↔ level-`m`-tame via `changeLevel hm_dvd` restricted to `Y_tame_m`. -/
+* Bijection level-`n`-tame ↔ level-`m`-tame via `changeLevel hm_dvd` restricted to `Y_tame_m`.
+
+The link between `Y_tame` (level `n`) and `Y_tame_m` (level `m`) is taken as the hypothesis
+`hYlink`: every level-`n` tame character is the `changeLevel` lift of a unique level-`m`
+character in `Y_tame_m`. The caller discharges `hYlink` when choosing `F_tame_in_Km` to be
+`F ⊓ Km` viewed inside `Km`, so the two character subgroups correspond under `changeLevel`. -/
 private lemma prod_chars_tame_descend_to_level_m
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
@@ -2406,13 +2411,35 @@ private lemma prod_chars_tame_descend_to_level_m
     (Y_tame_m : Subgroup (DirichletCharacter ℂ (Nat.divMaxPow n p)))
     (hY_tame_m : Y_tame_m =
       IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar
-        (Nat.divMaxPow n p) Km ℂ F_tame_in_Km) :
+        (Nat.divMaxPow n p) Km ℂ F_tame_in_Km)
+    (hYlink : ∀ χ : DirichletCharacter ℂ n, χ ∈ Y_tame ↔
+      ∃ ψ : DirichletCharacter ℂ (Nat.divMaxPow n p), ψ ∈ Y_tame_m ∧
+        DirichletCharacter.changeLevel (divMaxPow_dvd' n p) ψ = χ) :
     ∏ χ : Y_tame, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
       ∏ χ : Y_tame_m, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ := by
   -- The `changeLevel hm_dvd : DirichletCharacter ℂ m →* DirichletCharacter ℂ n` gives a group
   -- iso `Y_tame_m ≃* Y_tame`. Under this iso, `primitiveCharacter_changeLevel` shows the
-  -- evaluated factor is preserved. Reindex the product over `Y_tame` via this bijection.
-  sorry
+  -- evaluated factor is preserved. Reindex the product via this bijection.
+  set hm_dvd : Nat.divMaxPow n p ∣ n := divMaxPow_dvd' n p with hm_dvd_def
+  -- Bijection `Y_tame_m ≃ Y_tame` induced by `changeLevel hm_dvd`.
+  let toFun : Y_tame_m → Y_tame := fun ψ =>
+    ⟨DirichletCharacter.changeLevel hm_dvd ψ.val,
+      (hYlink _).mpr ⟨ψ.val, ψ.property, rfl⟩⟩
+  have hInj : Function.Injective toFun := by
+    intro ψ₁ ψ₂ hψ
+    apply Subtype.ext
+    have := congrArg Subtype.val hψ
+    exact DirichletCharacter.changeLevel_injective hm_dvd this
+  have hSurj : Function.Surjective toFun := by
+    intro χ
+    obtain ⟨ψ, hψ_mem, hψ_eq⟩ := (hYlink _).mp χ.property
+    exact ⟨⟨ψ, hψ_mem⟩, Subtype.ext hψ_eq⟩
+  let e : Y_tame_m ≃ Y_tame := Equiv.ofBijective toFun ⟨hInj, hSurj⟩
+  refine (Fintype.prod_equiv e _ _ ?_).symm
+  intro ψ
+  -- `(e ψ).val = changeLevel hm_dvd ψ.val` by definition of `Equiv.ofBijective`.
+  have heval : (e ψ).val = DirichletCharacter.changeLevel hm_dvd ψ.val := rfl
+  rw [heval, primitiveCharacter_changeLevel hm_dvd ψ.val p]
 
 /-- **Ramified-case scaffold (c): totally-ramified prime-side reduction.** For `p ∣ n`,
 the extension `F/F_tame` (where `F_tame = F ⊓ Km`, `Km = ℚ(ζₘ)`) is totally ramified at every
@@ -2540,9 +2567,12 @@ private lemma prod_chars_eq_prod_inertia_ramified
       ∃ F_tame_in_Km : IntermediateField ℚ Km, ∃ _ : NumberField (F_tame_in_Km : Type _),
         ∃ Y_tame_m : Subgroup (DirichletCharacter ℂ m),
           Y_tame_m =
-            IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar m Km ℂ F_tame_in_Km :=
+            IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar m Km ℂ F_tame_in_Km ∧
+          (∀ χ : DirichletCharacter ℂ n, χ ∈ Y_tame ↔
+            ∃ ψ : DirichletCharacter ℂ m, ψ ∈ Y_tame_m ∧
+              DirichletCharacter.changeLevel (divMaxPow_dvd' n p) ψ = χ) :=
     by sorry
-  obtain ⟨F_tame_in_Km, hF_tame_in_Km_nf, Y_tame_m, hY_tame_m⟩ := h_F_tame_in_Km
+  obtain ⟨F_tame_in_Km, hF_tame_in_Km_nf, Y_tame_m, hY_tame_m, hYlink⟩ := h_F_tame_in_Km
   haveI : NumberField (F_tame_in_Km : Type _) := hF_tame_in_Km_nf
   -- Compose the four sub-lemmas.
   calc ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹
@@ -2550,6 +2580,7 @@ private lemma prod_chars_eq_prod_inertia_ramified
         prod_chars_ramified_LHS_eq_prod_tame F Y hY hp Km Y_tame hY_tame
     _ = ∏ χ : Y_tame_m, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ :=
         prod_chars_tame_descend_to_level_m F hp Km Y_tame hY_tame F_tame_in_Km Y_tame_m hY_tame_m
+          hYlink
     _ = ∏ 𝔭 ∈ primesAboveOf F_tame p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ :=
         prod_chars_eq_prod_inertia_tame_m F hp Km F_tame rfl F_tame_in_Km
           Y_tame_m hY_tame_m hp_m
