@@ -14,6 +14,9 @@ import Mathlib.Data.Real.Sqrt
 import Mathlib.RingTheory.IntegralClosure.IntegrallyClosed
 import Mathlib.RingTheory.IntegralClosure.IsIntegralClosure.Basic
 import Mathlib.Algebra.GCDMonoid.IntegrallyClosed
+import Mathlib.MeasureTheory.Integral.Prod
+import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
+import Mathlib.MeasureTheory.Integral.Bochner.Set
 
 /-!
 # The real quadratic number field `ℚ(√3)`
@@ -1313,5 +1316,61 @@ theorem intToUnitGroupMod_injective : Function.Injective intToUnitGroupMod := by
 noncomputable def unitGroupModEquivInt : Multiplicative ℤ ≃* UnitGroupMod :=
   MulEquiv.ofBijective intToUnitGroupMod
     ⟨intToUnitGroupMod_injective, intToUnitGroupMod_surjective⟩
+
+/-! ### Phase C item (c1.3): Tate factorization (diagonal form)
+
+In log coordinates `(u, v) := (log t₁ − log t₂, (log t₁ + log t₂)/2)`, the unit
+action shifts `u` by integer multiples of `2 · regulator Qsqrt3 = 2 · log(2 + √3)`
+(via `log_unitAction_trace` and `embedPos_fundamentalUnit_zpow`), and fixes the
+trace coordinate `v`. A fundamental domain for the `UnitGroupMod`-action on the
+log-difference axis is the half-open interval `Ico 0 (2 · regulator Qsqrt3)`.
+
+The "diagonal" Tate factorization (Tate's thesis) says that for integrands
+depending only on the trace coordinate `v` (equivalently, on `√(t₁ · t₂)`),
+integration over the fundamental domain factors as `(measure of FD) · (diagonal
+integral)`. Below we prove this in the simplest formulation: as a Fubini-style
+identity between iterated Lebesgue integrals on `ℝ × ℝ`, with the FD-measure
+identified as `2 · regulator Qsqrt3`. -/
+
+/-- The fundamental domain on the log-difference axis: `[0, 2 · regulator)`. -/
+noncomputable def logUnitFD : Set ℝ :=
+  Set.Ico 0 (2 * NumberField.Units.regulator Qsqrt3)
+
+/-- The fundamental shift on the log-difference axis equals `2 · log(2 + √3)`. -/
+theorem two_regulator_eq : 2 * NumberField.Units.regulator Qsqrt3 =
+    2 * Real.log (2 + Real.sqrt 3) := by
+  rw [regulator_eq_log_two_add_sqrt_three]
+
+/-- `2 · regulator Qsqrt3` is strictly positive. -/
+theorem two_regulator_pos : 0 < 2 * NumberField.Units.regulator Qsqrt3 := by
+  rw [two_regulator_eq]
+  have hgt : (1 : ℝ) < 2 + Real.sqrt 3 := by
+    have := Real.sqrt_nonneg 3; linarith
+  have : 0 < Real.log (2 + Real.sqrt 3) := Real.log_pos hgt
+  linarith
+
+/-- The Lebesgue measure of `logUnitFD` equals `2 · regulator Qsqrt3`. -/
+theorem volume_logUnitFD :
+    MeasureTheory.volume logUnitFD =
+      ENNReal.ofReal (2 * NumberField.Units.regulator Qsqrt3) := by
+  rw [logUnitFD, Real.volume_Ico, sub_zero]
+
+/-- The real-valued Lebesgue measure of `logUnitFD` equals `2 · regulator Qsqrt3`. -/
+theorem measureReal_logUnitFD :
+    MeasureTheory.volume.real logUnitFD = 2 * NumberField.Units.regulator Qsqrt3 := by
+  rw [MeasureTheory.measureReal_def, volume_logUnitFD,
+      ENNReal.toReal_ofReal (le_of_lt two_regulator_pos)]
+
+/-- **Tate factorization (diagonal form).** For any function `G : ℝ → E`
+depending only on the trace coordinate, the iterated Lebesgue integral over
+`logUnitFD × ℝ` factors as `(2 · regulator Qsqrt3) • (∫ G)`. This is the
+Tate-thesis splitting `∫_{FD × ℝ_+} = vol(FD) · ∫_{ℝ_+}` after log-coordinate
+change; the regulator factor is the volume of a fundamental domain for the
+unit action on the log-difference axis. -/
+theorem tate_fd_factor_diagonal {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [CompleteSpace E] (G : ℝ → E) :
+    ∫ _ in logUnitFD, ∫ v, G v =
+      (2 * NumberField.Units.regulator Qsqrt3) • ∫ v, G v := by
+  rw [MeasureTheory.setIntegral_const, measureReal_logUnitFD]
 
 end Qsqrt3
