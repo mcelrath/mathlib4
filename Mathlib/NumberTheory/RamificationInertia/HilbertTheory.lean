@@ -223,3 +223,51 @@ theorem IsInertiaField.rank_decompositionField [IsGalois K L] [Algebra K D] [Alg
   exact IsDedekindDomain.primesOver_ncard_ne_zero p B
 
 end rank
+
+section integralClosure_inertia
+
+/-!
+### Instances for `integralClosure A E` when `E` is an inertia (or decomposition) subfield
+
+For an inertia or decomposition subfield `E` of `L/K` sitting between `K` and `L`, the integral
+closure `B_E := integralClosure A E` of `A` in `E` is a Dedekind domain with fraction field `E`,
+and the scalar towers `A → B_E → E` and `K → B_E ↪ L` are well-behaved. We register the
+instances here under the per-theorem hypotheses `[Algebra K E] [IsScalarTower K E L]` shared by
+`IsInertiaField.rank_right`, `IsDecompositionField.rank_right`, and downstream consumers.
+
+These instances are stated at the level of `integralClosure A E`, not specifically for inertia
+or decomposition fields, so they apply equally to any subfield `E ⊆ L` over `K`.
+-/
+
+variable [Algebra A K] [IsFractionRing A K] [Algebra A L] [IsScalarTower A K L]
+  [FiniteDimensional K L]
+variable (E : Type*) [Field E] [Algebra K E] [Algebra E L] [IsScalarTower K E L]
+  [Algebra A E] [IsScalarTower A K E] [IsScalarTower A E L]
+
+omit [Algebra A L] [IsScalarTower A K L] [IsScalarTower A E L] in
+include K L in
+/-- The integral closure of `A` in an intermediate field `E` is a Dedekind domain.
+
+Stated as a `theorem` (not an `instance`) because `K` cannot be inferred from the conclusion;
+downstream consumers should pull it in with
+`haveI := integralClosure.isDedekindDomain_intermediateField A K L E`. -/
+theorem integralClosure.isDedekindDomain_intermediateField [IsDedekindDomain A]
+    [Algebra.IsSeparable K E] :
+    IsDedekindDomain (integralClosure A E) :=
+  have _ : FiniteDimensional K E := FiniteDimensional.left K E L
+  _root_.integralClosure.isDedekindDomain A K E
+
+omit [Algebra A L] [IsScalarTower A K L] [IsScalarTower A E L] in
+include K L in
+/-- The integral closure of `A` in an intermediate field `E` has fraction field `E`. -/
+theorem integralClosure.isFractionRing_intermediateField [IsDomain A] :
+    IsFractionRing (integralClosure A E) E :=
+  have _ : FiniteDimensional K E := FiniteDimensional.left K E L
+  isFractionRing_of_finite_extension K E
+
+/-- The scalar tower `A → integralClosure A E → E`. (Already an instance via
+`IsScalarTower.subalgebra'` applied to the subalgebra `integralClosure A E ⊆ E`,
+recorded here for documentation.) -/
+example : IsScalarTower A (integralClosure A E) E := inferInstance
+
+end integralClosure_inertia
