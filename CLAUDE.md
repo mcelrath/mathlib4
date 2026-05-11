@@ -97,11 +97,16 @@ are cosmetic and useful for future readers.
   changes need separate planning.
 - Do NOT add `axiom` or `sorry` to make a proof compile. Discharge
   or report obstruction.
-- **Do NOT use `set_option maxHeartbeats 0`** in any file. This
-  disables Lean's elaboration guard and lets `native_decide` runaways
-  consume unbounded RAM (observed: 4 GB per `native_decide` branch on
-  `Matrix (Fin 16) (Fin 16) ℚ` under v4.30, OOM-killed the host). Use
-  `1600000` (2× default) if a single atomic call needs headroom.
+- **Do NOT use `set_option maxHeartbeats 0`** in any file. But also
+  **do not rely on a finite `maxHeartbeats` cap to prevent OOM**:
+  observed 2026-05-10 a single `lean` process elaborating
+  `TrialityIntertwinerCorrectness.lean` reached **113 GB RSS** and
+  triggered the OOM killer despite `maxHeartbeats 1600000` at file top.
+  The cap bounds elaboration step *count*, NOT memory allocation; a
+  single `native_decide` step on `Matrix (Fin 16) (Fin 16) ℚ` can
+  allocate tens of GB before producing one heartbeat tick. Memory
+  safety requires structural mitigation (split file, per-case lemmas,
+  algebraic derivation), not just a heartbeat cap.
 - **Do NOT use `fin_cases i <;> fin_cases j <;> native_decide`** over
   `Matrix (Fin n) (Fin n) ℚ` for n ≥ 16. The branches accumulate
   elaboration state across cases. Split into separate top-level
