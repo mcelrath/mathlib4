@@ -2309,17 +2309,173 @@ private lemma Y_inter_subgroupOfCoprimeConductor_eq_tame
   rw [hY, subgroupOfCoprimeConductor_eq_intermediateFieldEquivSubgroupChar hp Km,
       ← OrderIso.map_inf]
 
+/-! ### Ramified case: scaffolded sub-lemmas
+
+The ramified-case identity `prod_chars_eq_prod_inertia_ramified` is decomposed into four
+named sub-lemmas, each of which can be proved independently:
+
+* `prod_chars_ramified_LHS_eq_prod_tame` — character-side reduction (combines Phase 2 with
+  `Y_inter_subgroupOfCoprimeConductor_eq_tame`).
+* `prod_chars_tame_descend_to_level_m` — descent of the level-`n` tame character product to a
+  level-`m` character product, using `primitiveCharacter_changeLevel`.
+* `primesAboveOf_F_tame_eq_F_of_totally_ramified` — prime-side reduction: the totally ramified
+  tower `F/F_tame` at primes above `p` forces `primesAboveOf F p` and `primesAboveOf F_tame p`
+  to give the same absolute-norm product.
+* `prod_chars_eq_prod_inertia_tame_m` — at the tame level `m`, the unramified case
+  `prod_chars_eq_prod_inertia` applies to `F_tame_in_Km : IntermediateField ℚ Km`.
+
+The main lemma `prod_chars_eq_prod_inertia_ramified` is then a short composition of these. -/
+
+/-- **Ramified-case scaffold (a): character-side tame reduction.** Phase 2 plus
+`Y_inter_subgroupOfCoprimeConductor_eq_tame` together identify the level-`n` character product
+over `Y` with the level-`n` product over the tame subgroup `Y_tame`, defined as
+the image of `F ⊓ Km` under `intermediateFieldEquivSubgroupChar`.
+
+Existing API to compose:
+* `prod_chars_eq_prod_coprime_conductor` (Phase 2) — drop characters with `p ∣ conductor`.
+* `Y_inter_subgroupOfCoprimeConductor_eq_tame` — identify the surviving subgroup with `Y_tame`.
+
+The output is a level-`n` product indexed by `Y_tame := intermediateFieldEquivSubgroupChar (F ⊓ Km)`. -/
+private lemma prod_chars_ramified_LHS_eq_prod_tame
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn)
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
+    {s : ℂ}
+    {p : ℕ} (hp : p.Prime)
+    (Km : IntermediateField ℚ Kn) [NumberField Km] [IsGalois ℚ Km]
+    [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km]
+    (Y_tame : Subgroup (DirichletCharacter ℂ n))
+    (hY_tame : Y_tame =
+      IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ (F ⊓ Km)) :
+    ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
+      ∏ χ : Y_tame, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ := by
+  -- Combine `prod_chars_eq_prod_coprime_conductor` with the subgroup identity
+  -- `Y ⊓ subgroupOfCoprimeConductor p = Y_tame` (= `Y_inter_subgroupOfCoprimeConductor_eq_tame`).
+  -- The level-`n` filtered product over `Finset.univ.filter (p.Coprime · .conductor)` of `Y`
+  -- coincides with the universe product over the subgroup `Y_tame` via the natural inclusion
+  -- `Y_tame ≤ Y` (forced by `hY_tame ▸ hY ▸ inf_le_left`).
+  sorry
+
+/-- **Ramified-case scaffold (b): level-`n` to level-`m` character descent.** At level `m`,
+the corresponding character subgroup `Y_tame_m` (image of `F_tame_in_Km : IntermediateField ℚ Km`)
+is in bijection with the level-`n` group `Y_tame` via `DirichletCharacter.changeLevel hm_dvd`.
+Under this bijection, the primitive-character evaluation at `p` is preserved
+(`primitiveCharacter_changeLevel` together with `changeLevel_eval_natCast_of_coprime` since
+`p.Coprime m`).
+
+Existing API to compose:
+* `primitiveCharacter_changeLevel` — primitive character is preserved under `changeLevel`.
+* `conductor_changeLevel` — conductor is preserved.
+* Bijection level-`n`-tame ↔ level-`m`-tame via `changeLevel hm_dvd` restricted to `Y_tame_m`. -/
+private lemma prod_chars_tame_descend_to_level_m
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn)
+    {s : ℂ}
+    {p : ℕ} (hp : p.Prime)
+    (Km : IntermediateField ℚ Kn) [NumberField Km] [IsGalois ℚ Km] [IsAbelianGalois ℚ Km]
+    [hm_cyclo : IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km]
+    (Y_tame : Subgroup (DirichletCharacter ℂ n))
+    (hY_tame : Y_tame =
+      IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ (F ⊓ Km))
+    (F_tame_in_Km : IntermediateField ℚ Km)
+    [hm_ne : NeZero (Nat.divMaxPow n p)]
+    (Y_tame_m : Subgroup (DirichletCharacter ℂ (Nat.divMaxPow n p)))
+    (hY_tame_m : Y_tame_m =
+      IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar
+        (Nat.divMaxPow n p) Km ℂ F_tame_in_Km) :
+    ∏ χ : Y_tame, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
+      ∏ χ : Y_tame_m, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ := by
+  -- The `changeLevel hm_dvd : DirichletCharacter ℂ m →* DirichletCharacter ℂ n` gives a group
+  -- iso `Y_tame_m ≃* Y_tame`. Under this iso, `primitiveCharacter_changeLevel` shows the
+  -- evaluated factor is preserved. Reindex the product over `Y_tame` via this bijection.
+  sorry
+
+/-- **Ramified-case scaffold (c): totally-ramified prime-side reduction.** For `p ∣ n`,
+the extension `F/F_tame` (where `F_tame = F ⊓ Km`, `Km = ℚ(ζₘ)`) is totally ramified at every
+prime of `F_tame` above `p`. Hence each prime of `F_tame` above `p` has a *unique* prime of
+`F` above it with inertia degree `1`, so the absolute norms match
+(`absNorm 𝔓 = absNorm 𝔭^{f(𝔓|𝔭)} = absNorm 𝔭`). The resulting bijection
+`primesAboveOf F p ≃ primesAboveOf F_tame p` preserves the absolute-norm factor.
+
+Existing API to compose:
+* `IsTotallyRamifiedIn.tower` (Mathlib/NumberTheory/RamificationInertia/TotallyRamified.lean) —
+  total ramification inherited from `Kn/Km` totally ramified at `p`-primes.
+* `IsCyclotomicExtension.relative_of_dvd` — supplies the relative cyclotomic structure
+  `Kn = Km(ζ_{p^{padicValNat p n}})` needed to invoke the totally-ramified-at-p result for the
+  tower `Km → Kn`. The 7hra.8 follow-up will package this as "primes of `Km` over `p` are totally
+  ramified in `Kn`"; this lemma consumes that result.
+* `absNorm_eq_pow_inertiaDeg'` — to identify `absNorm 𝔓 = (absNorm 𝔭)^1` when `f(𝔓|𝔭) = 1`. -/
+private lemma primesAboveOf_F_tame_eq_F_of_totally_ramified
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    {s : ℂ}
+    {p : ℕ} (hp : p.Prime) (hp_n_dvd : p ∣ n)
+    (Km : IntermediateField ℚ Kn) [NumberField Km] [IsGalois ℚ Km]
+    [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km]
+    (F_tame : IntermediateField ℚ Kn) (hF_tame : F_tame = F ⊓ Km)
+    [NumberField (F_tame : Type _)] :
+    ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ =
+      ∏ 𝔭 ∈ primesAboveOf F_tame p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
+  -- Witness `F/F_tame` totally ramified at each prime of `F_tame` over `p` (via tower from
+  -- `Kn/Km`). Build the prime bijection `primesAboveOf F p ≃ primesAboveOf F_tame p` sending
+  -- 𝔓 ↦ 𝔓 ∩ 𝓞 F_tame, with `absNorm` preserved because `f(𝔓|𝔭) = 1`. Reindex the product.
+  sorry
+
+/-- **Ramified-case scaffold (d): unramified case at the tame level `m`.** With `p.Coprime m`,
+the existing unramified result `prod_chars_eq_prod_inertia` applies inside `Km/ℚ` to the
+intermediate field `F_tame_in_Km : IntermediateField ℚ Km`, yielding the level-`m` identity.
+
+Existing API to compose:
+* `prod_chars_eq_prod_inertia` — the unramified case (taking `n := m`, `Kn := Km`,
+  `F := F_tame_in_Km`).
+* `primesAboveOf` is defined intrinsically to the field, so the RHS at level `m` over
+  `F_tame_in_Km` coincides with `primesAboveOf F_tame p` once `F_tame_in_Km` is identified
+  with `F_tame` as a number field (`AlgEquiv` from `IntermediateField.inclusion` /
+  `IsCyclotomicExtension.relative_of_dvd`-induced isomorphism). -/
+private lemma prod_chars_eq_prod_inertia_tame_m
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn)
+    {s : ℂ}
+    {p : ℕ} (hp : p.Prime)
+    (Km : IntermediateField ℚ Kn) [NumberField Km] [IsGalois ℚ Km]
+    [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km] [IsAbelianGalois ℚ Km]
+    (F_tame : IntermediateField ℚ Kn) (hF_tame : F_tame = F ⊓ Km)
+    [NumberField (F_tame : Type _)]
+    (F_tame_in_Km : IntermediateField ℚ Km)
+    [NumberField (F_tame_in_Km : Type _)]
+    [hm_ne' : NeZero (Nat.divMaxPow n p)]
+    (Y_tame_m : Subgroup (DirichletCharacter ℂ (Nat.divMaxPow n p)))
+    (hY_tame_m : Y_tame_m =
+      IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar
+        (Nat.divMaxPow n p) Km ℂ F_tame_in_Km)
+    (hp_m : p.Coprime (Nat.divMaxPow n p)) :
+    haveI hm_ne : NeZero (Nat.divMaxPow n p) :=
+      ⟨ne_zero_of_dvd_ne_zero (NeZero.ne n) (divMaxPow_dvd' n p)⟩
+    ∏ χ : Y_tame_m, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
+      ∏ 𝔭 ∈ primesAboveOf F_tame p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
+  haveI hm_ne : NeZero (Nat.divMaxPow n p) :=
+    ⟨ne_zero_of_dvd_ne_zero (NeZero.ne n) (divMaxPow_dvd' n p)⟩
+  -- Apply `prod_chars_eq_prod_inertia` at level `m = Nat.divMaxPow n p` to
+  -- `F_tame_in_Km : IntermediateField ℚ Km` with character subgroup `Y_tame_m`. The output
+  -- `primesAboveOf F_tame_in_Km p` is then identified with `primesAboveOf F_tame p` via the
+  -- canonical AlgEquiv `F_tame_in_Km ≃ₐ[ℚ] F_tame` (induced by `IntermediateField.inclusion`
+  -- and `hF_tame`).
+  sorry
+
 /-- **Ramified-case Step B.** For `p ∣ n` and `F` an intermediate field of `ℚ(ζₙ)/ℚ`, the
 character product `∏ χ : Y, (1 - χ.val.primitiveCharacter p * T)⁻¹` equals the prime product
 `∏ 𝔭 ∈ primesAboveOf F p, (1 - absNorm 𝔭^(-s))⁻¹`.
 
-Proof outline (tame-level reduction):
-1. Phase 2 reduces LHS to `Y ⊓ subgroupOfCoprimeConductor p = Y_tame`.
-2. At level m = divMaxPow n p (tame part) with `Km = ℚ(ζₘ)`, `F_tame = F ⊓ Km`:
-   apply the existing unramified result at level m for `F_tame_in_Km`.
-3. Bridge character side: level-n Y_tame product = level-m Y_tame_m product via conductor equality.
-4. Bridge prime side: primesAboveOf F p product = primesAboveOf F_tame p product via
-   totally-ramified tower law (F/F_tame is totally ramified at p). -/
+This wires together four sub-lemmas (each independently provable):
+1. `prod_chars_ramified_LHS_eq_prod_tame` — Phase 2 + tame intersection (character side).
+2. `prod_chars_tame_descend_to_level_m` — level-`n` to level-`m` descent via `changeLevel`.
+3. `prod_chars_eq_prod_inertia_tame_m` — unramified case at the tame level `m`.
+4. `primesAboveOf_F_tame_eq_F_of_totally_ramified` — totally-ramified tower (prime side). -/
 private lemma prod_chars_eq_prod_inertia_ramified
     {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
     [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
@@ -2330,36 +2486,54 @@ private lemma prod_chars_eq_prod_inertia_ramified
     {p : ℕ} (hp : p.Prime) (hp_n_dvd : p ∣ n) :
     ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
       ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
-  -- Setup: tame level m = divMaxPow n p
+  -- Tame level m = divMaxPow n p, and the tame cyclotomic subfield Km = ℚ(ζₘ) ⊆ Kn.
   set m := Nat.divMaxPow n p with hm_def
   have hm_dvd : m ∣ n := divMaxPow_dvd' n p
   have hp_m : p.Coprime m := by
     rw [Nat.Prime.coprime_iff_not_dvd hp]
     exact Nat.not_dvd_divMaxPow hp.one_lt (NeZero.ne n)
   haveI hm_ne : NeZero m := ⟨ne_zero_of_dvd_ne_zero (NeZero.ne n) hm_dvd⟩
-  -- Get a primitive m-th root of unity ζm in Kn
   let ζn := IsCyclotomicExtension.zeta n ℚ Kn
   have hζn := IsCyclotomicExtension.zeta_spec n ℚ Kn
-  -- ζm = ζn ^ (p ^ padicValNat p n) is a primitive m-th root
   have hn_eq : n = p ^ padicValNat p n * m := (Nat.pow_padicValNat_mul_divMaxPow p n).symm
   let ζm := ζn ^ (p ^ padicValNat p n)
   have hζm : IsPrimitiveRoot ζm m := hζn.pow (NeZero.pos n) hn_eq
-  -- Km = ℚ(ζm) is the tame cyclotomic subfield
   let Km : IntermediateField ℚ Kn := IntermediateField.adjoin ℚ ({ζm} : Set Kn)
   haveI hKm_cyclo : IsCyclotomicExtension {m} ℚ Km :=
     hζm.intermediateField_adjoin_isCyclotomicExtension (K := ℚ)
   haveI hKm_galois : IsGalois ℚ Km := IsCyclotomicExtension.isGalois {m} ℚ Km
   haveI hKm_abelian : IsAbelianGalois ℚ Km := IsCyclotomicExtension.isAbelianGalois {m} ℚ Km
   haveI hKm_nf : NumberField Km := inferInstance
-  -- F_tame = F ⊓ Km : IntermediateField ℚ Kn
   let F_tame : IntermediateField ℚ Kn := F ⊓ Km
   haveI hF_tame_nf : NumberField (F_tame : Type _) := inferInstance
-  -- NOTE: The full proof requires:
-  -- (a) showing Y ⊓ subgroupOfCoprimeConductor p = Y_tame (character group of F_tame)
-  -- (b) bridging the character product via conductor_changeLevel / primitiveCharacter_changeLevel
-  -- (c) bridging the prime product via the tower law (F/F_tame totally ramified at p)
-  -- These are left as sorry markers.
-  sorry
+  -- Tame character subgroup at level n.
+  let Y_tame : Subgroup (DirichletCharacter ℂ n) :=
+    IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F_tame
+  have hY_tame : Y_tame =
+      IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ (F ⊓ Km) := rfl
+  -- Tame intermediate field viewed inside Km, and the level-m tame character subgroup.
+  -- This existence is part of sub-lemma (d) / scaffold for 7hra.8: identify `F_tame` with an
+  -- intermediate field `F_tame_in_Km` of `Km` via the inclusion `Km ↪ Kn`. We `sorry` the
+  -- witness here as a setup sub-obligation; the main composition then runs.
+  have h_F_tame_in_Km :
+      ∃ F_tame_in_Km : IntermediateField ℚ Km, ∃ _ : NumberField (F_tame_in_Km : Type _),
+        ∃ Y_tame_m : Subgroup (DirichletCharacter ℂ m),
+          Y_tame_m =
+            IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar m Km ℂ F_tame_in_Km :=
+    by sorry
+  obtain ⟨F_tame_in_Km, hF_tame_in_Km_nf, Y_tame_m, hY_tame_m⟩ := h_F_tame_in_Km
+  haveI : NumberField (F_tame_in_Km : Type _) := hF_tame_in_Km_nf
+  -- Compose the four sub-lemmas.
+  calc ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹
+      = ∏ χ : Y_tame, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ :=
+        prod_chars_ramified_LHS_eq_prod_tame F Y hY hp Km Y_tame hY_tame
+    _ = ∏ χ : Y_tame_m, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ :=
+        prod_chars_tame_descend_to_level_m F hp Km Y_tame hY_tame F_tame_in_Km Y_tame_m hY_tame_m
+    _ = ∏ 𝔭 ∈ primesAboveOf F_tame p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ :=
+        prod_chars_eq_prod_inertia_tame_m F hp Km F_tame rfl F_tame_in_Km
+          Y_tame_m hY_tame_m hp_m
+    _ = ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ :=
+        (primesAboveOf_F_tame_eq_F_of_totally_ramified F hp hp_n_dvd Km F_tame rfl).symm
 
 /-- **Step B (unconditional).** The product of primitive Dirichlet local Euler factors over the
 character group `Y` equals the product of geometric series over primes above `p`.
