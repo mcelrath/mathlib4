@@ -20,7 +20,7 @@ public import Mathlib.NumberTheory.RamificationInertia.TotallyRamified
 public import Mathlib.RingTheory.DedekindDomain.IdealsOnPrimes
 public import Mathlib.RingTheory.Ideal.GoingUp
 
-set_option linter.style.longFile 2200
+set_option linter.style.longFile 2900
 
 /-!
 # The Dedekind zeta function of an abelian number field as a product of Dirichlet L-functions
@@ -95,7 +95,7 @@ follows by composition of the per-prime local factor identity (over all primes) 
 -/
 
 -- The file is long due to the extended proof content for the global factorization theorem.
-set_option linter.style.longFile 2200 in
+set_option linter.style.longFile 2900 in
 
 @[expose] public section
 
@@ -2531,7 +2531,95 @@ private lemma prod_chars_eq_prod_inertia_tame_m
   -- `primesAboveOf F_tame_in_Km p` is then identified with `primesAboveOf F_tame p` via the
   -- canonical AlgEquiv `F_tame_in_Km ≃ₐ[ℚ] F_tame` (induced by `IntermediateField.inclusion`
   -- and `hF_tame`).
-  sorry
+  -- Step 1: apply unramified result at level m to F_tame_in_Km.
+  have h_step1 :
+      ∏ χ : Y_tame_m, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
+        ∏ 𝔭 ∈ primesAboveOf F_tame_in_Km p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ :=
+    prod_chars_eq_prod_inertia F_tame_in_Km Y_tame_m hY_tame_m hp hp_m
+  rw [h_step1]
+  -- Step 2: transport along `e : 𝓞 F_tame_in_Km ≃+* 𝓞 F_tame` induced by `φ_F_tame`.
+  set e : (𝓞 (F_tame_in_Km : Type _)) ≃+* (𝓞 (F_tame : Type _)) :=
+    (RingOfIntegers.mapAlgEquiv φ_F_tame).toRingEquiv with he_def
+  -- `e` commutes with `algebraMap ℤ _` because the AlgEquiv is over `𝓞 ℚ = ℤ`'s image.
+  have hCommAlg : ∀ (x : ℤ), e (algebraMap ℤ _ x) = algebraMap ℤ _ x := fun x => by
+    have h := (RingOfIntegers.mapAlgEquiv φ_F_tame).commutes (algebraMap ℤ (𝓞 ℚ) x)
+    have h1 : (algebraMap (𝓞 ℚ) (𝓞 (F_tame_in_Km : Type _))) ((algebraMap ℤ (𝓞 ℚ)) x) =
+        (algebraMap ℤ (𝓞 (F_tame_in_Km : Type _))) x :=
+      (IsScalarTower.algebraMap_apply ℤ (𝓞 ℚ) _ x).symm
+    have h2 : (algebraMap (𝓞 ℚ) (𝓞 (F_tame : Type _))) ((algebraMap ℤ (𝓞 ℚ)) x) =
+        (algebraMap ℤ (𝓞 (F_tame : Type _))) x :=
+      (IsScalarTower.algebraMap_apply ℤ (𝓞 ℚ) _ x).symm
+    rw [h1, h2] at h
+    exact h
+  have hCommAlg' : ∀ (x : ℤ), e.symm (algebraMap ℤ _ x) = algebraMap ℤ _ x := fun x => by
+    apply e.injective
+    rw [e.apply_symm_apply, hCommAlg]
+  haveI : Fact (Nat.Prime p) := ⟨hp⟩
+  set Ip : Ideal ℤ := Ideal.span ({(p : ℤ)} : Set ℤ) with hIp_def
+  have hIp_ne : Ip ≠ ⊥ := by simp [hIp_def, hp.ne_zero]
+  haveI hIp_max : Ip.IsMaximal := Int.ideal_span_isMaximal_of_prime p
+  -- The bijection `Finset.image`-style: 𝔭 ↦ Ideal.map e 𝔭.
+  -- Key facts about `Ideal.map e`:
+  -- 1. preserves IsPrime (e is bijective)
+  -- 2. preserves LiesOver Ip (e commutes with algebraMap ℤ)
+  -- 3. preserves absNorm (quotient iso via Ideal.quotientEquiv)
+  -- 4. inverse is `Ideal.map e.symm`, so injective and surjective onto primesAboveOf F_tame p.
+  -- Generic helper applied at both directions.
+  have hUnderEq : ∀ (𝔭 : Ideal (𝓞 (F_tame_in_Km : Type _))),
+      (Ideal.map e 𝔭).comap (algebraMap ℤ (𝓞 (F_tame : Type _))) =
+        𝔭.comap (algebraMap ℤ (𝓞 (F_tame_in_Km : Type _))) := fun 𝔭 => by
+    ext x
+    simp only [Ideal.mem_comap]
+    rw [← hCommAlg x, Ideal.apply_mem_of_equiv_iff]
+  have hUnderEq' : ∀ (𝔭 : Ideal (𝓞 (F_tame : Type _))),
+      (Ideal.map e.symm 𝔭).comap (algebraMap ℤ (𝓞 (F_tame_in_Km : Type _))) =
+        𝔭.comap (algebraMap ℤ (𝓞 (F_tame : Type _))) := fun 𝔭 => by
+    ext x
+    simp only [Ideal.mem_comap]
+    rw [← hCommAlg' x, Ideal.apply_mem_of_equiv_iff]
+  have hMemFwd : ∀ {𝔭 : Ideal (𝓞 (F_tame_in_Km : Type _))},
+      𝔭 ∈ primesAboveOf F_tame_in_Km p →
+        Ideal.map e 𝔭 ∈ primesAboveOf F_tame p := fun {𝔭} h => by
+    rw [primesAboveOf, IsDedekindDomain.mem_primesOverFinset_iff hIp_ne] at h
+    rw [primesAboveOf, IsDedekindDomain.mem_primesOverFinset_iff hIp_ne]
+    refine ⟨?_, ?_⟩
+    · rw [← Ideal.comap_symm e]
+      exact h.1.comap _
+    · refine ⟨?_⟩
+      rw [Ideal.under_def, hUnderEq]
+      have := h.2.over; rw [Ideal.under_def] at this; exact this
+  have hMemBwd : ∀ {𝔓 : Ideal (𝓞 (F_tame : Type _))},
+      𝔓 ∈ primesAboveOf F_tame p →
+        Ideal.map e.symm 𝔓 ∈ primesAboveOf F_tame_in_Km p := fun {𝔓} h => by
+    rw [primesAboveOf, IsDedekindDomain.mem_primesOverFinset_iff hIp_ne] at h
+    rw [primesAboveOf, IsDedekindDomain.mem_primesOverFinset_iff hIp_ne]
+    refine ⟨?_, ?_⟩
+    · rw [Ideal.map_symm]
+      exact h.1.comap _
+    · refine ⟨?_⟩
+      rw [Ideal.under_def, hUnderEq']
+      have := h.2.over; rw [Ideal.under_def] at this; exact this
+  have hMapMap_fwd : ∀ (𝔭 : Ideal (𝓞 (F_tame_in_Km : Type _))),
+      Ideal.map e.symm (Ideal.map e 𝔭) = 𝔭 := fun 𝔭 =>
+    Ideal.map_of_equiv (I := 𝔭) e
+  have hMapMap_bwd : ∀ (𝔓 : Ideal (𝓞 (F_tame : Type _))),
+      Ideal.map e (Ideal.map e.symm 𝔓) = 𝔓 := fun 𝔓 => by
+    have := Ideal.map_of_equiv (I := 𝔓) e.symm
+    simp only [RingEquiv.symm_symm] at this
+    exact this
+  have hAbsNorm : ∀ (𝔭 : Ideal (𝓞 (F_tame_in_Km : Type _))),
+      Ideal.absNorm (Ideal.map e 𝔭) = Ideal.absNorm 𝔭 := fun 𝔭 => by
+    rw [Ideal.absNorm_apply, Ideal.absNorm_apply, Submodule.cardQuot_apply,
+        Submodule.cardQuot_apply]
+    have heq : (Ideal.map e 𝔭) = 𝔭.map (e : _ →+* _) := rfl
+    exact (Nat.card_congr (Ideal.quotientEquiv 𝔭 (Ideal.map e 𝔭) e heq).toEquiv).symm
+  refine Finset.prod_bij' (fun 𝔭 _ => Ideal.map e 𝔭)
+    (fun 𝔓 _ => Ideal.map e.symm 𝔓) ?_ ?_ ?_ ?_ ?_
+  · intro 𝔭 h𝔭; exact hMemFwd h𝔭
+  · intro 𝔓 h𝔓; exact hMemBwd h𝔓
+  · intro 𝔭 _; exact hMapMap_fwd 𝔭
+  · intro 𝔓 _; exact hMapMap_bwd 𝔓
+  · intro 𝔭 _; rw [hAbsNorm]
 
 /-- **Ramified-case Step B.** For `p ∣ n` and `F` an intermediate field of `ℚ(ζₙ)/ℚ`, the
 character product `∏ χ : Y, (1 - χ.val.primitiveCharacter p * T)⁻¹` equals the prime product
