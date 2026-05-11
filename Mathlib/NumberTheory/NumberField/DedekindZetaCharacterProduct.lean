@@ -12,9 +12,11 @@ public import Mathlib.NumberTheory.EulerProduct.DirichletLSeries
 public import Mathlib.NumberTheory.LSeries.Dirichlet
 public import Mathlib.NumberTheory.LSeries.DirichletContinuation
 public import Mathlib.NumberTheory.NumberField.Cyclotomic.Galois
+public import Mathlib.NumberTheory.NumberField.Cyclotomic.Ramification
 public import Mathlib.NumberTheory.NumberField.DedekindZeta
 public import Mathlib.NumberTheory.NumberField.DedekindZetaEulerProduct
 public import Mathlib.NumberTheory.RamificationInertia.Galois
+public import Mathlib.NumberTheory.RamificationInertia.TotallyRamified
 public import Mathlib.RingTheory.DedekindDomain.IdealsOnPrimes
 public import Mathlib.RingTheory.Ideal.GoingUp
 
@@ -2465,11 +2467,22 @@ private lemma primesAboveOf_F_tame_eq_F_of_totally_ramified
     (Km : IntermediateField ℚ Kn) [NumberField Km] [IsGalois ℚ Km]
     [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km]
     (F_tame : IntermediateField ℚ Kn) (hF_tame : F_tame = F ⊓ Km)
-    [NumberField (F_tame : Type _)] :
+    [NumberField (F_tame : Type _)]
+    -- Algebra plumbing: F_tame ≤ F gives an algebra structure on F_tame → F, supplied here as an
+    -- instance argument. The caller builds it from `IntermediateField.inclusion (le_inf_left)`.
+    -- The 𝓞-level algebra and scalar-tower instances follow automatically via
+    -- `NumberField.inst_ringOfIntegersAlgebra` and `RingOfIntegers.inst_isScalarTower`.
+    [Algebra F_tame F] [IsScalarTower ℚ F_tame F]
+    -- The totally-ramified-tower fact: every prime of `𝓞 F_tame` above `p` is totally ramified
+    -- in `𝓞 F`. Caller derives this from `relative_isTotallyRamifiedIn` (`Kn/Km` totally ramified
+    -- at `p`-primes) plus `IsTotallyRamifiedIn.tower` restriction along `F_tame ≤ F`.
+    (hF_tame_ramified : ∀ 𝔭 : Ideal (𝓞 F_tame), 𝔭.IsPrime →
+      𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) →
+        𝔭.IsTotallyRamifiedIn (𝓞 F)) :
     ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ =
       ∏ 𝔭 ∈ primesAboveOf F_tame p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ := by
-  -- Witness `F/F_tame` totally ramified at each prime of `F_tame` over `p` (via tower from
-  -- `Kn/Km`). Build the prime bijection `primesAboveOf F p ≃ primesAboveOf F_tame p` sending
+  -- Witness `F/F_tame` totally ramified at each prime of `F_tame` over `p` (via `hF_tame_ramified`).
+  -- Build the prime bijection `primesAboveOf F p ≃ primesAboveOf F_tame p` sending
   -- 𝔓 ↦ 𝔓 ∩ 𝓞 F_tame, with `absNorm` preserved because `f(𝔓|𝔭) = 1`. Reindex the product.
   sorry
 
@@ -2501,7 +2514,12 @@ private lemma prod_chars_eq_prod_inertia_tame_m
     (hY_tame_m : Y_tame_m =
       IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar
         (Nat.divMaxPow n p) Km ℂ F_tame_in_Km)
-    (hp_m : p.Coprime (Nat.divMaxPow n p)) :
+    (hp_m : p.Coprime (Nat.divMaxPow n p))
+    -- The canonical AlgEquiv `F_tame_in_Km ≃ₐ[ℚ] F_tame`. The two are the same set of elements
+    -- viewed inside `Km` resp. `Kn`; the equiv is induced by the inclusion `Km ↪ Kn` restricted
+    -- to `F_tame_in_Km`, with image precisely `F_tame = F ⊓ Km`. Caller provides this witness
+    -- alongside the existence of `F_tame_in_Km`.
+    (φ_F_tame : F_tame_in_Km ≃ₐ[ℚ] F_tame) :
     haveI hm_ne : NeZero (Nat.divMaxPow n p) :=
       ⟨ne_zero_of_dvd_ne_zero (NeZero.ne n) (divMaxPow_dvd' n p)⟩
     ∏ χ : Y_tame_m, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
@@ -2554,15 +2572,20 @@ private lemma prod_chars_eq_prod_inertia_ramified
   haveI hKm_nf : NumberField Km := inferInstance
   let F_tame : IntermediateField ℚ Kn := F ⊓ Km
   haveI hF_tame_nf : NumberField (F_tame : Type _) := inferInstance
+  -- Algebra plumbing: F_tame ≤ F induces an Algebra structure F_tame → F via inclusion.
+  have hF_tame_le : F_tame ≤ F := inf_le_left
+  letI algFtF : Algebra F_tame F := (IntermediateField.inclusion hF_tame_le).toAlgebra
+  haveI : IsScalarTower ℚ F_tame F :=
+    IsScalarTower.of_algebraMap_eq fun _ => rfl
   -- Tame character subgroup at level n.
   let Y_tame : Subgroup (DirichletCharacter ℂ n) :=
     IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F_tame
   have hY_tame : Y_tame =
       IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ (F ⊓ Km) := rfl
-  -- Tame intermediate field viewed inside Km, and the level-m tame character subgroup.
-  -- This existence is part of sub-lemma (d) / scaffold for 7hra.8: identify `F_tame` with an
-  -- intermediate field `F_tame_in_Km` of `Km` via the inclusion `Km ↪ Kn`. We `sorry` the
-  -- witness here as a setup sub-obligation; the main composition then runs.
+  -- Tame intermediate field viewed inside Km, and the level-m tame character subgroup, plus the
+  -- canonical AlgEquiv F_tame_in_Km ≃ₐ[ℚ] F_tame and the totally-ramified-tower fact for the
+  -- F_tame ⊆ F extension at primes above p. All five witnesses are bundled in one existential
+  -- sorry; the caller's algebra plumbing above provides the type context.
   have h_F_tame_in_Km :
       ∃ F_tame_in_Km : IntermediateField ℚ Km, ∃ _ : NumberField (F_tame_in_Km : Type _),
         ∃ Y_tame_m : Subgroup (DirichletCharacter ℂ m),
@@ -2570,9 +2593,14 @@ private lemma prod_chars_eq_prod_inertia_ramified
             IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar m Km ℂ F_tame_in_Km ∧
           (∀ χ : DirichletCharacter ℂ n, χ ∈ Y_tame ↔
             ∃ ψ : DirichletCharacter ℂ m, ψ ∈ Y_tame_m ∧
-              DirichletCharacter.changeLevel (divMaxPow_dvd' n p) ψ = χ) :=
+              DirichletCharacter.changeLevel (divMaxPow_dvd' n p) ψ = χ) ∧
+          Nonempty (F_tame_in_Km ≃ₐ[ℚ] F_tame) ∧
+          (∀ 𝔭 : Ideal (𝓞 F_tame), 𝔭.IsPrime →
+            𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) →
+              𝔭.IsTotallyRamifiedIn (𝓞 F)) :=
     by sorry
-  obtain ⟨F_tame_in_Km, hF_tame_in_Km_nf, Y_tame_m, hY_tame_m, hYlink⟩ := h_F_tame_in_Km
+  obtain ⟨F_tame_in_Km, hF_tame_in_Km_nf, Y_tame_m, hY_tame_m, hYlink, ⟨φ_F_tame⟩,
+    hF_tame_ramified⟩ := h_F_tame_in_Km
   haveI : NumberField (F_tame_in_Km : Type _) := hF_tame_in_Km_nf
   -- Compose the four sub-lemmas.
   calc ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹
@@ -2583,9 +2611,10 @@ private lemma prod_chars_eq_prod_inertia_ramified
           hYlink
     _ = ∏ 𝔭 ∈ primesAboveOf F_tame p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ :=
         prod_chars_eq_prod_inertia_tame_m F hp Km F_tame rfl F_tame_in_Km
-          Y_tame_m hY_tame_m hp_m
+          Y_tame_m hY_tame_m hp_m φ_F_tame
     _ = ∏ 𝔭 ∈ primesAboveOf F p, (1 - (Ideal.absNorm 𝔭 : ℂ) ^ (-s))⁻¹ :=
-        (primesAboveOf_F_tame_eq_F_of_totally_ramified F hp hp_n_dvd Km F_tame rfl).symm
+        (primesAboveOf_F_tame_eq_F_of_totally_ramified F hp hp_n_dvd Km F_tame rfl
+          hF_tame_ramified).symm
 
 /-- **Step B (unconditional).** The product of primitive Dirichlet local Euler factors over the
 character group `Y` equals the product of geometric series over primes above `p`.
