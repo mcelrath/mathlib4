@@ -246,4 +246,109 @@ theorem mem_intermediateFieldEquivSubgroupChar_iff_conductor_dvd (F : Intermedia
     IntermediateField.mem_fixingSubgroup_iff, Units.ext_iff, toUnitHom_eq, coe_equivToUnitHom,
     Units.val_one]
 
+/--
+**Character-theoretic bridge across levels `m ∣ n`.**
+
+Let `Kn = ℚ(ζₙ)`, let `Km ⊆ Kn` be the level-`m` cyclotomic subfield (`m ∣ n`), and let
+`F_tame ≤ Km` be any intermediate field of `ℚ ⊆ Kn` contained in `Km`. Write `F_tame_in_Km` for
+`F_tame` viewed as an intermediate field of `ℚ ⊆ Km`, i.e. `IntermediateField.restrict hF_le`.
+
+Then a level-`n` Dirichlet character `χ` lies in `intermediateFieldEquivSubgroupChar n Kn ℂ F_tame`
+if and only if it is the `changeLevel hmn` lift of some level-`m` character `ψ` lying in
+`intermediateFieldEquivSubgroupChar m Km ℂ F_tame_in_Km`.
+
+This is the character-side counterpart of the Galois restriction
+`Gal(Kn/ℚ) ↠ Gal(Km/ℚ)`, packaged through `galEquivZMod_restrictNormal_apply` and
+`IntermediateField.fixingSubgroup_restrict_comap_restrictNormalHom`.
+-/
+theorem mem_intermediateFieldEquivSubgroupChar_iff_changeLevel
+    {m : ℕ} [NeZero m] [HasEnoughRootsOfUnity R (Monoid.exponent (ZMod m)ˣ)] (hmn : m ∣ n)
+    (Km : IntermediateField ℚ K) [NumberField Km] [IsCyclotomicExtension {m} ℚ Km]
+    [IsAbelianGalois ℚ Km]
+    {F_tame : IntermediateField ℚ K} (hF_le : F_tame ≤ Km)
+    (χ : DirichletCharacter R n) :
+    χ ∈ intermediateFieldEquivSubgroupChar n K R F_tame ↔
+      ∃ ψ : DirichletCharacter R m,
+        ψ ∈ intermediateFieldEquivSubgroupChar m Km R (IntermediateField.restrict hF_le) ∧
+          DirichletCharacter.changeLevel hmn ψ = χ := by
+  haveI : IsGalois ℚ Km := IsCyclotomicExtension.isGalois (S := {m}) (K := ℚ) (L := Km)
+  haveI : IsGalois ℚ K := IsCyclotomicExtension.isGalois (S := {n}) (K := ℚ) (L := K)
+  -- Key kernel computation: the level-n group for F_tame contains exactly the level-n characters
+  -- (1) trivial on F_tame.fixingSubgroup, hence (2) factoring through `(ZMod n)ˣ → (ZMod m)ˣ`
+  -- (since F_tame ≤ Km gives Km.fixingSubgroup ≤ F_tame.fixingSubgroup, so χ is trivial on
+  -- Km.fixingSubgroup, hence χ.conductor ∣ m, hence χ ∈ image(changeLevel hmn)).
+  constructor
+  · intro hχ
+    -- Step A: From F_tame ≤ Km, χ is also in the level-n group for Km.
+    have hχKm : χ ∈ intermediateFieldEquivSubgroupChar n K R Km := by
+      rw [mem_intermediateFieldEquivSubgroupChar_iff] at hχ ⊢
+      exact fun σ hσ => hχ σ (fixingSubgroup_antitone hF_le hσ)
+    -- Step B: By `_iff_conductor_dvd`, χ.conductor ∣ m, hence χ factors through level m.
+    have hcond : χ.conductor ∣ m :=
+      (mem_intermediateFieldEquivSubgroupChar_iff_conductor_dvd n K R Km hmn χ).mp hχKm
+    have hFT : χ.FactorsThrough m :=
+      DirichletCharacter.FactorsThrough.mono χ (DirichletCharacter.factorsThrough_conductor χ)
+        hcond hmn
+    -- Step C: Pick ψ = (the unique level-m character with changeLevel hmn ψ = χ).
+    refine ⟨hFT.χ₀, ?_, hFT.eq_changeLevel.symm⟩
+    -- Show ψ lies in the level-m group for F_tame_in_Km.
+    rw [mem_intermediateFieldEquivSubgroupChar_iff]
+    intro σ' hσ'
+    -- Lift σ' to some σ ∈ Gal(K/ℚ) with σ.restrictNormalHom Km = σ'.
+    obtain ⟨σ, hσ⟩ := AlgEquiv.restrictNormalHom_surjective (E := K) (K₁ := Km) (F := ℚ) σ'
+    -- Then σ ∈ F_tame.fixingSubgroup (from fixingSubgroup_restrict_comap and hσ').
+    have hσ_in : σ ∈ F_tame.fixingSubgroup := by
+      have hcomap :
+          (IntermediateField.restrict hF_le).fixingSubgroup.comap
+              (AlgEquiv.restrictNormalHom Km) = F_tame.fixingSubgroup :=
+        IntermediateField.fixingSubgroup_restrict_comap_restrictNormalHom hF_le
+      have hmem : σ ∈ (IntermediateField.restrict hF_le).fixingSubgroup.comap
+          (AlgEquiv.restrictNormalHom Km) :=
+        Subgroup.mem_comap.mpr (hσ ▸ hσ')
+      exact hcomap ▸ hmem
+    have hχ_eval : χ (galEquivZMod n K σ) = 1 :=
+      (mem_intermediateFieldEquivSubgroupChar_iff n K R F_tame χ).mp hχ σ hσ_in
+    -- Rewrite χ = changeLevel hmn ψ; evaluate.
+    rw [hFT.eq_changeLevel, DirichletCharacter.changeLevel_eq_cast_of_dvd] at hχ_eval
+    -- changeLevel hmn ψ (galEquivZMod n σ) = ψ (ZMod.cast (galEquivZMod n σ : ZMod n)).
+    -- But we want ψ (galEquivZMod m σ'). These agree: ZMod.unitsMap hmn (galEquivZMod n σ)
+    -- = galEquivZMod m σ' by `galEquivZMod_restrictNormal_apply`, and ZMod.cast on units matches.
+    have hrestr : galEquivZMod m Km σ' = ZMod.unitsMap hmn (galEquivZMod n K σ) := by
+      have h0 := galEquivZMod_restrictNormal_apply n K Km hmn σ
+      -- restrictNormalHom σ = σ.restrictNormal Km definitionally
+      have hσ' : σ.restrictNormal (Km : IntermediateField ℚ K) = σ' := hσ
+      rw [← hσ']; exact h0
+    -- ψ.toUnitHom (galEquivZMod m Km σ') = 1 ↔ ψ (galEquivZMod m Km σ' : ZMod m) = 1
+    -- The cast form `changeLevel_eq_cast_of_dvd` gave us:
+    --   ψ (ZMod.cast ((galEquivZMod n K σ : ZMod n))) = 1.
+    -- Need to convert to ψ (galEquivZMod m Km σ' : ZMod m). Both equal ψ ((galEquivZMod m Km σ' : ZMod m))
+    -- because for u : (ZMod n)ˣ, `ZMod.cast (u : ZMod n) = (ZMod.unitsMap hmn u : ZMod m)`.
+    rw [show ((galEquivZMod n K σ : (ZMod n)ˣ) : ZMod n).cast
+        = ((galEquivZMod m Km σ' : (ZMod m)ˣ) : ZMod m) from ?_] at hχ_eval
+    · exact hχ_eval
+    · rw [hrestr, ZMod.unitsMap_val]
+  · -- Reverse direction.
+    rintro ⟨ψ, hψ, rfl⟩
+    rw [mem_intermediateFieldEquivSubgroupChar_iff] at hψ ⊢
+    intro σ hσ
+    -- σ.restrictNormalHom Km lies in F_tame_in_Km.fixingSubgroup.
+    have hres : AlgEquiv.restrictNormalHom Km σ ∈
+        (IntermediateField.restrict hF_le).fixingSubgroup := by
+      have hcomap :
+          (IntermediateField.restrict hF_le).fixingSubgroup.comap
+              (AlgEquiv.restrictNormalHom Km) = F_tame.fixingSubgroup :=
+        IntermediateField.fixingSubgroup_restrict_comap_restrictNormalHom hF_le
+      rw [← hcomap, Subgroup.mem_comap] at hσ
+      exact hσ
+    have hψ_eval := hψ _ hres
+    -- Evaluate changeLevel hmn ψ at galEquivZMod n K σ.
+    rw [DirichletCharacter.changeLevel_eq_cast_of_dvd]
+    have hrestr : galEquivZMod m Km (AlgEquiv.restrictNormalHom Km σ) =
+        ZMod.unitsMap hmn (galEquivZMod n K σ) :=
+      galEquivZMod_restrictNormal_apply n K Km hmn σ
+    rw [show ((galEquivZMod n K σ : (ZMod n)ˣ) : ZMod n).cast
+        = ((galEquivZMod m Km (AlgEquiv.restrictNormalHom Km σ) : (ZMod m)ˣ) : ZMod m) from ?_]
+    · exact hψ_eval
+    · rw [hrestr, ZMod.unitsMap_val]
+
 end IsCyclotomicExtension.Rat
