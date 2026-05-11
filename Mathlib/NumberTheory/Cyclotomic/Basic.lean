@@ -963,4 +963,45 @@ theorem IntermediateField.isCyclotomicExtension_lcm_sup [NeZero n₁] [NeZero n�
   have := IsCyclotomicExtension.lcm_sup n₁ n₂ F₁.toSubalgebra F₂.toSubalgebra
   rwa [← sup_toSubalgebra_of_left] at this
 
+/-- If `L / A` is a cyclotomic extension of order `n`, `C` is an `A`-subalgebra of `L` that is a
+cyclotomic extension of order `m`, and `m ∣ n`, then `L / C` is a cyclotomic extension of
+order `n`. -/
+theorem IsCyclotomicExtension.relative_of_dvd {n m : ℕ} [NeZero n] (hmn : m ∣ n)
+    [IsCyclotomicExtension {n} A B] (C : Subalgebra A B)
+    [hC : IsCyclotomicExtension {m} A C] :
+    IsCyclotomicExtension {n} C B := by
+  have hne_n : n ≠ 0 := NeZero.ne n
+  have hne_m : m ≠ 0 := fun h => hne_n (eq_zero_of_zero_dvd (h ▸ hmn))
+  have : NeZero m := ⟨hne_m⟩
+  have hExists : ∀ k ∈ ({m} : Set ℕ), k ≠ 0 → ∃ r : B, IsPrimitiveRoot r k := by
+    rintro k (rfl : k = m) _
+    obtain ⟨ζ, hζ⟩ := hC.exists_isPrimitiveRoot (Set.mem_singleton _) hne_m
+    exact ⟨(algebraMap C B) ζ, hζ.map_of_injective (FaithfulSMul.algebraMap_injective C B)⟩
+  -- Step 1: enlarge `{n}` to `{m} ∪ {n}` on the bottom extension.
+  have hUnion : IsCyclotomicExtension (({n} : Set ℕ) ∪ {m}) A B :=
+    (iff_union_of_dvd (S := ({n} : Set ℕ)) A B (n := m) ⟨n, rfl, hne_n, hmn⟩).1
+      (by assumption)
+  have hUnion' : IsCyclotomicExtension ({m} ∪ {n}) A B := by
+    rwa [Set.union_comm] at hUnion
+  -- Step 2: apply `union_right` to pull the bottom up to the adjoin of `m`-th roots.
+  have hUR : IsCyclotomicExtension {n}
+      (Algebra.adjoin A {b : B | ∃ a : ℕ, a ∈ ({m} : Set ℕ) ∧ a ≠ 0 ∧ b ^ a = 1}) B :=
+    union_right (S := {m}) (T := {n}) A B
+  -- Step 3: identify the adjoin with `C` via `IsCyclotomicExtension.eq`.
+  have hAdj : IsCyclotomicExtension {m} A
+      (Algebra.adjoin A {b : B | ∃ a : ℕ, a ∈ ({m} : Set ℕ) ∧ a ≠ 0 ∧ b ^ a = 1}) :=
+    Algebra.isCyclotomicExtension_adjoin_of_exists_isPrimitiveRoot {m} A B hExists
+  have hEq : (Algebra.adjoin A
+      {b : B | ∃ a : ℕ, a ∈ ({m} : Set ℕ) ∧ a ≠ 0 ∧ b ^ a = 1}) = C :=
+    IsCyclotomicExtension.eq {m} _ _
+  exact hEq ▸ hUR
+
+/-- IntermediateField analogue of `IsCyclotomicExtension.relative_of_dvd`. -/
+theorem IntermediateField.isCyclotomicExtension_relative_of_dvd {n m : ℕ} [NeZero n]
+    (hmn : m ∣ n) [IsCyclotomicExtension {n} K L] (F : IntermediateField K L)
+    [IsCyclotomicExtension {m} K F] :
+    IsCyclotomicExtension {n} F L := by
+  change IsCyclotomicExtension {n} F.toSubalgebra L
+  exact IsCyclotomicExtension.relative_of_dvd hmn F.toSubalgebra
+
 end Subalgebra
