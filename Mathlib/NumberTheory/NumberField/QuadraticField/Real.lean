@@ -778,4 +778,213 @@ theorem embedPos_fundamentalUnit :
   rw [algebraMap_fundamentalUnit]
   simp [embedPos_sqrt3, map_add, map_ofNat]
 
+/-! ### Phase C T7 (v4): IsTotallyReal, infinite-place enumeration, regulator closed form -/
+
+open NumberField NumberField.InfinitePlace NumberField.Units
+
+/-- Every ring homomorphism `Qsqrt3 →+* ℂ` factors through `ℝ`: its image lies in `ℝ ⊆ ℂ`.
+
+Strategy: `Qsqrt3 = AdjoinRoot (X² - 3)`, so any `φ : Qsqrt3 →+* ℂ` is determined by
+its values on `algebraMap ℚ Qsqrt3` and on `sqrt3`. The relation `(φ sqrt3)² = 3 : ℂ`
+forces `φ sqrt3 ∈ {↑(Real.sqrt 3), -↑(Real.sqrt 3)}`, both real. Therefore `conj ∘ φ`
+and `φ` agree on the generators and hence everywhere. -/
+instance instIsTotallyReal : NumberField.IsTotallyReal Qsqrt3 := by
+  refine (NumberField.isTotallyReal_iff Qsqrt3).mpr ?_
+  intro w
+  obtain ⟨φ, rfl⟩ : ∃ φ : Qsqrt3 →+* ℂ, InfinitePlace.mk φ = w :=
+    ⟨w.embedding, InfinitePlace.mk_embedding w⟩
+  apply InfinitePlace.isReal_mk_iff.mpr
+  rw [ComplexEmbedding.isReal_iff]
+  have hsq : (φ sqrt3) ^ 2 = 3 := by
+    have h := congrArg φ sqrt3_sq
+    rw [map_mul] at h
+    have h3 : φ (3 : Qsqrt3) = 3 := by
+      show φ (3 : Qsqrt3) = (3 : ℂ)
+      rw [show ((3 : Qsqrt3)) = ((3 : ℕ) : Qsqrt3) from by push_cast; ring]
+      rw [map_natCast]
+      norm_num
+    rw [h3] at h
+    rw [sq]; exact h
+  have hReal_sq : (Real.sqrt 3 : ℂ) ^ 2 = 3 := by
+    have h : Real.sqrt 3 ^ 2 = 3 := Real.sq_sqrt (by norm_num : (0:ℝ) ≤ 3)
+    exact_mod_cast h
+  have hroots : φ sqrt3 = (Real.sqrt 3 : ℂ) ∨ φ sqrt3 = -(Real.sqrt 3 : ℂ) := by
+    have hdiff : (φ sqrt3 - (Real.sqrt 3 : ℂ)) * (φ sqrt3 + (Real.sqrt 3 : ℂ)) = 0 := by
+      have : (φ sqrt3) ^ 2 - (Real.sqrt 3 : ℂ) ^ 2 = 0 := by rw [hsq, hReal_sq]; ring
+      linear_combination this
+    rcases mul_eq_zero.mp hdiff with h | h
+    · left; linear_combination h
+    · right; linear_combination h
+  have hconj_sqrt3 : (starRingEnd ℂ) (φ sqrt3) = φ sqrt3 := by
+    rcases hroots with h | h
+    · rw [h]; simp
+    · rw [h]; simp
+  refine AdjoinRoot.ringHom_ext ?_ ?_
+  · refine RingHom.ext fun q => ?_
+    -- Both sides equal `((q : ℝ) : ℂ)` since any `RingHom Qsqrt3 →+* ℂ` is determined
+    -- on the image of ℚ by the rationals' universal property.
+    have hreal : φ ((AdjoinRoot.of (X ^ 2 - C (3:ℚ))) q) = ((q : ℚ) : ℂ) := by
+      have h1 : (AdjoinRoot.of (X ^ 2 - C (3:ℚ))) q = ((q : ℚ) : Qsqrt3) := by
+        change (algebraMap ℚ Qsqrt3) q = _
+        simp
+      rw [h1, map_ratCast]
+    change (starRingEnd ℂ) (φ ((AdjoinRoot.of (X ^ 2 - C (3:ℚ))) q)) =
+            φ ((AdjoinRoot.of (X ^ 2 - C (3:ℚ))) q)
+    rw [hreal]; simp
+  · exact hconj_sqrt3
+
+/-- The number of real places of `ℚ(√3)` is `2`. -/
+theorem nrRealPlaces_eq_two : nrRealPlaces Qsqrt3 = 2 := by
+  rw [← NumberField.IsTotallyReal.finrank Qsqrt3, finrank_eq_two]
+
+/-- The total number of infinite places of `ℚ(√3)` is `2`. -/
+theorem card_infinitePlace_eq_two :
+    Fintype.card (InfinitePlace Qsqrt3) = 2 := by
+  rw [InfinitePlace.card_eq_nrRealPlaces_add_nrComplexPlaces,
+      nrRealPlaces_eq_two, NumberField.IsTotallyReal.nrComplexPlaces_eq_zero]
+
+/-- The unit rank of `ℚ(√3)` is `1`. -/
+theorem units_rank_eq_one : rank Qsqrt3 = 1 := by
+  rw [NumberField.Units.rank, card_infinitePlace_eq_two]
+
+/-! ### The single-unit family and its regulator -/
+
+/-- The single-element family of units sending `0 ↦ fundamentalUnit`, viewed as
+a function on `Fin (rank Qsqrt3) = Fin 1`. -/
+noncomputable def funSystem3 : Fin (rank Qsqrt3) → (𝓞 Qsqrt3)ˣ :=
+  fun _ => fundamentalUnit
+
+/-- The closure of `range funSystem3` together with `torsion Qsqrt3` is the full unit
+group. -/
+theorem closure_funSystem3_sup_torsion_eq_top :
+    Subgroup.closure (Set.range funSystem3) ⊔ torsion Qsqrt3 = ⊤ := by
+  rw [Subgroup.eq_top_iff']
+  intro u
+  obtain ⟨n, hn⟩ := fundamentalUnit_eq_zpow_or_neg_zpow u
+  have hfu_mem :
+      fundamentalUnit ∈ Subgroup.closure (Set.range funSystem3) := by
+    -- We must provide a member of `Fin (rank Qsqrt3)`; supply one via `units_rank_eq_one`.
+    refine Subgroup.subset_closure ?_
+    refine ⟨(Fin.cast units_rank_eq_one.symm) ⟨0, by decide⟩, rfl⟩
+  rcases hn with hn | hn
+  · exact Subgroup.mem_sup_left (by rw [hn]; exact Subgroup.zpow_mem _ hfu_mem _)
+  · have : u = ((-1 : (𝓞 Qsqrt3)ˣ)) * (fundamentalUnit ^ n) := by rw [hn]; simp
+    rw [this, sup_comm]
+    exact Subgroup.mul_mem_sup neg_one_mem_torsion
+      (Subgroup.zpow_mem _ hfu_mem _)
+
+/-- `regOfFamily funSystem3` equals the regulator. -/
+theorem regOfFamily_funSystem3_eq_regulator :
+    regOfFamily funSystem3 = regulator Qsqrt3 := by
+  have h := regOfFamily_div_regulator funSystem3
+  rw [closure_funSystem3_sup_torsion_eq_top, Subgroup.index_top, Nat.cast_one] at h
+  exact (div_eq_one_iff_eq (regulator_ne_zero Qsqrt3)).mp h
+
+/-! ### 1×1 determinant: the regulator equals `log (2 + √3)` -/
+
+/-- The infinite place of `Qsqrt3` defined by `embedPos`. -/
+noncomputable def wPos : InfinitePlace Qsqrt3 :=
+  InfinitePlace.mk (Complex.ofRealHom.comp embedPos)
+
+/-- The infinite place of `Qsqrt3` defined by `embedNeg`. -/
+noncomputable def wNeg : InfinitePlace Qsqrt3 :=
+  InfinitePlace.mk (Complex.ofRealHom.comp embedNeg)
+
+/-- `(Complex.ofRealHom.comp f)` is a real complex embedding for any `f : K →+* ℝ`. -/
+private theorem isReal_ofRealHom_comp (f : Qsqrt3 →+* ℝ) :
+    ComplexEmbedding.IsReal (Complex.ofRealHom.comp f) := by
+  rw [ComplexEmbedding.isReal_iff]
+  refine RingHom.ext fun x => ?_
+  change (starRingEnd ℂ) (((f x : ℝ) : ℂ)) = ((f x : ℝ) : ℂ)
+  simp
+
+/-- `wPos ≠ wNeg`. -/
+theorem wPos_ne_wNeg : wPos ≠ wNeg := by
+  intro habs
+  have hreal_pos : ComplexEmbedding.IsReal (Complex.ofRealHom.comp embedPos) :=
+    isReal_ofRealHom_comp embedPos
+  have hdisj := InfinitePlace.mk_eq_iff.mp habs
+  have hpos_eq : Complex.ofRealHom.comp embedPos = Complex.ofRealHom.comp embedNeg := by
+    rcases hdisj with h | h
+    · exact h
+    · rw [ComplexEmbedding.isReal_iff.mp hreal_pos] at h
+      exact h
+  -- Evaluate at `sqrt3` to get a numerical contradiction.
+  have hsqrt3 : (embedPos sqrt3 : ℂ) = (embedNeg sqrt3 : ℂ) := by
+    have := RingHom.ext_iff.mp hpos_eq sqrt3
+    change ((embedPos sqrt3 : ℝ) : ℂ) = ((embedNeg sqrt3 : ℝ) : ℂ) at this
+    exact_mod_cast this
+  rw [embedPos_sqrt3, embedNeg_sqrt3] at hsqrt3
+  have h2 : (Real.sqrt 3 : ℝ) = -Real.sqrt 3 := by exact_mod_cast hsqrt3
+  have hpos : (0 : ℝ) < Real.sqrt 3 := Real.sqrt_pos.mpr (by norm_num)
+  linarith
+
+/-- `wPos` is the unique infinite place ≠ `wNeg`. -/
+theorem unique_ne_wNeg :
+    ∀ w : {w : InfinitePlace Qsqrt3 // w ≠ wNeg}, w = ⟨wPos, wPos_ne_wNeg⟩ := by
+  rintro ⟨w, hw⟩
+  refine Subtype.ext ?_
+  classical
+  have hcard2 : (Finset.univ : Finset (InfinitePlace Qsqrt3)).card = 2 := by
+    rw [Finset.card_univ]; exact card_infinitePlace_eq_two
+  have hpair_card : ({wNeg, wPos} : Finset (InfinitePlace Qsqrt3)).card = 2 := by
+    rw [Finset.card_insert_of_notMem (by simpa using wPos_ne_wNeg.symm),
+        Finset.card_singleton]
+  have hsub : ({wNeg, wPos} : Finset _) ⊆ Finset.univ := Finset.subset_univ _
+  have hmem : (Finset.univ : Finset (InfinitePlace Qsqrt3)) = {wNeg, wPos} :=
+    (Finset.eq_of_subset_of_card_le hsub (by rw [hpair_card, hcard2])).symm
+  have hwmem : w ∈ ({wNeg, wPos} : Finset _) := by rw [← hmem]; exact Finset.mem_univ _
+  rcases Finset.mem_insert.mp hwmem with h | h
+  · exact absurd h hw
+  · exact Finset.mem_singleton.mp h
+
+/-- The equivalence `{w // w ≠ wNeg} ≃ Fin 1`. -/
+noncomputable def equivSurvivingPlace : {w : InfinitePlace Qsqrt3 // w ≠ wNeg} ≃ Fin 1 where
+  toFun _ := 0
+  invFun _ := ⟨wPos, wPos_ne_wNeg⟩
+  left_inv x := (unique_ne_wNeg x).symm
+  right_inv := by decide
+
+/-- `wPos` applied to `fundamentalUnit` equals `2 + √3`. -/
+theorem wPos_fundamentalUnit :
+    wPos (fundamentalUnit : Qsqrt3) = 2 + Real.sqrt 3 := by
+  change ‖(Complex.ofRealHom.comp embedPos) ((fundamentalUnit : 𝓞 Qsqrt3) : Qsqrt3)‖ =
+    2 + Real.sqrt 3
+  have hval : (Complex.ofRealHom.comp embedPos) ((fundamentalUnit : 𝓞 Qsqrt3) : Qsqrt3) =
+      ((2 + Real.sqrt 3 : ℝ) : ℂ) := by
+    change ((embedPos ((fundamentalUnit : 𝓞 Qsqrt3) : Qsqrt3) : ℝ) : ℂ) = _
+    rw [embedPos_fundamentalUnit]
+  rw [hval, Complex.norm_real]
+  have hpos : (0 : ℝ) ≤ 2 + Real.sqrt 3 := by positivity
+  exact abs_of_nonneg hpos
+
+/-- The headline theorem for Phase C item (a): the regulator of `ℚ(√3)` is `log (2 + √3)`. -/
+theorem regulator_eq_log_two_add_sqrt_three :
+    regulator Qsqrt3 = Real.log (2 + Real.sqrt 3) := by
+  classical
+  -- Translate `Fin (rank Qsqrt3)` to `Fin 1` via `units_rank_eq_one`.
+  have eFin : Fin 1 ≃ Fin (rank Qsqrt3) :=
+    Equiv.cast (by rw [units_rank_eq_one])
+  have e : {w : InfinitePlace Qsqrt3 // w ≠ wNeg} ≃ Fin (rank Qsqrt3) :=
+    equivSurvivingPlace.trans eFin
+  rw [← regOfFamily_funSystem3_eq_regulator, regOfFamily_eq_det funSystem3 wNeg e]
+  letI hUnique : Unique {w : InfinitePlace Qsqrt3 // w ≠ wNeg} :=
+    ⟨⟨⟨wPos, wPos_ne_wNeg⟩⟩, unique_ne_wNeg⟩
+  rw [Matrix.det_unique]
+  -- The single entry of the matrix; `default = ⟨wPos, _⟩` for our Unique instance.
+  change |(mult ((default : {w : InfinitePlace Qsqrt3 // w ≠ wNeg}).val) : ℝ) *
+      Real.log ((default : {w : InfinitePlace Qsqrt3 // w ≠ wNeg}).val
+        ((funSystem3 (e default) : 𝓞 Qsqrt3) : Qsqrt3))| = Real.log (2 + Real.sqrt 3)
+  have hmult : (mult wPos : ℝ) = 1 := by
+    have := NumberField.IsTotallyReal.mult_eq (K := Qsqrt3) wPos
+    exact_mod_cast this
+  -- `default = ⟨wPos, wPos_ne_wNeg⟩` for hUnique.
+  rw [show (default : {w : InfinitePlace Qsqrt3 // w ≠ wNeg}) = ⟨wPos, wPos_ne_wNeg⟩ from rfl]
+  simp only [funSystem3]
+  rw [hmult, one_mul, wPos_fundamentalUnit]
+  have hpos1 : (1 : ℝ) < 2 + Real.sqrt 3 := by
+    have h0 : (0 : ℝ) ≤ Real.sqrt 3 := Real.sqrt_nonneg _
+    linarith
+  exact abs_of_pos (Real.log_pos hpos1)
+
 end Qsqrt3
