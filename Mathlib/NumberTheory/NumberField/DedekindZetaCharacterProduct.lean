@@ -2351,12 +2351,33 @@ private lemma prod_chars_ramified_LHS_eq_prod_tame
       IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ (F ⊓ Km)) :
     ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ =
       ∏ χ : Y_tame, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹ := by
-  -- Combine `prod_chars_eq_prod_coprime_conductor` with the subgroup identity
-  -- `Y ⊓ subgroupOfCoprimeConductor p = Y_tame` (= `Y_inter_subgroupOfCoprimeConductor_eq_tame`).
-  -- The level-`n` filtered product over `Finset.univ.filter (p.Coprime · .conductor)` of `Y`
-  -- coincides with the universe product over the subgroup `Y_tame` via the natural inclusion
-  -- `Y_tame ≤ Y` (forced by `hY_tame ▸ hY ▸ inf_le_left`).
-  sorry
+  classical
+  set T := (p : ℂ) ^ (-s) with hT_def
+  -- Phase 2: restrict to coprime-conductor characters.
+  rw [prod_chars_eq_prod_coprime_conductor Y hp]
+  -- Bijection: filter on ↥Y ↔ Finset.univ on ↥(Y ⊓ subgroupOfCoprimeConductor p).
+  let e : { χ : ↥Y // p.Coprime χ.val.conductor } ≃
+      ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p) :=
+    { toFun := fun χ => ⟨χ.val.val, χ.val.property,
+        DirichletCharacter.mem_subgroupOfCoprimeConductor.mpr χ.property⟩
+      invFun := fun χ => ⟨⟨χ.val, χ.property.1⟩,
+        DirichletCharacter.mem_subgroupOfCoprimeConductor.mp χ.property.2⟩
+      left_inv := fun _ => rfl
+      right_inv := fun _ => rfl }
+  rw [← Finset.prod_subtype_eq_prod_filter (s := (Finset.univ : Finset Y))
+        (p := fun χ : Y => p.Coprime χ.val.conductor)
+        (f := fun χ : Y => (1 - χ.val.primitiveCharacter (p : ℕ) * T)⁻¹),
+      Finset.subtype_univ,
+      Fintype.prod_equiv e
+        (fun χ : { χ : ↥Y // p.Coprime χ.val.conductor } =>
+          (1 - χ.val.val.primitiveCharacter (p : ℕ) * T)⁻¹)
+        (fun χ : ↥(Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p) =>
+          (1 - χ.val.primitiveCharacter (p : ℕ) * T)⁻¹) (fun _ => rfl)]
+  -- Identify `Y ⊓ subgroupOfCoprimeConductor p` with `Y_tame` and reindex.
+  have h_subgroup : Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p = Y_tame := by
+    rw [Y_inter_subgroupOfCoprimeConductor_eq_tame F Y hY hp Km, hY_tame]
+  subst h_subgroup
+  rfl
 
 /-- **Ramified-case scaffold (b): level-`n` to level-`m` character descent.** At level `m`,
 the corresponding character subgroup `Y_tame_m` (image of `F_tame_in_Km : IntermediateField ℚ Km`)
