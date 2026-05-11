@@ -415,6 +415,25 @@ lemma IntermediateField.restrictNormalHom_ker (E : IntermediateField K L) [Norma
   simp only [Subgroup.ext_iff, MonoidHom.mem_ker, AlgEquiv.ext_iff, one_apply, Subtype.ext_iff,
     restrictNormalHom_apply, Subtype.forall, mem_fixingSubgroup_iff, implies_true]
 
+/--
+If `F ≤ E` are intermediate fields of `L/K` with `E` normal over `K`, then the preimage under
+the restriction homomorphism `Gal(L/K) →* Gal(E/K)` of the fixing subgroup of
+`IntermediateField.restrict h` (i.e. `F` viewed as an intermediate field of `E/K`) is
+exactly `F.fixingSubgroup` inside `Gal(L/K)`.
+-/
+lemma IntermediateField.fixingSubgroup_restrict_comap_restrictNormalHom
+    {F E : IntermediateField K L} (h : F ≤ E) [Normal K E] :
+    (IntermediateField.restrict h).fixingSubgroup.comap (AlgEquiv.restrictNormalHom E)
+      = F.fixingSubgroup := by
+  ext τ
+  simp only [Subgroup.mem_comap, IntermediateField.mem_fixingSubgroup_iff, mem_restrict]
+  refine ⟨fun H x hx => ?_, fun H x hx => ?_⟩
+  · have := H ⟨x, h hx⟩ hx
+    rw [Subtype.ext_iff, AlgEquiv.restrictNormalHom_apply] at this
+    exact this
+  · rw [Subtype.ext_iff, AlgEquiv.restrictNormalHom_apply]
+    exact H x.1 hx
+
 namespace IsGalois
 
 variable (E : IntermediateField K L)

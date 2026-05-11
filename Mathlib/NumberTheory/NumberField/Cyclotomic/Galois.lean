@@ -213,6 +213,22 @@ theorem mem_intermediateFieldEquivSubgroupChar_iff (F : IntermediateField ℚ K)
       ∀ σ : Gal(K/ℚ), σ ∈ F.fixingSubgroup → χ (galEquivZMod n K σ) = 1 := by
   simp [intermediateFieldEquivSubgroupChar]
 
+/-- Bridge form of `mem_intermediateFieldEquivSubgroupChar_iff` for `F ≤ E` where `E` is a
+normal intermediate field of `ℚ(ζₙ)/ℚ`: membership of `χ` in the subgroup associated to `F`
+is characterised in terms of those `σ ∈ Gal(K/ℚ)` whose restriction to `E` fixes
+`F` viewed inside `E` (via `IntermediateField.restrict`). -/
+theorem mem_intermediateFieldEquivSubgroupChar_iff_restrict
+    {F E : IntermediateField ℚ K} (h : F ≤ E) [Normal ℚ E]
+    (χ : DirichletCharacter R n) :
+    χ ∈ intermediateFieldEquivSubgroupChar n K R F ↔
+      ∀ σ : Gal(K/ℚ),
+        AlgEquiv.restrictNormalHom E σ ∈ (IntermediateField.restrict h).fixingSubgroup →
+        χ (galEquivZMod n K σ) = 1 := by
+  simp only [mem_intermediateFieldEquivSubgroupChar_iff,
+    ← IntermediateField.fixingSubgroup_restrict_comap_restrictNormalHom h,
+    Subgroup.mem_comap]
+  rfl
+
 set_option backward.isDefEq.respectTransparency false in
 /--
 Assume that `m ∣ n`, then the image of `ℚ(ζₘ) ⊆ ℚ(ζₙ)` by `intermediateFieldEquivSubgroupChar` is
