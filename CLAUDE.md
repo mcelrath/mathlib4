@@ -97,6 +97,20 @@ are cosmetic and useful for future readers.
   changes need separate planning.
 - Do NOT add `axiom` or `sorry` to make a proof compile. Discharge
   or report obstruction.
+- **Do NOT use `set_option maxHeartbeats 0`** in any file. This
+  disables Lean's elaboration guard and lets `native_decide` runaways
+  consume unbounded RAM (observed: 4 GB per `native_decide` branch on
+  `Matrix (Fin 16) (Fin 16) ℚ` under v4.30, OOM-killed the host). Use
+  `1600000` (2× default) if a single atomic call needs headroom.
+- **Do NOT use `fin_cases i <;> fin_cases j <;> native_decide`** over
+  `Matrix (Fin n) (Fin n) ℚ` for n ≥ 16. The branches accumulate
+  elaboration state across cases. Split into separate top-level
+  lemmas, or use the compute-in-Python / verify-once-in-Lean pattern
+  (see secular-constraints `proofs/PerBlockChirality.lean::chi_B_involution`):
+  prove minimal atoms (`R * Rᵀ = 1`, `R³ = 1`, `χ² = 1`) with one
+  `native_decide` per equation; derive every downstream identity by
+  `rw` / `Matrix.mul_assoc` / `Matrix.trace_mul_comm`. The native
+  compiler is invoked only on atoms.
 
 ## Mathlib API quirks documented during this session
 
