@@ -271,3 +271,44 @@ recorded here for documentation.) -/
 example : IsScalarTower A (integralClosure A E) E := inferInstance
 
 end integralClosure_inertia
+
+section inertia_action_inertia_field
+
+/-!
+### Trivial action of the inertia group on the inertia field
+
+Let `E` be the inertia field of `P` in `L/K`. By definition, the inertia group
+`I := inertia Gal(L/K) P` fixes `E` pointwise (as a subfield of `L`). On the abstract field `E`
+we record the resulting trivial `MulSemiringAction (inertia Gal(L/K) P) E`, defined as the
+constant identity action. This lifts to `B_E := integralClosure A E` via the generic
+integral-closure instance.
+-/
+
+variable [MulSemiringAction Gal(L/K) B]
+variable (E : Type*) [Field E] [Algebra K E] [Algebra E L] [IsScalarTower K E L]
+  [IsInertiaField K L P E]
+
+/-- The inertia group `inertia Gal(L/K) P` acts trivially on the inertia field `E`. -/
+instance IsInertiaField.inertiaMulSemiringAction :
+    MulSemiringAction (inertia Gal(L/K) P) E :=
+  MulSemiringAction.compHom E (1 : inertia Gal(L/K) P →* (E ≃+* E))
+
+omit [Algebra K E] [Algebra E L] [IsScalarTower K E L] [IsInertiaField K L P E] in
+@[simp]
+lemma IsInertiaField.inertia_smul_eq (g : inertia Gal(L/K) P) (x : E) : g • x = x := rfl
+
+instance IsInertiaField.smulCommClass_inertia_K :
+    SMulCommClass (inertia Gal(L/K) P) K E :=
+  ⟨fun _ _ _ ↦ by simp [IsInertiaField.inertia_smul_eq]⟩
+
+variable [Algebra A K] [IsFractionRing A K] [Algebra A L] [IsScalarTower A K L]
+  [Algebra A E] [IsScalarTower A K E] [IsScalarTower A E L]
+
+instance IsInertiaField.smulCommClass_inertia_A :
+    SMulCommClass (inertia Gal(L/K) P) A E :=
+  ⟨fun _ _ _ ↦ by simp [IsInertiaField.inertia_smul_eq]⟩
+
+/-- The inertia group acts (trivially) on `B_E := integralClosure A E` via the action on `E`. -/
+example : MulSemiringAction (inertia Gal(L/K) P) (integralClosure A E) := inferInstance
+
+end inertia_action_inertia_field
