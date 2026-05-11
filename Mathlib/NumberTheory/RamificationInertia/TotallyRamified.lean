@@ -239,6 +239,118 @@ section Tower
 
 variable {T : Type*} [CommRing T] [Algebra R T] [Algebra S T] [IsScalarTower R S T]
 
+/-- **Tower descent of total ramification to the middle ring.** Let `R → S → T` be a tower of
+Dedekind domains with fraction fields `K ⊆ KS ⊆ L`. If a maximal ideal `p` of `R` is totally
+ramified in the top ring `T`, then `p` is already totally ramified in the middle ring `S`.
+
+Proof: extract the unique prime `Q` of `T` over `p` and set `P' := Q.under S`. Tower-arithmetic
+on `e` and `f` plus `sum_ramification_inertia` at the `S` level force `e(P'|p) = finrank R S`
+and `f(P'|p) = 1`; conclude via `isTotallyRamifiedIn_iff_exists_ramificationIdx_eq_finrank`. -/
+theorem IsTotallyRamifiedIn.descend
+    (K KS L : Type*) [Field K] [Field KS] [Field L]
+    [IsDedekindDomain R] [IsDedekindDomain S] [IsDedekindDomain T]
+    [Algebra R K] [IsFractionRing R K]
+    [Algebra S KS] [IsFractionRing S KS]
+    [Algebra T L] [IsFractionRing T L]
+    [Algebra K KS] [Algebra R KS] [IsScalarTower R S KS] [IsScalarTower R K KS]
+    [Algebra KS L] [Algebra S L] [IsScalarTower S T L] [IsScalarTower S KS L]
+    [Algebra K L] [Algebra R L] [IsScalarTower R T L] [IsScalarTower R K L]
+    [IsScalarTower K KS L]
+    [Module.Finite R S] [Module.Finite S T] [Module.Finite R T]
+    [NoZeroSMulDivisors R S] [NoZeroSMulDivisors S T] [NoZeroSMulDivisors R T]
+    {p : Ideal R} [p.IsMaximal] (hp0 : p ≠ ⊥)
+    (h : p.IsTotallyRamifiedIn T) :
+    p.IsTotallyRamifiedIn S := by
+  classical
+  obtain ⟨Q, hQp, hQo, hQe, hQf⟩ := h.exists
+  have hfrST : Module.finrank KS L = Module.finrank S T :=
+    Algebra.IsAlgebraic.finrank_of_isFractionRing S KS T L
+  have hfrRS : Module.finrank K KS = Module.finrank R S :=
+    Algebra.IsAlgebraic.finrank_of_isFractionRing R K S KS
+  have hfrRT : Module.finrank K L = Module.finrank R T :=
+    Algebra.IsAlgebraic.finrank_of_isFractionRing R K T L
+  have hfrmul_KL : Module.finrank K L = Module.finrank K KS * Module.finrank KS L :=
+    (Module.finrank_mul_finrank K KS L).symm
+  have hfrmul : Module.finrank R T = Module.finrank R S * Module.finrank S T := by
+    rw [← hfrRT, hfrmul_KL, hfrRS, hfrST]
+  set P' : Ideal S := Q.under S with hP'_def
+  have hP'_under : P'.IsPrime := Ideal.IsPrime.under S Q
+  have hP'_liesOver_p : P'.LiesOver p := by
+    refine ⟨?_⟩
+    have h1 : Q.under R = p := hQo.over.symm
+    have h2 : Q.under R = (Q.under S).under R := by
+      simp only [under_def]
+      rw [IsScalarTower.algebraMap_eq R S T, ← Ideal.comap_comap]
+    rw [← h1, h2]
+  have hQ_liesOver_P' : Q.LiesOver P' := ⟨rfl⟩
+  have hP'_ne_bot : P' ≠ ⊥ := by
+    intro hbot
+    have hp_eq : (P'.under R) = p := hP'_liesOver_p.over.symm
+    rw [hbot] at hp_eq
+    simp [under_def] at hp_eq
+    exact hp0 hp_eq.symm
+  letI : P'.IsMaximal := Ring.DimensionLEOne.maximalOfPrime hP'_ne_bot hP'_under
+  have hinjST : Function.Injective (algebraMap S T) := FaithfulSMul.algebraMap_injective S T
+  have hinjRT : Function.Injective (algebraMap R T) := FaithfulSMul.algebraMap_injective R T
+  have hP'T_ne : map (algebraMap S T) P' ≠ ⊥ :=
+    fun h => hP'_ne_bot ((map_eq_bot_iff_of_injective hinjST).mp h)
+  have hpT_ne : map (algebraMap R T) p ≠ ⊥ :=
+    fun h => hp0 ((map_eq_bot_iff_of_injective hinjRT).mp h)
+  have hP'T_le_Q : map (algebraMap S T) P' ≤ Q :=
+    Ideal.map_le_iff_le_comap.mpr (le_of_eq (Ideal.over_def Q P'))
+  have h_e_tower : ramificationIdx p Q = ramificationIdx p P' * ramificationIdx P' Q :=
+    ramificationIdx_algebra_tower hP'T_ne hpT_ne hP'T_le_Q
+  have h_f_tower : inertiaDeg p Q = inertiaDeg p P' * inertiaDeg P' Q :=
+    inertiaDeg_algebra_tower p P' Q
+  have hmul1 : inertiaDeg p P' * inertiaDeg P' Q = 1 := by rw [← h_f_tower]; exact hQf
+  have h_fP' : inertiaDeg p P' = 1 := Nat.eq_one_of_mul_eq_one_right hmul1
+  have h_fQP' : inertiaDeg P' Q = 1 := Nat.eq_one_of_mul_eq_one_left hmul1
+  have hP'_mem : P' ∈ IsDedekindDomain.primesOverFinset p S :=
+    (IsDedekindDomain.mem_primesOverFinset_iff hp0 _).mpr ⟨hP'_under, hP'_liesOver_p⟩
+  have hsumS := sum_ramification_inertia S K KS (p := p) hp0
+  have h_eP'_le : ramificationIdx p P' ≤ Module.finrank R S := by
+    have h_term_le :
+        ramificationIdx p P' * inertiaDeg p P' ≤
+          ∑ I ∈ IsDedekindDomain.primesOverFinset p S,
+            ramificationIdx p I * inertiaDeg p I :=
+      Finset.single_le_sum (f := fun I => ramificationIdx p I * inertiaDeg p I)
+        (fun _ _ => Nat.zero_le _) hP'_mem
+    rw [hsumS, hfrRS, h_fP', Nat.mul_one] at h_term_le
+    exact h_term_le
+  have hQ_mem : Q ∈ IsDedekindDomain.primesOverFinset P' T :=
+    (IsDedekindDomain.mem_primesOverFinset_iff hP'_ne_bot _).mpr ⟨hQp, hQ_liesOver_P'⟩
+  have hsumT := sum_ramification_inertia T KS L (p := P') hP'_ne_bot
+  have h_eQP'_le : ramificationIdx P' Q ≤ Module.finrank S T := by
+    have h_term_le :
+        ramificationIdx P' Q * inertiaDeg P' Q ≤
+          ∑ I ∈ IsDedekindDomain.primesOverFinset P' T,
+            ramificationIdx P' I * inertiaDeg P' I :=
+      Finset.single_le_sum (f := fun I => ramificationIdx P' I * inertiaDeg P' I)
+        (fun _ _ => Nat.zero_le _) hQ_mem
+    rw [hsumT, hfrST, h_fQP', Nat.mul_one] at h_term_le
+    exact h_term_le
+  have h_prod_eq : ramificationIdx p P' * ramificationIdx P' Q =
+      Module.finrank R S * Module.finrank S T := by
+    rw [← h_e_tower, hQe, hfrmul]
+  have h_eP'_pos : 0 < Module.finrank R S := by
+    have : 0 < ramificationIdx p P' :=
+      Nat.pos_iff_ne_zero.mpr <| IsDedekindDomain.ramificationIdx_ne_zero_of_liesOver _ hp0
+    exact lt_of_lt_of_le this h_eP'_le
+  have h_eQP'_pos : 0 < Module.finrank S T := by
+    have : 0 < ramificationIdx P' Q :=
+      Nat.pos_iff_ne_zero.mpr <| IsDedekindDomain.ramificationIdx_ne_zero_of_liesOver _ hP'_ne_bot
+    exact lt_of_lt_of_le this h_eQP'_le
+  have h_eP'_eq : ramificationIdx p P' = Module.finrank R S := by
+    rcases lt_or_eq_of_le h_eP'_le with hlt | heq
+    · exfalso
+      have : ramificationIdx p P' * ramificationIdx P' Q <
+          Module.finrank R S * Module.finrank S T :=
+        Nat.mul_lt_mul_of_lt_of_le hlt h_eQP'_le h_eQP'_pos
+      omega
+    · exact heq
+  exact (isTotallyRamifiedIn_iff_exists_ramificationIdx_eq_finrank
+    (S := S) R K KS hp0).mpr ⟨P', hP'_under, hP'_liesOver_p, h_eP'_eq⟩
+
 /-- **Tower inheritance of total ramification.** Let `R → S → T` be a tower of Dedekind domains
 with fraction fields `K ⊆ KS ⊆ L`. If a maximal ideal `p` of `R` is totally ramified in `T`,
 then for the unique prime `P` of `S` lying over `p`, `P` is totally ramified in `T`.
