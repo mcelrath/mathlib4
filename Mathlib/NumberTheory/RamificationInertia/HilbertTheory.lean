@@ -312,3 +312,149 @@ instance IsInertiaField.smulCommClass_inertia_A :
 example : MulSemiringAction (inertia Gal(L/K) P) (integralClosure A E) := inferInstance
 
 end inertia_action_inertia_field
+
+section stabilizer_action_inertia_field
+
+/-!
+### Action of the decomposition group on the inertia field
+
+Let `E` be an inertia field of `P` in `L/K`. The inertia group `I := inertia Gal(L/K) P` is the
+Galois group of `L/E`, and is normal inside the decomposition group
+`G₀ := stabilizer Gal(L/K) P` (`(inertia _ P).subgroupOf (stabilizer _ P)` is normal, proven
+generically in `Mathlib.RingTheory.Ideal.Pointwise`). For `g : G₀` and `x : E`, the element
+`(g : Gal(L/K)) • algebraMap E L x ∈ L` is fixed by `I` (by normality of `I` in `G₀`), so
+descends uniquely to an element of `E` via `Algebra.IsInvariant.isInvariant`. This defines a
+`MulSemiringAction (stabilizer Gal(L/K) P) E`, which lifts to `integralClosure A E` via the
+generic instance on integral closures.
+-/
+
+variable [MulSemiringAction Gal(L/K) B]
+variable (E : Type*) [Field E] [Algebra K E] [Algebra E L] [IsScalarTower K E L]
+  [hE : IsInertiaField K L P E]
+
+omit [Algebra K E] [IsScalarTower K E L] in
+lemma IsInertiaField.stabilizer_smul_invariant
+    (g : stabilizer Gal(L/K) P) (x : E) :
+    ∀ n : inertia Gal(L/K) P,
+      (n : Gal(L/K)) • ((g : Gal(L/K)) • algebraMap E L x) =
+        (g : Gal(L/K)) • algebraMap E L x := by
+  intro n
+  have hI_le : inertia Gal(L/K) P ≤ stabilizer Gal(L/K) P := inertia_le_stabilizer P
+  have hN : ((inertia Gal(L/K) P).subgroupOf (stabilizer Gal(L/K) P)).Normal := inferInstance
+  -- The conjugate g⁻¹ n g lies in the inertia subgroup, hence fixes algebraMap E L x.
+  have hconj_mem :
+      (g : Gal(L/K))⁻¹ * (n : Gal(L/K)) * (g : Gal(L/K)) ∈ inertia Gal(L/K) P := by
+    have hn_sub : (⟨(n : Gal(L/K)), hI_le n.2⟩ : stabilizer Gal(L/K) P) ∈
+        (inertia Gal(L/K) P).subgroupOf (stabilizer Gal(L/K) P) := n.2
+    have hconj := hN.conj_mem'
+      ⟨(n : Gal(L/K)), hI_le n.2⟩ hn_sub ⟨(g : Gal(L/K)), g.2⟩
+    simpa [Subgroup.mem_subgroupOf] using hconj
+  have hfix : ((g : Gal(L/K))⁻¹ * (n : Gal(L/K)) * (g : Gal(L/K))) • algebraMap E L x =
+      algebraMap E L x := by
+    have hc : SMulCommClass (inertia Gal(L/K) P) E L := hE.toIsGaloisGroup.commutes
+    have h1 := smul_algebraMap (R := E) (A := L) (⟨_, hconj_mem⟩ : inertia Gal(L/K) P) x
+    rw [MulAction.subgroup_smul_def] at h1
+    exact h1
+  have hgnConj : (n : Gal(L/K)) * (g : Gal(L/K)) =
+      (g : Gal(L/K)) * ((g : Gal(L/K))⁻¹ * (n : Gal(L/K)) * (g : Gal(L/K))) := by group
+  calc (n : Gal(L/K)) • ((g : Gal(L/K)) • algebraMap E L x)
+      = ((n : Gal(L/K)) * (g : Gal(L/K))) • algebraMap E L x := by rw [mul_smul]
+    _ = ((g : Gal(L/K)) *
+          ((g : Gal(L/K))⁻¹ * (n : Gal(L/K)) * (g : Gal(L/K)))) • algebraMap E L x := by
+            rw [hgnConj]
+    _ = (g : Gal(L/K)) •
+          (((g : Gal(L/K))⁻¹ * (n : Gal(L/K)) * (g : Gal(L/K))) • algebraMap E L x) := by
+            rw [mul_smul]
+    _ = (g : Gal(L/K)) • algebraMap E L x := by rw [hfix]
+
+/-- The unique element of `E` whose image in `L` is `(g : Gal(L/K)) • algebraMap E L x`. -/
+noncomputable def IsInertiaField.stabilizerSmul
+    (g : stabilizer Gal(L/K) P) (x : E) : E :=
+  (hE.toIsGaloisGroup.isInvariant.isInvariant ((g : Gal(L/K)) • algebraMap E L x)
+    (IsInertiaField.stabilizer_smul_invariant K L P E g x)).choose
+
+omit [Algebra K E] [IsScalarTower K E L] in
+lemma IsInertiaField.algebraMap_stabilizerSmul
+    (g : stabilizer Gal(L/K) P) (x : E) :
+    algebraMap E L (IsInertiaField.stabilizerSmul K L P E g x) =
+      (g : Gal(L/K)) • algebraMap E L x :=
+  (hE.toIsGaloisGroup.isInvariant.isInvariant ((g : Gal(L/K)) • algebraMap E L x)
+    (IsInertiaField.stabilizer_smul_invariant K L P E g x)).choose_spec
+
+omit [Algebra K E] [IsScalarTower K E L] in
+lemma IsInertiaField.stabilizerSmul_eq_iff
+    (g : stabilizer Gal(L/K) P) (x y : E) :
+    IsInertiaField.stabilizerSmul K L P E g x = y ↔
+      algebraMap E L y = (g : Gal(L/K)) • algebraMap E L x := by
+  refine ⟨?_, fun h ↦ ?_⟩
+  · rintro rfl; exact IsInertiaField.algebraMap_stabilizerSmul K L P E g x
+  · apply FaithfulSMul.algebraMap_injective E L
+    rw [IsInertiaField.algebraMap_stabilizerSmul, h]
+
+noncomputable instance IsInertiaField.instSMulStabilizer :
+    SMul (stabilizer Gal(L/K) P) E :=
+  ⟨IsInertiaField.stabilizerSmul K L P E⟩
+
+omit [Algebra K E] [IsScalarTower K E L] in
+lemma IsInertiaField.stabilizer_smul_def
+    (g : stabilizer Gal(L/K) P) (x : E) :
+    g • x = IsInertiaField.stabilizerSmul K L P E g x := rfl
+
+omit [Algebra K E] [IsScalarTower K E L] in
+@[simp]
+lemma IsInertiaField.algebraMap_stabilizer_smul
+    (g : stabilizer Gal(L/K) P) (x : E) :
+    algebraMap E L (g • x) = (g : Gal(L/K)) • algebraMap E L x := by
+  rw [IsInertiaField.stabilizer_smul_def]
+  exact IsInertiaField.algebraMap_stabilizerSmul K L P E g x
+
+/-- The decomposition group `stabilizer Gal(L/K) P` acts on the inertia field `E`. The action
+factors through the quotient `stabilizer Gal(L/K) P ⧸ (inertia Gal(L/K) P).subgroupOf _`,
+which is the Galois group of `E/D` where `D` is the decomposition field. -/
+noncomputable instance IsInertiaField.stabilizerMulSemiringAction :
+    MulSemiringAction (stabilizer Gal(L/K) P) E :=
+  have injE : Function.Injective (algebraMap E L) := FaithfulSMul.algebraMap_injective E L
+  { one_smul := fun x ↦ injE <| by
+      rw [IsInertiaField.algebraMap_stabilizer_smul]; simp
+    mul_smul := fun g h x ↦ injE <| by
+      rw [IsInertiaField.algebraMap_stabilizer_smul,
+        IsInertiaField.algebraMap_stabilizer_smul,
+        IsInertiaField.algebraMap_stabilizer_smul, Subgroup.coe_mul, mul_smul]
+    smul_zero := fun g ↦ injE <| by
+      rw [IsInertiaField.algebraMap_stabilizer_smul]; simp
+    smul_add := fun g x y ↦ injE <| by
+      rw [IsInertiaField.algebraMap_stabilizer_smul, map_add, map_add, smul_add,
+        IsInertiaField.algebraMap_stabilizer_smul,
+        IsInertiaField.algebraMap_stabilizer_smul]
+    smul_one := fun g ↦ injE <| by
+      rw [IsInertiaField.algebraMap_stabilizer_smul]; simp
+    smul_mul := fun g x y ↦ injE <| by
+      rw [IsInertiaField.algebraMap_stabilizer_smul, map_mul, map_mul, smul_mul',
+        IsInertiaField.algebraMap_stabilizer_smul,
+        IsInertiaField.algebraMap_stabilizer_smul] }
+
+noncomputable instance IsInertiaField.smulCommClass_stabilizer_K :
+    SMulCommClass (stabilizer Gal(L/K) P) K E := by
+  refine ⟨fun g k x ↦ ?_⟩
+  apply FaithfulSMul.algebraMap_injective E L
+  rw [IsInertiaField.algebraMap_stabilizer_smul, Algebra.smul_def, Algebra.smul_def,
+    map_mul, map_mul, IsInertiaField.algebraMap_stabilizer_smul, smul_mul',
+    ← IsScalarTower.algebraMap_apply K E L, smul_algebraMap]
+
+variable [Algebra A K] [IsFractionRing A K] [Algebra A L] [IsScalarTower A K L]
+  [Algebra A E] [IsScalarTower A K E] [IsScalarTower A E L]
+
+noncomputable instance IsInertiaField.smulCommClass_stabilizer_A :
+    SMulCommClass (stabilizer Gal(L/K) P) A E := by
+  refine ⟨fun g a x ↦ ?_⟩
+  apply FaithfulSMul.algebraMap_injective E L
+  rw [IsInertiaField.algebraMap_stabilizer_smul, Algebra.smul_def, Algebra.smul_def,
+    map_mul, map_mul, IsInertiaField.algebraMap_stabilizer_smul, smul_mul',
+    ← IsScalarTower.algebraMap_apply A E L,
+    IsScalarTower.algebraMap_apply A K L, smul_algebraMap]
+
+/-- The decomposition group acts on `B_E := integralClosure A E` via the action on `E`. -/
+noncomputable example : MulSemiringAction (stabilizer Gal(L/K) P) (integralClosure A E) :=
+  inferInstance
+
+end stabilizer_action_inertia_field
