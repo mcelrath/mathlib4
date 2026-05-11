@@ -2246,6 +2246,69 @@ private lemma primitiveCharacter_changeLevel {n m : ℕ} [NeZero n] [NeZero m] (
     (DirichletCharacter.changeLevel h χ).primitiveCharacter
     (DirichletCharacter.changeLevel h χ).conductor_dvd_level hlift_lhs
 
+/-- **A.4 (subgroupOfCoprimeConductor as a cyclotomic-subfield character group).** Let `n` be a
+positive level, `p` a prime, and `Km` the cyclotomic subfield `ℚ(ζₘ)` of `Kn = ℚ(ζₙ)` where
+`m = Nat.divMaxPow n p` is the prime-to-`p` part of `n`. Then the subgroup of Dirichlet characters
+of level `n` whose conductor is coprime to `p` equals the character subgroup associated to `Km`
+under `intermediateFieldEquivSubgroupChar`.
+
+Proof: both sides are characterised by the same divisibility `χ.conductor ∣ m`. For the LHS this
+is the chain `p.Coprime χ.conductor ↔ χ.conductor ∣ Nat.divMaxPow n p` already proved inside
+`subgroupOfCoprimeConductor_iff_trivial_on_unitsMap_ker`. For the RHS it is
+`mem_intermediateFieldEquivSubgroupChar_iff_conductor_dvd`. -/
+private lemma subgroupOfCoprimeConductor_eq_intermediateFieldEquivSubgroupChar
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    {p : ℕ} (hp : p.Prime)
+    (Km : IntermediateField ℚ Kn) [NumberField Km] [IsGalois ℚ Km]
+    [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km] :
+    DirichletCharacter.subgroupOfCoprimeConductor (R := ℂ) (n := n) p =
+      IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ Km := by
+  haveI hm_ne : NeZero (Nat.divMaxPow n p) :=
+    ⟨ne_zero_of_dvd_ne_zero (NeZero.ne n) (divMaxPow_dvd' n p)⟩
+  ext χ
+  rw [DirichletCharacter.mem_subgroupOfCoprimeConductor,
+      IsCyclotomicExtension.Rat.mem_intermediateFieldEquivSubgroupChar_iff_conductor_dvd
+        (n := n) (K := Kn) (R := ℂ) Km (m := Nat.divMaxPow n p) (divMaxPow_dvd' n p) χ]
+  -- p.Coprime χ.conductor ↔ χ.conductor ∣ Nat.divMaxPow n p.
+  constructor
+  · intro h_cop
+    have h_ndvd : ¬p ∣ χ.conductor := hp.coprime_iff_not_dvd.mp h_cop
+    have h_cop2 : Nat.Coprime χ.conductor (p ^ padicValNat p n) :=
+      hp.coprime_pow_of_not_dvd h_ndvd
+    have h_dvd_mp : χ.conductor ∣ Nat.divMaxPow n p * p ^ padicValNat p n :=
+      (Nat.divMaxPow_mul_pow_padicValNat p n).symm ▸ χ.conductor_dvd_level
+    exact h_cop2.dvd_mul_right.mp h_dvd_mp
+  · intro h_dvd
+    refine hp.coprime_iff_not_dvd.mpr ?_
+    exact fun h_pdvd =>
+      Nat.not_dvd_divMaxPow hp.one_lt (NeZero.ne n) (h_pdvd.trans h_dvd)
+
+/-- **(a) Character-group tame intersection.** For `F` an intermediate field of `Kn = ℚ(ζₙ)`,
+`p` a prime, and `Km = ℚ(ζₘ)` (`m = Nat.divMaxPow n p`) the tame cyclotomic subfield, the
+intersection of the character subgroup `Y` associated to `F` with the coprime-conductor subgroup
+`subgroupOfCoprimeConductor p` equals the character subgroup associated to the tame intermediate
+field `F ⊓ Km`.
+
+This is the character-side half of the tame-level reduction in `prod_chars_eq_prod_inertia_ramified`
+(piece (a) of secular-constraints-7hra).
+
+Proof: combine `subgroupOfCoprimeConductor_eq_intermediateFieldEquivSubgroupChar` with the fact that
+`intermediateFieldEquivSubgroupChar` is an `OrderIso` and so preserves `⊓` (`OrderIso.map_inf`). -/
+private lemma Y_inter_subgroupOfCoprimeConductor_eq_tame
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn)
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
+    {p : ℕ} (hp : p.Prime)
+    (Km : IntermediateField ℚ Kn) [NumberField Km] [IsGalois ℚ Km]
+    [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km] :
+    Y ⊓ DirichletCharacter.subgroupOfCoprimeConductor p =
+      IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ (F ⊓ Km) := by
+  rw [hY, subgroupOfCoprimeConductor_eq_intermediateFieldEquivSubgroupChar hp Km,
+      ← OrderIso.map_inf]
+
 /-- **Ramified-case Step B.** For `p ∣ n` and `F` an intermediate field of `ℚ(ζₙ)/ℚ`, the
 character product `∏ χ : Y, (1 - χ.val.primitiveCharacter p * T)⁻¹` equals the prime product
 `∏ 𝔭 ∈ primesAboveOf F p, (1 - absNorm 𝔭^(-s))⁻¹`.
