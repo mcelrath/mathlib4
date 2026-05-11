@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Bob McElrath
 -/
 import Mathlib.NumberTheory.NumberField.Basic
+import Mathlib.NumberTheory.NumberField.Units.Regulator
+import Mathlib.NumberTheory.NumberField.InfinitePlace.TotallyRealComplex
 import Mathlib.NumberTheory.Real.Irrational
 import Mathlib.FieldTheory.KummerPolynomial
 import Mathlib.NumberTheory.Pell
@@ -644,16 +646,59 @@ theorem ringOfIntegersEquiv_fundamentalUnit :
   rw [RingEquiv.apply_symm_apply]
   rfl
 
-/-! The "fundamental unit coerced to `Qsqrt3` equals `2 + √3`" statement
-(target T6.2 of the phase-C plan) requires the round-trip identity
-`fromZsqrt3 (ringOfIntegersEquiv u) = (u : Qsqrt3)`. The relevant Mathlib API
-path through `IsIntegralClosure.algebraMap_equiv ℤ (𝓞 Qsqrt3) Qsqrt3 (Zsqrtd 3)`
-fails to synthesize `IsScalarTower ℤ (𝓞 Qsqrt3) Qsqrt3` in this context — the
-instance is declared and `inferInstance` succeeds standalone, but synth from
-within `IsIntegralClosure.equiv`'s instance arguments fails even at
-`maxHeartbeats 800000`. The structurally equivalent statement
-`ringOfIntegersEquiv fundamentalUnit = ⟨2, 1⟩` is proven above. Deferred for a
-follow-up that addresses the synth-path through `isIntegralClosure_zsqrtd3`. -/
+/-! The round-trip identity `fromZsqrt3 (ringOfIntegersEquiv u) = (u : Qsqrt3)` follows
+from `IsIntegralClosure.algebraMap_equiv`, which requires both
+`IsScalarTower ℤ (𝓞 Qsqrt3) Qsqrt3` and `IsScalarTower ℤ (Zsqrtd 3) Qsqrt3`. Both
+are now available globally; the former is the upstream-Mathlib instance added in
+`Mathlib/NumberTheory/NumberField/Basic.lean`. -/
+
+/-- The image in `Qsqrt3` of the `ringOfIntegersEquiv`-preimage of a `Zsqrtd 3` element
+agrees with `fromZsqrt3`. This is the bridge identity unlocking the regulator computation.
+The proof applies `Zsqrtd.hom_ext` after reducing to agreement on `Zsqrtd.sqrtd`, then uses
+the universal property of integral closure. -/
+theorem algebraMap_ringOfIntegersEquiv_symm (z : Zsqrtd 3) :
+    algebraMap (𝓞 Qsqrt3) Qsqrt3 (ringOfIntegersEquiv.symm z) = fromZsqrt3 z := by
+  -- Strategy: define a ring hom `g : Zsqrtd 3 →+* Qsqrt3` as the LHS-as-a-function-of-z and
+  -- show `g = fromZsqrt3` via `Zsqrtd.hom_ext`, checking agreement on `Zsqrtd.sqrtd`.
+  let g : Zsqrtd 3 →+* Qsqrt3 :=
+    (algebraMap (𝓞 Qsqrt3) Qsqrt3).comp
+      (ringOfIntegersEquiv.symm : Zsqrtd 3 →+* 𝓞 Qsqrt3)
+  suffices hg : g = fromZsqrt3 by
+    exact congrArg (fun f : Zsqrtd 3 →+* Qsqrt3 => f z) hg
+  refine Zsqrtd.hom_ext _ _ ?_
+  -- RHS at `sqrtd`: `fromZsqrt3 sqrtd = sqrt3`.
+  rw [fromZsqrt3_sqrtd]
+  -- LHS at `sqrtd`: take `u = ⟨sqrt3, hint⟩ : 𝓞 Qsqrt3`. Then `ringOfIntegersEquiv u = sqrtd`,
+  -- so `ringOfIntegersEquiv.symm sqrtd = u`, and `algebraMap _ _ u = sqrt3`.
+  have hint : IsIntegral ℤ (sqrt3 : Qsqrt3) := by
+    have := isIntegral_fromZsqrt3 (Zsqrtd.sqrtd : Zsqrtd 3)
+    rwa [fromZsqrt3_sqrtd] at this
+  let u : 𝓞 Qsqrt3 := ⟨sqrt3, hint⟩
+  have hu_val : algebraMap (𝓞 Qsqrt3) Qsqrt3 u = sqrt3 := rfl
+  -- Show `ringOfIntegersEquiv u = Zsqrtd.sqrtd`.
+  have hequiv : ringOfIntegersEquiv u = Zsqrtd.sqrtd := by
+    -- Use injectivity of `fromZsqrt3` after applying to both sides.
+    apply fromZsqrt3_injective
+    rw [fromZsqrt3_sqrtd]
+    rw [← algebraMap_zsqrtd3]
+    -- Goal: `algebraMap (Zsqrtd 3) Qsqrt3 (ringOfIntegersEquiv u) = sqrt3`.
+    -- Make instances available locally so synth in `algebraMap_equiv` succeeds.
+    have hkey : ∀ v : 𝓞 Qsqrt3,
+        algebraMap (Zsqrtd 3) Qsqrt3 (ringOfIntegersEquiv v) =
+          algebraMap (𝓞 Qsqrt3) Qsqrt3 v := fun v => by
+      letI iIC1 : IsIntegralClosure (𝓞 Qsqrt3) ℤ Qsqrt3 :=
+        NumberField.RingOfIntegers.instIsIntegralClosureInt
+      letI iST1 : IsScalarTower ℤ (𝓞 Qsqrt3) Qsqrt3 :=
+        NumberField.RingOfIntegers.instIsScalarTowerInt Qsqrt3
+      letI iST2 : IsScalarTower ℤ (Zsqrtd 3) Qsqrt3 := by infer_instance
+      exact @IsIntegralClosure.algebraMap_equiv ℤ (𝓞 Qsqrt3) Qsqrt3
+        _ _ _ _ _ iIC1 (Zsqrtd 3) _ _ isIntegralClosure_zsqrtd3 _ _ iST1 iST2 v
+    rw [hkey]
+    exact hu_val
+  -- Now use `hequiv` to compute the LHS.
+  show algebraMap (𝓞 Qsqrt3) Qsqrt3 (ringOfIntegersEquiv.symm Zsqrtd.sqrtd) = sqrt3
+  rw [← hequiv, ringOfIntegersEquiv.symm_apply_apply]
+  exact hu_val
 
 /-- `Zsqrt3.unitsEquivSolution₁.symm` sends `-s` to `-(image of s)`, since both
 sides agree on the underlying `Zsqrtd 3` element. -/
@@ -699,44 +744,38 @@ theorem fundamentalUnit_eq_zpow_or_neg_zpow (u : (𝓞 Qsqrt3)ˣ) :
         unitsRingOfIntegersEquiv_symm_neg, map_zpow]
     rfl
 
-/-! ### Coercion of `fundamentalUnit` to `Qsqrt3` (Phase C T7 — DEFERRED)
+/-! ### Phase C T7: regulator of `ℚ(√3)` — algebraic prerequisites
 
-The remaining target of Phase C item (a) is
+The headline target
 
 ```
-algebraMap_fundamentalUnit :
-    algebraMap (𝓞 Qsqrt3) Qsqrt3 (fundamentalUnit : 𝓞 Qsqrt3) = 2 + sqrt3
+regulator_eq_log_two_add_sqrt_three :
+    NumberField.Units.regulator Qsqrt3 = Real.log (2 + Real.sqrt 3)
 ```
 
-from which `regulator_eq_log_two_add_sqrt_three` follows by standard `regOfFamily_eq_det`
-machinery (1×1 determinant in the rank-1 totally-real case).
+reduces, in the rank-1 totally-real case, to the standard `regOfFamily_eq_det` identity
+on the 1×1 matrix `(log |embedPos fundamentalUnit|)`. The algebraic bridge identity
+`algebraMap_fundamentalUnit` below converts the abstract Pell-derived
+`fundamentalUnit : (𝓞 Qsqrt3)ˣ` into the concrete element `2 + √3 ∈ Qsqrt3`. The remaining
+infrastructure (`IsTotallyReal Qsqrt3`, infinite-place enumeration, max-rank `funSystem`,
+and the determinant reduction) is left as a follow-up; this commit lands the structural
+prerequisite. -/
 
-The structural blocker for this last step is `IsIntegralClosure.algebraMap_equiv`, which
-requires an `IsScalarTower ℤ (𝓞 Qsqrt3) Qsqrt3` instance. The instance is declarable at
-top level (via `IsScalarTower.subalgebra'` applied to `integralClosure ℤ Qsqrt3 :
-Subalgebra ℤ Qsqrt3`), and `example : IsScalarTower ℤ (𝓞 Qsqrt3) Qsqrt3 := inferInstance`
-succeeds. But the instance is NOT picked up by typeclass synthesis inside the
-`IsIntegralClosure.equiv` call: there are two competing `IsIntegralClosure _ ℤ Qsqrt3`
-candidates (`(𝓞 Qsqrt3)` and `Zsqrtd 3`) and the synth-time unification of the implicit
-`A` parameter against the explicit type triggers a `whnf` timeout that recurs even at
-`maxHeartbeats 2000000` and `synthInstance.maxHeartbeats 800000`.
+/-- `algebraMap (𝓞 Qsqrt3) Qsqrt3` applied to `fundamentalUnit` gives `2 + √3`. -/
+theorem algebraMap_fundamentalUnit :
+    algebraMap (𝓞 Qsqrt3) Qsqrt3 (fundamentalUnit : 𝓞 Qsqrt3) = 2 + sqrt3 := by
+  have h1 : (fundamentalUnit : 𝓞 Qsqrt3) =
+      ringOfIntegersEquiv.symm (⟨2, 1⟩ : Zsqrtd 3) := by
+    rw [← ringOfIntegersEquiv_fundamentalUnit, RingEquiv.symm_apply_apply]
+  rw [h1, algebraMap_ringOfIntegersEquiv_symm, fromZsqrt3_mk]
+  push_cast
+  ring
 
-This is the same obstruction documented at lines 647–657 of this file's earlier draft. It is
-NOT specific to the predecessor's choice of formulation: both the "direct algebraMap_equiv"
-path and the "Zsqrtd.hom_ext + injectivity-via-mk'" path hit the same wall once they need to
-relate `ringOfIntegersEquiv.symm` to the underlying integral closure.
-
-To discharge this in a follow-up, one of the following Mathlib refactors is needed:
-
-1. Add a global instance `IsScalarTower ℤ (𝓞 K) K` (currently absent — see
-   `Mathlib/NumberTheory/NumberField/Basic.lean` lines 281–289, only
-   `IsScalarTower (𝓞 K) K L` is declared).
-2. Add a characterization lemma `algebraMap_ringOfIntegersEquiv_symm` directly to
-   `Mathlib/NumberTheory/NumberField/Basic.lean` that does not go through
-   `IsIntegralClosure.equiv`.
-3. Lower the transparency requirement of `RingOfIntegers` (change `def` to `abbrev`),
-   which would let instance synthesis unfold to `integralClosure ℤ K` automatically.
-
-KB record for prior-art: `kb-20260510-183235-883919` (predecessor's report). -/
+/-- The positive real embedding sends `fundamentalUnit` to `2 + √3 > 1`. -/
+theorem embedPos_fundamentalUnit :
+    embedPos (algebraMap (𝓞 Qsqrt3) Qsqrt3 (fundamentalUnit : 𝓞 Qsqrt3)) =
+      2 + Real.sqrt 3 := by
+  rw [algebraMap_fundamentalUnit]
+  simp [embedPos_sqrt3, map_add, map_ofNat]
 
 end Qsqrt3
