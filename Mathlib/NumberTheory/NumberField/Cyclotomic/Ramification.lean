@@ -148,4 +148,62 @@ theorem relative_isTotallyRamifiedIn
 
 end IsCyclotomicExtension.Rat
 
+namespace IsCyclotomicExtension.Rat
+
+open NumberField Ideal
+
+variable {m : ℕ} [NeZero m] (q : ℕ) [hq : Fact q.Prime]
+variable (Km' : Type*) [Field Km'] [NumberField Km'] [IsCyclotomicExtension {m} ℚ Km']
+
+local notation3 "Q0" => (Ideal.span {(q : ℤ)})
+
+/-- **Unramifiedness at `(p)` of an intermediate field of a tame cyclotomic field.**
+
+If `F_tame ⊆ Km = ℚ(ζₘ)` with `p ∤ m`, then `(p)` is unramified in `𝓞 F_tame`: every prime
+`𝔭` of `𝓞 F_tame` lying over `(p)` has ramification index 1. This is the F_tame-level part
+of the discharge of `hF_tame_ramified` (DZCP witness 5); it is then tower-composed with the
+relative total-ramification fact for `F/F_tame` to conclude. -/
+theorem F_tame_unramified_at_p
+    (hqm : ¬ q ∣ m)
+    (F_tame : Type*) [Field F_tame] [NumberField F_tame]
+    [Algebra F_tame Km'] [Algebra ℚ F_tame] [IsScalarTower ℚ F_tame Km']
+    (𝔭 : Ideal (𝓞 F_tame)) [h𝔭p : 𝔭.IsPrime]
+    [h𝔭o : 𝔭.LiesOver Q0] :
+    ramificationIdx Q0 𝔭 = 1 := by
+  -- Q0 ≠ ⊥, and 𝔭 ≠ ⊥ via LiesOver.
+  have hq_ne : Q0 ≠ ⊥ := by simpa using hq.out.ne_zero
+  have h𝔭bot : 𝔭 ≠ ⊥ := by
+    intro hbot
+    apply hq_ne
+    have hover := h𝔭o.over
+    rw [hbot, Ideal.under_def,
+      Ideal.comap_bot_of_injective _
+        (FaithfulSMul.algebraMap_injective ℤ (𝓞 F_tame))] at hover
+    exact hover
+  haveI : 𝔭.IsMaximal := Ring.DimensionLEOne.maximalOfPrime h𝔭bot h𝔭p
+  -- Pick a prime 𝔓 of 𝓞 Km' lying over 𝔭.
+  obtain ⟨𝔓, h𝔓_max, h𝔓o_𝔭⟩ :=
+    Ideal.exists_maximal_ideal_liesOver_of_isIntegral 𝔭 (S := 𝓞 Km')
+  haveI h𝔓p : 𝔓.IsPrime := h𝔓_max.isPrime
+  haveI : 𝔓.LiesOver 𝔭 := h𝔓o_𝔭
+  haveI : 𝔓.LiesOver Q0 := Ideal.LiesOver.trans 𝔓 𝔭 Q0
+  -- IsScalarTower ℤ (𝓞 F_tame) (𝓞 Km'): both algebraMaps factor through ℤ-cast uniqueness.
+  haveI hST : IsScalarTower ℤ (𝓞 F_tame) (𝓞 Km') := by
+    refine IsScalarTower.of_algebraMap_eq fun z => ?_
+    exact RingHom.congr_fun
+      (RingHom.ext_int (algebraMap ℤ (𝓞 Km'))
+        ((algebraMap (𝓞 F_tame) (𝓞 Km')).comp (algebraMap ℤ (𝓞 F_tame)))) z
+  -- e(𝔓|Q0) = 1 (since q ∤ m at Km' level).
+  have h𝔓_e : ramificationIdx Q0 𝔓 = 1 :=
+    ramificationIdx_eq_of_not_dvd (p := q) (K := Km') (m := m) 𝔓 hqm
+  -- Tower: e(𝔓|Q0) = e(𝔭|Q0) * e(𝔓|𝔭).
+  have h_tower : ramificationIdx Q0 𝔓 =
+      ramificationIdx Q0 𝔭 * ramificationIdx 𝔭 𝔓 :=
+    ramificationIdx_algebra_tower' (R := ℤ) (S := 𝓞 F_tame) (T := 𝓞 Km') Q0 𝔭 𝔓
+  rw [h𝔓_e] at h_tower
+  -- From 1 = a * b in ℕ, a = 1.
+  exact (Nat.eq_one_of_mul_eq_one_right h_tower.symm)
+
+end IsCyclotomicExtension.Rat
+
 end
