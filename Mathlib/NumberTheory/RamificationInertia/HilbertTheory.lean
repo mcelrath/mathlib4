@@ -1070,3 +1070,72 @@ theorem IsInertiaField.isTotallyRamifiedIn_upper (hp : p ≠ ⊥) :
     (R := integralClosure A E) (S := B) E L hPE_ne_bot P hePE_P_eq
 
 end isTotallyRamifiedIn_upper
+
+section inertia_map_restrictNormalHom
+
+/-!
+### Inertia under restriction to a Galois intermediate field
+
+Let `F` be a Galois intermediate field of `L/K`. The restriction homomorphism
+`q := AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K)` carries `P.inertia Gal(L/K)`
+into `(P.under B_F).inertia Gal(F/K)`, where `B_F := integralClosure A F`.
+
+This is the forward inclusion in the inertia-vs-restriction match
+`q (P.inertia Gal(L/K)) = (P.under B_F).inertia Gal(F/K)`; the reverse inclusion
+(via cardinality matching) is proved separately. -/
+
+variable [Algebra A K] [Algebra A L] [IsScalarTower A K L]
+  [Algebra B L] [IsScalarTower A B L] [IsIntegralClosure B A L]
+  [MulSemiringAction Gal(L/K) B] [SMulDistribClass Gal(L/K) B L]
+variable (F : IntermediateField K L) [Normal K F]
+  [Algebra A F] [IsScalarTower A K F] [IsScalarTower A F L]
+
+set_option linter.unusedSectionVars false in
+include K L in
+/-- **Forward inclusion of the inertia-vs-restriction match.** Let `F` be a Galois
+intermediate field of `L/K`, let `q := AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K)`
+be the restriction map, and let `B_F := integralClosure A F`. Then `q` carries the inertia
+group of `P` in `Gal(L/K)` into the inertia group of `P_F := P.under B_F` in `Gal(F/K)`. -/
+theorem IntermediateField.inertia_map_restrictNormalHom_le :
+    letI := integralClosure.algebra_intermediateField A L F B
+    Subgroup.map (AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K))
+        (P.inertia Gal(L/K)) ≤
+      (P.under (integralClosure A F)).inertia Gal(F/K) := by
+  letI : Algebra (integralClosure A F) B :=
+    integralClosure.algebra_intermediateField A L F B
+  haveI : IsScalarTower A (integralClosure A F) B :=
+    integralClosure.isScalarTower_intermediateField A L F B
+  haveI : IsScalarTower (integralClosure A F) B L :=
+    integralClosure.isScalarTower_intermediateField_right A L F B
+  letI := IntermediateField.galoisMulSemiringAction K L F
+  letI := IntermediateField.galoisMulSemiringAction_integralClosure A K L F
+  rintro _ ⟨σ, hσ, rfl⟩
+  rw [AddSubgroup.mem_inertia]
+  intro x
+  -- Need: `AlgEquiv.restrictNormalHom F σ • x - x ∈ P.under (integralClosure A F)`.
+  show _ ∈ Ideal.comap (algebraMap (integralClosure A F) B) P
+  rw [Ideal.mem_comap, map_sub]
+  -- Reduce to membership of `σ • algebraMap _ _ x - algebraMap _ _ x` in `P`,
+  -- using that `algebraMap B_F B` intertwines `AlgEquiv.restrictNormalHom F σ` with `σ`.
+  have hkey : algebraMap (integralClosure A F) B
+      (AlgEquiv.restrictNormalHom F σ • x) =
+        σ • algebraMap (integralClosure A F) B x := by
+    apply IsIntegralClosure.algebraMap_injective B A L
+    -- Reduce both sides to `algebraMap (integralClosure A F) L _`.
+    rw [← IsScalarTower.algebraMap_apply (integralClosure A F) B L,
+        algebraMap.smul' (A := Gal(L/K)) (B := B) (C := L),
+        ← IsScalarTower.algebraMap_apply (integralClosure A F) B L,
+        IsScalarTower.algebraMap_apply (integralClosure A F) F L,
+        IsScalarTower.algebraMap_apply (integralClosure A F) F L]
+    show algebraMap F L ((AlgEquiv.restrictNormalHom F σ • x : integralClosure A F) : F) =
+        σ • algebraMap F L ((x : integralClosure A F) : F)
+    rw [integralClosure.coe_smul (AlgEquiv.restrictNormalHom F σ) x]
+    -- Goal: algebraMap F L (q σ • (x : F)) = σ • algebraMap F L (x : F).
+    -- The `q σ • _ : F` is the canonical Gal(F/K)-action on F, which by
+    -- `restrictNormal_commutes` agrees with `σ` after `algebraMap F L`.
+    exact AlgEquiv.restrictNormal_commutes σ F (x : F)
+  rw [hkey]
+  -- Now it suffices that `σ • y - y ∈ P` for `y := algebraMap _ _ x`, which is `hσ`.
+  exact (AddSubgroup.mem_inertia.mp hσ) _
+
+end inertia_map_restrictNormalHom
