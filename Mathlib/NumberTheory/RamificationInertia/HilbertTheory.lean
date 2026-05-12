@@ -1138,4 +1138,201 @@ theorem IntermediateField.inertia_map_restrictNormalHom_le :
   -- Now it suffices that `σ • y - y ∈ P` for `y := algebraMap _ _ x`, which is `hσ`.
   exact (AddSubgroup.mem_inertia.mp hσ) _
 
+set_option maxHeartbeats 400000 in
+set_option linter.unusedSectionVars false in
+attribute [local instance] Ideal.Quotient.field in
+include K L in
+/-- **Cardinality matching of inertia under restriction.** Let `F` be a Galois intermediate
+field of `L/K`, `q := AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K)`, and
+`B_F := integralClosure A F`. The cardinality of the image of `P.inertia Gal(L/K)` under `q`
+equals the cardinality of the inertia group of `P_F := P.under B_F` in `Gal(F/K)`.
+
+Combined with the forward inclusion `inertia_map_restrictNormalHom_le`, this gives the
+set equality `q (P.inertia Gal(L/K)) = (P.under B_F).inertia Gal(F/K)`.
+
+The proof is the cyclotomic precedent (`DedekindZetaCharacterProduct.lean:1598-1615`) lifted
+to the abstract Hilbert-theory setting: identify the kernel of the restricted map
+`q|_{P.inertia} : P.inertia Gal(L/K) → Gal(F/K)` as `F.fixingSubgroup.subgroupOf P.inertia`,
+use `Subgroup.subgroupOf_map_subtype` + `AddSubgroup.inertia_map_subtype` to rewrite this
+as `(P.inertia F.fixingSubgroup)`, apply `card_inertia_eq_ramificationIdxIn` for the lower
+(`F.fixingSubgroup` on `B_F → B`) and full (`Gal(L/K)` on `A → B`) tower, identify the
+target via `card_inertia_eq_ramificationIdxIn` for `Gal(F/K)` on `A → B_F`, and combine
+using the multiplicativity of `ramificationIdxIn` over the tower
+(`Ideal.ramificationIdxIn_mul_ramificationIdxIn'`). -/
+theorem IntermediateField.inertia_map_restrictNormalHom_card_eq
+    [IsFractionRing A K] [FiniteDimensional K L] [IsDedekindDomain A]
+    [Algebra.IsSeparable K L] [IsDedekindDomain B] [Module.Finite A B]
+    [Module.IsTorsionFree A B] [IsGaloisGroup Gal(L/K) A B] [P.IsMaximal]
+    [Ring.HasFiniteQuotients A] (hp : p ≠ ⊥) :
+    letI := integralClosure.algebra_intermediateField A L F B
+    Nat.card (Subgroup.map (AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K))
+        (P.inertia Gal(L/K))) =
+      Nat.card ((P.under (integralClosure A F)).inertia Gal(F/K)) := by
+  classical
+  -- B_F bridge instances (same as `isTotallyRamifiedIn_upper`).
+  letI : Algebra (integralClosure A F) B :=
+    integralClosure.algebra_intermediateField A L F B
+  haveI : IsScalarTower A (integralClosure A F) B :=
+    integralClosure.isScalarTower_intermediateField A L F B
+  haveI : IsScalarTower (integralClosure A F) B L :=
+    integralClosure.isScalarTower_intermediateField_right A L F B
+  haveI : IsIntegralClosure B (integralClosure A F) L :=
+    IsIntegralClosure.tower_top (R := A) (A := integralClosure A F) (B := L) (C := B)
+  haveI : Algebra.IsSeparable K F := Algebra.isSeparable_tower_bot_of_isSeparable K F L
+  haveI : Algebra.IsSeparable F L := Algebra.isSeparable_tower_top_of_isSeparable K F L
+  haveI : IsDedekindDomain (integralClosure A F) :=
+    integralClosure.isDedekindDomain_intermediateField A K L F
+  haveI : IsFractionRing (integralClosure A F) F :=
+    integralClosure.isFractionRing_intermediateField A K L F
+  haveI : FiniteDimensional K F := FiniteDimensional.left K F L
+  haveI : FiniteDimensional F L := FiniteDimensional.right K F L
+  haveI : Module.Finite A (integralClosure A F) :=
+    IsIntegralClosure.finite A K F (integralClosure A F)
+  haveI : Module.Finite (integralClosure A F) B :=
+    integralClosure.module_finite_intermediateField A K L F
+  haveI : Module.IsTorsionFree (integralClosure A F) B :=
+    integralClosure.isTorsionFree_intermediateField A K L F
+  haveI : IsDomain B :=
+    (IsIntegralClosure.algebraMap_injective B A L).isDomain (algebraMap B L)
+  haveI : IsFractionRing B L := IsIntegralClosure.isFractionRing_of_finite_extension A K L B
+  -- LiesOver chain.
+  haveI : P.LiesOver (P.under (integralClosure A F)) :=
+    Ideal.over_under (A := integralClosure A F) P
+  haveI : (P.under (integralClosure A F)).LiesOver p :=
+    Ideal.under_liesOver_of_liesOver (A := A) (B := integralClosure A F) (𝔓 := P) p
+  have hP_ne_bot : P ≠ ⊥ := ne_bot_of_liesOver_of_ne_bot hp P
+  have hPF_ne_bot : P.under (integralClosure A F) ≠ ⊥ :=
+    Ideal.under_ne_bot (A := integralClosure A F) hP_ne_bot
+  haveI : p.IsMaximal := over_def P p ▸ Ideal.IsMaximal.under A P
+  haveI : Ring.HasFiniteQuotients (integralClosure A F) :=
+    Ring.HasFiniteQuotients.of_module_finite (R := A) (integralClosure A F)
+  haveI hPF_max : (P.under (integralClosure A F)).IsMaximal :=
+    over_def P (P.under (integralClosure A F)) ▸
+      Ideal.IsMaximal.under (integralClosure A F) P
+  haveI : Module.IsTorsionFree A (integralClosure A F) := by
+    refine Module.isTorsionFree_iff_algebraMap_injective.mpr ?_
+    intro x y hxy
+    have hAF : Function.Injective (algebraMap A F) := by
+      intro a b hab
+      have := (FaithfulSMul.algebraMap_injective K F).comp (IsFractionRing.injective A K)
+      apply this
+      simp only [Function.comp_apply]
+      rw [← IsScalarTower.algebraMap_apply A K F, ← IsScalarTower.algebraMap_apply A K F, hab]
+    apply hAF
+    rw [IsScalarTower.algebraMap_apply A (integralClosure A F) F,
+        IsScalarTower.algebraMap_apply A (integralClosure A F) F, hxy]
+  haveI : Ring.HasFiniteQuotients B :=
+    Ring.HasFiniteQuotients.of_module_finite (R := A) B
+  -- Galois actions on F and B_F via the canonical/intermediate-field action.
+  haveI hGalLK_KL : IsGaloisGroup Gal(L/K) K L :=
+    IsGaloisGroup.to_isFractionRing Gal(L/K) A B K L
+  haveI hGalKL : IsGalois K L := IsGaloisGroup.isGalois Gal(L/K) K L
+  haveI hGalKF : IsGalois K F :=
+    { to_isSeparable := Algebra.isSeparable_tower_bot_of_isSeparable K F L
+      to_normal := ‹Normal K F› }
+  letI : MulSemiringAction Gal(F/K) F := AlgEquiv.applyMulSemiringAction
+  haveI hGalGFK_F : IsGaloisGroup Gal(F/K) K F := IsGaloisGroup.of_isGalois K F
+  haveI hGalGFK_BF : IsGaloisGroup Gal(F/K) A (integralClosure A F) :=
+    IsGaloisGroup.of_isFractionRing Gal(F/K) A (integralClosure A F) K F
+  -- F.fixingSubgroup is a Galois group for L/F, and lifts to B_F → B.
+  haveI hGalSub_FL : IsGaloisGroup F.fixingSubgroup F L := by
+    apply IsGaloisGroup.subgroup_iff.mpr
+    exact IsGalois.fixedField_fixingSubgroup (K := F)
+  letI hmsa_L : MulSemiringAction (↥F.fixingSubgroup) L := inferInstance
+  haveI hsd_BL : SMulDistribClass (↥F.fixingSubgroup) B L := ⟨fun g b x ↦
+    smul_distrib_smul (g : Gal(L/K)) b x⟩
+  haveI hGalSub_BFB : IsGaloisGroup F.fixingSubgroup (integralClosure A F) B :=
+    IsGaloisGroup.of_isFractionRing F.fixingSubgroup (integralClosure A F) B F L
+  -- Separability of residue extensions.
+  haveI : Finite (B ⧸ P) := Ring.HasFiniteQuotients.finiteQuotient hP_ne_bot
+  haveI : Finite (integralClosure A F ⧸ P.under (integralClosure A F)) :=
+    Ring.HasFiniteQuotients.finiteQuotient hPF_ne_bot
+  haveI : Finite (A ⧸ p) := Ring.HasFiniteQuotients.finiteQuotient hp
+  haveI : PerfectField (A ⧸ p) := inferInstance
+  haveI : PerfectField (integralClosure A F ⧸ P.under (integralClosure A F)) := inferInstance
+  haveI h_isSep_AP : Algebra.IsSeparable (A ⧸ p) (B ⧸ P) := by
+    haveI : Module.Finite (A ⧸ p) (B ⧸ P) :=
+      (Module.finite_iff_finite (R := A ⧸ p)).mpr ‹_›
+    haveI : Algebra.IsAlgebraic (A ⧸ p) (B ⧸ P) := Algebra.IsAlgebraic.of_finite _ _
+    exact inferInstance
+  haveI h_isSep_APF : Algebra.IsSeparable (A ⧸ p) (integralClosure A F ⧸ P.under (integralClosure A F)) := by
+    haveI : Module.Finite (A ⧸ p) (integralClosure A F ⧸ P.under (integralClosure A F)) :=
+      (Module.finite_iff_finite (R := A ⧸ p)).mpr ‹_›
+    haveI : Algebra.IsAlgebraic (A ⧸ p) (integralClosure A F ⧸ P.under (integralClosure A F)) :=
+      Algebra.IsAlgebraic.of_finite _ _
+    exact inferInstance
+  haveI h_isSep_PFP : Algebra.IsSeparable (integralClosure A F ⧸ P.under (integralClosure A F)) (B ⧸ P) := by
+    haveI : Module.Finite (integralClosure A F ⧸ P.under (integralClosure A F)) (B ⧸ P) :=
+      (Module.finite_iff_finite (R := integralClosure A F ⧸ P.under (integralClosure A F))).mpr ‹_›
+    haveI : Algebra.IsAlgebraic (integralClosure A F ⧸ P.under (integralClosure A F)) (B ⧸ P) :=
+      Algebra.IsAlgebraic.of_finite _ _
+    exact inferInstance
+  -- Now the DZCP 1598-1615 chain.
+  let restrictF : Gal(L/K) →* Gal(F/K) := AlgEquiv.restrictNormalHom F
+  have hker_F_eq : restrictF.ker = F.fixingSubgroup :=
+    IntermediateField.restrictNormalHom_ker F
+  -- First iso: |ker(q|_I)| * |image| = |P.inertia|.
+  let f_r := restrictF.restrict (P.inertia Gal(L/K))
+  have hrange_f_r : f_r.range = (P.inertia Gal(L/K)).map restrictF :=
+    MonoidHom.restrict_range _ _
+  have hfirst_iso : Nat.card f_r.ker * Nat.card f_r.range =
+      Nat.card (P.inertia Gal(L/K)) := by
+    have h := f_r.ker.card_mul_index
+    rw [Subgroup.index_ker] at h
+    exact h
+  have hker_f_r : f_r.ker = F.fixingSubgroup.subgroupOf (P.inertia Gal(L/K)) := by
+    rw [MonoidHom.ker_restrict, hker_F_eq]
+  -- Identify |ker(q|_I)| = |P.inertia F.fixingSubgroup| via the 17-LOC chain.
+  have hcard_ker_f_r :
+      Nat.card f_r.ker = Nat.card (P.inertia F.fixingSubgroup) := by
+    rw [hker_f_r]
+    have h1 : Nat.card ↥(F.fixingSubgroup.subgroupOf (P.inertia Gal(L/K))) =
+        Nat.card ↥((F.fixingSubgroup.subgroupOf (P.inertia Gal(L/K))).map
+          (P.inertia Gal(L/K)).subtype) :=
+      Nat.card_congr (Subgroup.equivMapOfInjective _ _ (Subgroup.subtype_injective _)).toEquiv
+    have h2 : (F.fixingSubgroup.subgroupOf (P.inertia Gal(L/K))).map
+        (P.inertia Gal(L/K)).subtype = F.fixingSubgroup ⊓ P.inertia Gal(L/K) :=
+      Subgroup.subgroupOf_map_subtype _ _
+    have h3 : Nat.card ↥(P.inertia F.fixingSubgroup) =
+        Nat.card ↥((P.inertia F.fixingSubgroup).map F.fixingSubgroup.subtype) :=
+      Nat.card_congr (Subgroup.equivMapOfInjective _ _ (Subgroup.subtype_injective _)).toEquiv
+    have h4 : (P.inertia F.fixingSubgroup).map F.fixingSubgroup.subtype =
+        P.inertia Gal(L/K) ⊓ F.fixingSubgroup :=
+      AddSubgroup.inertia_map_subtype P.toAddSubgroup F.fixingSubgroup
+    rw [h1, h2, h3, h4, inf_comm]
+  -- Cardinality identifications via card_inertia_eq_ramificationIdxIn.
+  have hcard_inertia_L : Nat.card (P.inertia Gal(L/K)) =
+      Ideal.ramificationIdxIn p B :=
+    Ideal.card_inertia_eq_ramificationIdxIn (G := Gal(L/K)) p hp P
+  have hcard_inertia_F : Nat.card ((P.under (integralClosure A F)).inertia Gal(F/K)) =
+      Ideal.ramificationIdxIn p (integralClosure A F) :=
+    Ideal.card_inertia_eq_ramificationIdxIn (G := Gal(F/K)) p hp (P.under (integralClosure A F))
+  have hcard_inertia_FL : Nat.card (P.inertia F.fixingSubgroup) =
+      Ideal.ramificationIdxIn (P.under (integralClosure A F)) B :=
+    Ideal.card_inertia_eq_ramificationIdxIn (G := F.fixingSubgroup) (P.under (integralClosure A F))
+      hPF_ne_bot P
+  -- Tower law.
+  have htower : Ideal.ramificationIdxIn p (integralClosure A F) *
+        Ideal.ramificationIdxIn (P.under (integralClosure A F)) B =
+      Ideal.ramificationIdxIn p B :=
+    Ideal.ramificationIdxIn_mul_ramificationIdxIn' (P.under (integralClosure A F))
+      (G := Gal(F/K)) (GAC := Gal(L/K)) (GBC := F.fixingSubgroup) B
+  -- Non-zero values for cancellation.
+  have hram_FL_ne_zero : Ideal.ramificationIdxIn (P.under (integralClosure A F)) B ≠ 0 :=
+    Ideal.ramificationIdxIn_ne_zero (G := F.fixingSubgroup) hPF_ne_bot
+  -- Combine: |image| = ramificationIdxIn p B_F.
+  have hcard_image : Nat.card f_r.range = Ideal.ramificationIdxIn p (integralClosure A F) := by
+    have hfiso2 := hfirst_iso
+    rw [hcard_ker_f_r, hcard_inertia_FL, hcard_inertia_L] at hfiso2
+    -- hfiso2 : ramificationIdxIn PF B * |range| = ramificationIdxIn p B
+    have hkey : Ideal.ramificationIdxIn (P.under (integralClosure A F)) B *
+        Nat.card f_r.range =
+        Ideal.ramificationIdxIn (P.under (integralClosure A F)) B *
+        Ideal.ramificationIdxIn p (integralClosure A F) := by
+      rw [hfiso2, ← htower, mul_comm]
+    exact Nat.eq_of_mul_eq_mul_left
+      (Nat.pos_of_ne_zero hram_FL_ne_zero) hkey
+  -- Final: |image| = |inertia F| = ramificationIdxIn p B_F.
+  rw [← hrange_f_r, hcard_image, ← hcard_inertia_F]
+
 end inertia_map_restrictNormalHom
