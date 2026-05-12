@@ -6,6 +6,7 @@ Authors: Xavier Roblot
 module
 
 public import Mathlib.NumberTheory.RamificationInertia.Galois
+public import Mathlib.NumberTheory.RamificationInertia.TotallyRamified
 public import Mathlib.RingTheory.Ideal.Quotient.HasFiniteQuotients
 
 /-!
@@ -842,3 +843,140 @@ theorem IsInertiaField.ramificationIdx_under_eq_one (hp : p ≠ ⊥) :
   exact Nat.eq_of_mul_eq_mul_right (Nat.pos_of_ne_zero hR_pos) hcancel
 
 end ramificationIdx_under
+
+section isTotallyRamifiedIn_upper
+
+/-!
+### Total ramification in the upper tower `B_E → B`
+
+Let `E` be an inertia field of `P` in `L/K` and let `B_E := integralClosure A E` and
+`P_E := P.under B_E`. The classical Hilbert-theory statement is that all the ramification of
+`p` is absorbed in the upper step:
+
+  `P_E.IsTotallyRamifiedIn B`.
+
+The proof composes:
+* `IsInertiaField.rank_left` : `[L : E] = ramificationIdxIn p B`;
+* `ramificationIdxIn_eq_ramificationIdx` (applied to the lower tower with Galois group
+  `Gal(L/K)`) : `ramificationIdxIn p B = ramificationIdx p P`;
+* `ramificationIdx_algebra_tower'` : `ramificationIdx p P = ramificationIdx p P_E *
+  ramificationIdx P_E P`;
+* `IsInertiaField.ramificationIdx_under_eq_one` : `ramificationIdx p P_E = 1`;
+
+which combine to `ramificationIdx P_E P = [L : E] = [B : B_E]` (the latter via
+`Algebra.IsAlgebraic.finrank_of_isFractionRing` on `B_E → E → B → L`). The conclusion follows
+from `isTotallyRamifiedIn_of_ramificationIdx_eq_finrank`.
+-/
+
+variable [Algebra A K] [IsFractionRing A K] [Algebra A L] [IsScalarTower A K L]
+  [FiniteDimensional K L] [IsDedekindDomain A] [Algebra.IsSeparable K L]
+  [IsDedekindDomain B] [Module.Finite A B] [Module.IsTorsionFree A B]
+  [Algebra B L] [IsScalarTower A B L] [IsIntegralClosure B A L]
+variable (E : Type*) [Field E] [Algebra K E] [Algebra E L] [IsScalarTower K E L]
+  [Algebra A E] [IsScalarTower A K E] [IsScalarTower A E L]
+variable [MulSemiringAction Gal(L/K) B] [SMulDistribClass Gal(L/K) B L]
+  [IsGaloisGroup Gal(L/K) A B] [IsInertiaField K L P E]
+  [P.IsMaximal] [Ring.HasFiniteQuotients A]
+
+set_option linter.unusedSectionVars false in
+include K L in
+/-- **Total ramification in the upper tower.** Let `L/K` be a finite separable Galois extension
+of fields with Dedekind integer rings `A ⊆ K` and `B ⊆ L` (with `B` the integral closure of `A`
+in `L`), and let `E` be the inertia field of a maximal prime `P` of `B` over a non-zero prime
+`p` of `A`. Then `P_E := P.under (integralClosure A E)` is totally ramified in `B`. -/
+theorem IsInertiaField.isTotallyRamifiedIn_upper (hp : p ≠ ⊥) :
+    letI := integralClosure.algebra_intermediateField A L E B
+    Ideal.IsTotallyRamifiedIn B (P.under (integralClosure A E)) := by
+  classical
+  letI : Algebra (integralClosure A E) B :=
+    integralClosure.algebra_intermediateField A L E B
+  haveI : IsScalarTower (integralClosure A E) B L :=
+    integralClosure.isScalarTower_intermediateField_right A L E B
+  haveI : IsScalarTower A (integralClosure A E) B :=
+    integralClosure.isScalarTower_intermediateField A L E B
+  haveI : IsIntegralClosure B (integralClosure A E) L :=
+    IsIntegralClosure.tower_top (R := A) (A := integralClosure A E) (B := L) (C := B)
+  haveI : Algebra.IsSeparable K E := Algebra.isSeparable_tower_bot_of_isSeparable K E L
+  haveI : Algebra.IsSeparable E L := Algebra.isSeparable_tower_top_of_isSeparable K E L
+  haveI : IsDedekindDomain (integralClosure A E) :=
+    integralClosure.isDedekindDomain_intermediateField A K L E
+  haveI : IsFractionRing (integralClosure A E) E :=
+    integralClosure.isFractionRing_intermediateField A K L E
+  haveI : FiniteDimensional K E := FiniteDimensional.left K E L
+  haveI : FiniteDimensional E L := FiniteDimensional.right K E L
+  haveI : Module.Finite A (integralClosure A E) :=
+    IsIntegralClosure.finite A K E (integralClosure A E)
+  haveI : Module.Finite (integralClosure A E) B :=
+    integralClosure.module_finite_intermediateField A K L E
+  haveI : Module.IsTorsionFree (integralClosure A E) B :=
+    integralClosure.isTorsionFree_intermediateField A K L E
+  haveI : IsDomain B :=
+    (IsIntegralClosure.algebraMap_injective B A L).isDomain (algebraMap B L)
+  haveI : IsFractionRing B L := IsIntegralClosure.isFractionRing_of_finite_extension A K L B
+  -- The lifted primes are in the right configuration.
+  haveI : P.LiesOver (P.under (integralClosure A E)) :=
+    Ideal.over_under (A := integralClosure A E) P
+  haveI : (P.under (integralClosure A E)).LiesOver p :=
+    Ideal.under_liesOver_of_liesOver (A := A) (B := integralClosure A E) (𝔓 := P) p
+  have hP_ne_bot : P ≠ ⊥ := ne_bot_of_liesOver_of_ne_bot hp P
+  have hPE_ne_bot : P.under (integralClosure A E) ≠ ⊥ :=
+    Ideal.under_ne_bot (A := integralClosure A E) hP_ne_bot
+  haveI : p.IsMaximal := over_def P p ▸ Ideal.IsMaximal.under A P
+  haveI : Ring.HasFiniteQuotients (integralClosure A E) :=
+    Ring.HasFiniteQuotients.of_module_finite (R := A) (integralClosure A E)
+  haveI hPE_max : (P.under (integralClosure A E)).IsMaximal :=
+    over_def P (P.under (integralClosure A E)) ▸
+      Ideal.IsMaximal.under (integralClosure A E) P
+  -- `Module.IsTorsionFree A (integralClosure A E)` (needed for `ramificationIdx_algebra_tower'`).
+  haveI : Module.IsTorsionFree A (integralClosure A E) := by
+    refine Module.isTorsionFree_iff_algebraMap_injective.mpr ?_
+    intro x y hxy
+    have hAE : Function.Injective (algebraMap A E) := by
+      intro a b hab
+      have := (FaithfulSMul.algebraMap_injective K E).comp (IsFractionRing.injective A K)
+      apply this
+      simp only [Function.comp_apply]
+      rw [← IsScalarTower.algebraMap_apply A K E, ← IsScalarTower.algebraMap_apply A K E, hab]
+    apply hAE
+    rw [IsScalarTower.algebraMap_apply A (integralClosure A E) E,
+        IsScalarTower.algebraMap_apply A (integralClosure A E) E, hxy]
+  -- `NoZeroSMulDivisors B_E B` from injectivity of `algebraMap`.
+  haveI hinj_BE_B : Function.Injective (algebraMap (integralClosure A E) B) := by
+    intro x y hxy
+    have hL : algebraMap (integralClosure A E) L x = algebraMap (integralClosure A E) L y := by
+      rw [IsScalarTower.algebraMap_apply (integralClosure A E) B L,
+          IsScalarTower.algebraMap_apply (integralClosure A E) B L, hxy]
+    exact FaithfulSMul.algebraMap_injective (integralClosure A E) L hL
+  haveI : NoZeroSMulDivisors (integralClosure A E) B := by
+    refine ⟨fun {c x} h => ?_⟩
+    rw [Algebra.smul_def] at h
+    rcases mul_eq_zero.mp h with h1 | h2
+    · exact Or.inl (hinj_BE_B (by simpa using h1))
+    · exact Or.inr h2
+  -- Step 1: `IsInertiaField.rank_left` : `[L : E] = ramificationIdxIn p B`.
+  have hrk : Module.finrank E L = Ideal.ramificationIdxIn p B :=
+    IsInertiaField.rank_left A K L P E hp
+  -- Step 2: `ramificationIdxIn p B = ramificationIdx p P`.
+  have hidxIn : Ideal.ramificationIdxIn p B = Ideal.ramificationIdx p P :=
+    ramificationIdxIn_eq_ramificationIdx (G := Gal(L/K)) p P
+  -- Step 3: tower formula `e(P|p) = e(P_E|p) * e(P|P_E)`.
+  have htower : Ideal.ramificationIdx p P =
+      Ideal.ramificationIdx p (P.under (integralClosure A E)) *
+        Ideal.ramificationIdx (P.under (integralClosure A E)) P :=
+    Ideal.ramificationIdx_algebra_tower' (R := A) (S := integralClosure A E) (T := B)
+      p (P.under (integralClosure A E)) P
+  -- Step 4: `e(P_E|p) = 1` from `IsInertiaField.ramificationIdx_under_eq_one`.
+  have hPE_eq_one : Ideal.ramificationIdx p (P.under (integralClosure A E)) = 1 :=
+    IsInertiaField.ramificationIdx_under_eq_one A K L P E hp
+  rw [hPE_eq_one, one_mul] at htower
+  -- Step 5: `[L : E] = [B : B_E]` via `Algebra.IsAlgebraic.finrank_of_isFractionRing`.
+  have hfr_bridge : Module.finrank E L = Module.finrank (integralClosure A E) B :=
+    Algebra.IsAlgebraic.finrank_of_isFractionRing (integralClosure A E) E B L
+  -- Combine: `e(P_E, P) = [B : B_E]`.
+  have hePE_P_eq : Ideal.ramificationIdx (P.under (integralClosure A E)) P =
+      Module.finrank (integralClosure A E) B := by
+    rw [← hfr_bridge, hrk, hidxIn, ← htower]
+  exact isTotallyRamifiedIn_of_ramificationIdx_eq_finrank
+    (R := integralClosure A E) (S := B) E L hPE_ne_bot P hePE_P_eq
+
+end isTotallyRamifiedIn_upper
