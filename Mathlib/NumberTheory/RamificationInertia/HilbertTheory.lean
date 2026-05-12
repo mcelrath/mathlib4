@@ -1335,4 +1335,29 @@ theorem IntermediateField.inertia_map_restrictNormalHom_card_eq
   -- Final: |image| = |inertia F| = ramificationIdxIn p B_F.
   rw [← hrange_f_r, hcard_image, ← hcard_inertia_F]
 
+set_option linter.unusedSectionVars false in
+include K L in
+/-- **Inertia-vs-restriction set equality.** Let `F` be a Galois intermediate field of `L/K`,
+`q := AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K)`, and `B_F := integralClosure A F`.
+Then the image of the inertia group of `P` in `Gal(L/K)` under `q` equals the inertia group
+of `P_F := P.under B_F` in `Gal(F/K)`.
+
+This combines the forward inclusion `inertia_map_restrictNormalHom_le` with the cardinality
+matching `inertia_map_restrictNormalHom_card_eq`. -/
+theorem IntermediateField.inertia_map_restrictNormalHom
+    [IsFractionRing A K] [FiniteDimensional K L] [IsDedekindDomain A]
+    [Algebra.IsSeparable K L] [IsDedekindDomain B] [Module.Finite A B]
+    [Module.IsTorsionFree A B] [IsGaloisGroup Gal(L/K) A B] [P.IsMaximal]
+    [Ring.HasFiniteQuotients A] (hp : p ≠ ⊥) :
+    letI := integralClosure.algebra_intermediateField A L F B
+    Subgroup.map (AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K))
+        (P.inertia Gal(L/K)) =
+      (P.under (integralClosure A F)).inertia Gal(F/K) := by
+  haveI : FiniteDimensional K F := FiniteDimensional.left K F L
+  haveI : Finite Gal(F/K) := AlgEquiv.fintype K F |>.finite
+  exact Subgroup.eq_of_le_of_card_ge
+    (IntermediateField.inertia_map_restrictNormalHom_le (A := A) (B := B) (P := P) (F := F))
+    ((IntermediateField.inertia_map_restrictNormalHom_card_eq
+      (A := A) (B := B) (P := P) (F := F) (hp := hp)).ge)
+
 end inertia_map_restrictNormalHom
