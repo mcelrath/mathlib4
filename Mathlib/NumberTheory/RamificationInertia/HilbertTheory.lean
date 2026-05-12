@@ -531,3 +531,143 @@ noncomputable example : MulSemiringAction (stabilizer Gal(L/K) P) (integralClosu
   inferInstance
 
 end stabilizer_action_inertia_field
+
+section B_E_to_B_bridge
+
+/-!
+### Bridge instances for `B_E ↪ B`
+
+For an inertia field `E` of `P` in `L/K` and `B_E := integralClosure A E`, we establish the
+prerequisites needed by `card_inertia_eq_ramificationIdxIn` and
+`IsGaloisGroup.of_isFractionRing` applied to the tower `B_E → B` (with fraction fields
+`E → L`):
+
+* `IsIntegralClosure B B_E L` (via `IsIntegralClosure.tower_top`),
+* `Algebra.IsIntegral B_E B`,
+* `Module.Finite B_E B`,
+* `IsTorsionFree B_E B`,
+* `IsGaloisGroup (inertia Gal(L/K) P) B_E B`.
+
+These are required for `ramificationIdx_under_eq_one` (`6rod.6b`), which combines
+`card_inertia_eq_ramificationIdxIn` applied to `B_E → B` with
+`IsInertiaField.rank_left` to conclude that the ramification index of `P` in `B/B_E`
+equals `[L : E] = e(P/p)`, so the residue extension `B/P ↪ B_E/P_E` is trivial.
+
+Stated as `theorem`s (not `instance`s) because the `K`/`L`/`E` parameters cannot be
+synthesized from the conclusion and the underlying `Algebra (integralClosure A E) B` is
+itself a `def` (`integralClosure.algebra_intermediateField`) rather than an `instance`.
+Downstream consumers pull these in via `haveI :=`.
+-/
+
+variable [Algebra A K] [IsFractionRing A K] [Algebra A L] [IsScalarTower A K L]
+  [FiniteDimensional K L] [IsDedekindDomain A] [Algebra.IsSeparable K L]
+  [Algebra B L] [IsScalarTower A B L] [IsIntegralClosure B A L]
+variable (E : Type*) [Field E] [Algebra K E] [Algebra E L] [IsScalarTower K E L]
+  [Algebra A E] [IsScalarTower A K E] [IsScalarTower A E L]
+
+set_option linter.unusedSectionVars false in
+/-- `B` is the integral closure of `B_E := integralClosure A E` in `L`.
+
+This uses `IsIntegralClosure.tower_top` on the tower `A → B_E → L` together with the fact
+that every element of `integralClosure A E` is integral over `A` (instance
+`integralClosure.AlgebraIsIntegral`). -/
+theorem integralClosure.isIntegralClosure_intermediateField :
+    letI := integralClosure.algebra_intermediateField A L E B
+    haveI := integralClosure.isScalarTower_intermediateField_right A L E B
+    IsIntegralClosure B (integralClosure A E) L := by
+  letI := integralClosure.algebra_intermediateField A L E B
+  haveI := integralClosure.isScalarTower_intermediateField_right A L E B
+  exact IsIntegralClosure.tower_top (R := A) (A := integralClosure A E) (B := L) (C := B)
+
+set_option linter.unusedSectionVars false in
+/-- `B` is integral over `B_E := integralClosure A E`. -/
+theorem integralClosure.algebra_isIntegral_intermediateField :
+    letI := integralClosure.algebra_intermediateField A L E B
+    Algebra.IsIntegral (integralClosure A E) B := by
+  letI := integralClosure.algebra_intermediateField A L E B
+  haveI := integralClosure.isScalarTower_intermediateField_right A L E B
+  haveI : IsIntegralClosure B (integralClosure A E) L := IsIntegralClosure.tower_top (R := A) (A := integralClosure A E) (B := L) (C := B)
+  exact IsIntegralClosure.isIntegral_algebra (integralClosure A E) L
+
+set_option linter.unusedSectionVars false in
+include K in
+/-- `B` is module-finite over `B_E := integralClosure A E`.
+
+Combines `integralClosure.isDedekindDomain_intermediateField` (giving
+`IsIntegrallyClosed B_E` and `IsNoetherianRing B_E`) with `IsIntegralClosure.finite` on
+the tower `B_E → E → L`. The latter needs `Algebra.IsSeparable E L`, which follows from
+`Algebra.IsSeparable K L` via the intermediate-field tower-top instance. -/
+theorem integralClosure.module_finite_intermediateField :
+    letI := integralClosure.algebra_intermediateField A L E B
+    Module.Finite (integralClosure A E) B := by
+  letI := integralClosure.algebra_intermediateField A L E B
+  haveI := integralClosure.isScalarTower_intermediateField_right A L E B
+  haveI : IsIntegralClosure B (integralClosure A E) L := IsIntegralClosure.tower_top (R := A) (A := integralClosure A E) (B := L) (C := B)
+  haveI : Algebra.IsSeparable K E := Algebra.isSeparable_tower_bot_of_isSeparable K E L
+  haveI : IsDedekindDomain (integralClosure A E) :=
+    integralClosure.isDedekindDomain_intermediateField A K L E
+  haveI : IsFractionRing (integralClosure A E) E :=
+    integralClosure.isFractionRing_intermediateField A K L E
+  haveI : FiniteDimensional E L := FiniteDimensional.right K E L
+  haveI : Algebra.IsSeparable E L := Algebra.isSeparable_tower_top_of_isSeparable K E L
+  exact IsIntegralClosure.finite (integralClosure A E) E L B
+
+set_option linter.unusedSectionVars false in
+include K in
+/-- `B` is torsion-free as a `B_E`-module, where `B_E := integralClosure A E`.
+
+`B_E → E → L` is injective and `L` is a field, so `IsTorsionFree B_E L` follows; then
+`IsIntegralClosure.isTorsionFree` on `B = integralClosure B_E L` transfers torsion-freeness
+back to `B`. -/
+theorem integralClosure.isTorsionFree_intermediateField :
+    letI := integralClosure.algebra_intermediateField A L E B
+    Module.IsTorsionFree (integralClosure A E) B := by
+  letI := integralClosure.algebra_intermediateField A L E B
+  haveI := integralClosure.isScalarTower_intermediateField_right A L E B
+  haveI : IsIntegralClosure B (integralClosure A E) L := IsIntegralClosure.tower_top (R := A) (A := integralClosure A E) (B := L) (C := B)
+  haveI : IsFractionRing (integralClosure A E) E :=
+    integralClosure.isFractionRing_intermediateField A K L E
+  -- Torsion-freeness of `L` over `B_E`: `B_E → E → L` is injective and `L` is a field.
+  haveI : Module.IsTorsionFree (integralClosure A E) L :=
+    Module.isTorsionFree_iff_algebraMap_injective.mpr
+      (FaithfulSMul.algebraMap_injective (integralClosure A E) L)
+  exact IsIntegralClosure.isTorsionFree (A := B) (integralClosure A E) L
+
+variable [MulSemiringAction Gal(L/K) B] [SMulDistribClass Gal(L/K) B L]
+  [IsInertiaField K L P E]
+
+include K L in
+/-- The inertia group `inertia Gal(L/K) P` is a Galois group for `B/B_E`, where
+`B_E := integralClosure A E`.
+
+The inertia field hypothesis gives `IsGaloisGroup (inertia Gal(L/K) P) E L` (i.e. on the
+fraction-field level). Combined with `Algebra.IsIntegral B_E B` and the fact that `B_E`,
+being Dedekind, is integrally closed, this lifts to `IsGaloisGroup` on the integral closures
+via `IsGaloisGroup.of_isFractionRing`. -/
+theorem IsInertiaField.isGaloisGroup_inertia_integralClosure :
+    letI := integralClosure.algebra_intermediateField A L E B
+    haveI := integralClosure.isScalarTower_intermediateField_right A L E B
+    IsGaloisGroup (inertia Gal(L/K) P) (integralClosure A E) B := by
+  letI := integralClosure.algebra_intermediateField A L E B
+  haveI := integralClosure.isScalarTower_intermediateField_right A L E B
+  haveI : IsIntegralClosure B (integralClosure A E) L := IsIntegralClosure.tower_top (R := A) (A := integralClosure A E) (B := L) (C := B)
+  haveI : Algebra.IsIntegral (integralClosure A E) B :=
+    IsIntegralClosure.isIntegral_algebra (integralClosure A E) L
+  haveI : Algebra.IsSeparable K E := Algebra.isSeparable_tower_bot_of_isSeparable K E L
+  haveI : IsDedekindDomain (integralClosure A E) :=
+    integralClosure.isDedekindDomain_intermediateField A K L E
+  haveI : IsFractionRing (integralClosure A E) E :=
+    integralClosure.isFractionRing_intermediateField A K L E
+  haveI : IsDomain B :=
+    (IsIntegralClosure.algebraMap_injective B A L).isDomain (algebraMap B L)
+  haveI : IsFractionRing B L := IsIntegralClosure.isFractionRing_of_finite_extension A K L B
+  -- Force the natural restricted action on `L` (rather than the trivial inertia-field action,
+  -- which Lean would otherwise pick up from `IsInertiaField.inertiaMulSemiringAction` if it
+  -- speculatively unifies `E := L`).
+  letI : MulSemiringAction (inertia Gal(L/K) P) L := (inertia Gal(L/K) P).mulSemiringAction
+  haveI hGEL : IsGaloisGroup (inertia Gal(L/K) P) E L := ‹IsInertiaField K L P E›.toIsGaloisGroup
+  haveI : SMulDistribClass (inertia Gal(L/K) P) B L :=
+    ⟨fun g b x ↦ smul_distrib_smul (g : Gal(L/K)) b x⟩
+  exact IsGaloisGroup.of_isFractionRing (inertia Gal(L/K) P) (integralClosure A E) B E L
+
+end B_E_to_B_bridge
