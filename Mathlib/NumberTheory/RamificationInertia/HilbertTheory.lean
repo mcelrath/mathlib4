@@ -533,6 +533,96 @@ noncomputable example : MulSemiringAction (stabilizer Gal(L/K) P) (integralClosu
 
 end stabilizer_action_inertia_field
 
+section galois_action_intermediate_field
+
+/-!
+### Action of `Gal(L/K)` on a Galois intermediate field and its integral closure
+
+Let `F` be a field intermediate between `K` and `L` with `[Normal K F]`. The restriction map
+`AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K)` together with the canonical action of
+`Gal(F/K)` on `F` (`AlgEquiv.applyMulSemiringAction`) yields a `MulSemiringAction Gal(L/K) F`
+via `MulSemiringAction.compHom`. This lifts to `B_F := integralClosure A F` via the generic
+integral-closure instance.
+
+These are recorded as `def`s (not `instance`s) for the same diamond-avoidance reason as
+`integralClosure.algebra_intermediateField`: when `F = L`, the action coincides with the
+ambient hypothesis `[MulSemiringAction Gal(L/K) L]`, and we do not want Lean's instance
+synthesis to introduce a second route. Downstream consumers pull these in with `letI` /
+`haveI` at the point of use, paralleling the `integralClosure.algebra_intermediateField`
+pattern. -/
+
+variable (F : Type*) [Field F] [Algebra K F] [Algebra F L] [IsScalarTower K F L] [Normal K F]
+
+/-- The Galois group `Gal(L/K)` acts on a Galois intermediate field `F`, via the restriction
+homomorphism `AlgEquiv.restrictNormalHom F : Gal(L/K) →* Gal(F/K)` and the canonical action of
+`Gal(F/K)` on `F`.
+
+Stated as a `def` (not an `instance`) to avoid an instance-diamond with the ambient
+hypothesis `[MulSemiringAction Gal(L/K) L]` in the boundary case `F = L`. -/
+@[reducible] noncomputable def IntermediateField.galoisMulSemiringAction :
+    MulSemiringAction Gal(L/K) F :=
+  MulSemiringAction.compHom F (AlgEquiv.restrictNormalHom (F := K) (K₁ := L) F)
+
+@[simp]
+lemma IntermediateField.algebraMap_galois_smul
+    (g : Gal(L/K)) (x : F) :
+    letI := IntermediateField.galoisMulSemiringAction K L F
+    algebraMap F L (g • x) = (g : Gal(L/K)) • algebraMap F L x := by
+  letI := IntermediateField.galoisMulSemiringAction K L F
+  show algebraMap F L (AlgEquiv.restrictNormalHom F g x) = g (algebraMap F L x)
+  exact AlgEquiv.restrictNormal_commutes g F x
+
+/-- The induced `SMulCommClass` over the base field `K`. -/
+@[reducible] noncomputable def IntermediateField.galoisSmulCommClass_K :
+    letI := IntermediateField.galoisMulSemiringAction K L F
+    SMulCommClass Gal(L/K) K F := by
+  letI := IntermediateField.galoisMulSemiringAction K L F
+  refine ⟨fun g k x ↦ ?_⟩
+  apply FaithfulSMul.algebraMap_injective F L
+  rw [IntermediateField.algebraMap_galois_smul, Algebra.smul_def, Algebra.smul_def,
+    map_mul, map_mul, IntermediateField.algebraMap_galois_smul, smul_mul',
+    ← IsScalarTower.algebraMap_apply K F L, smul_algebraMap]
+
+variable [Algebra A K] [IsFractionRing A K] [Algebra A L] [IsScalarTower A K L]
+  [Algebra A F] [IsScalarTower A K F] [IsScalarTower A F L]
+
+/-- The induced `SMulCommClass` over the base ring `A`. -/
+@[reducible] noncomputable def IntermediateField.galoisSmulCommClass_A :
+    letI := IntermediateField.galoisMulSemiringAction K L F
+    SMulCommClass Gal(L/K) A F := by
+  letI := IntermediateField.galoisMulSemiringAction K L F
+  refine ⟨fun g a x ↦ ?_⟩
+  apply FaithfulSMul.algebraMap_injective F L
+  rw [IntermediateField.algebraMap_galois_smul, Algebra.smul_def, Algebra.smul_def,
+    map_mul, map_mul, IntermediateField.algebraMap_galois_smul, smul_mul',
+    ← IsScalarTower.algebraMap_apply A F L,
+    IsScalarTower.algebraMap_apply A K L, smul_algebraMap]
+
+/-- The Galois group `Gal(L/K)` acts on `B_F := integralClosure A F` via the action on `F`.
+
+Stated as a `def` (not an `instance`) since the underlying action on `F`
+(`IntermediateField.galoisMulSemiringAction`) is itself a `def`. Downstream consumers pull
+both in with `letI` / `haveI`. -/
+@[reducible] noncomputable def IntermediateField.galoisMulSemiringAction_integralClosure :
+    MulSemiringAction Gal(L/K) (integralClosure A F) :=
+  letI := IntermediateField.galoisMulSemiringAction K L F
+  letI := IntermediateField.galoisSmulCommClass_A A K L F
+  inferInstance
+
+omit [IsFractionRing A K] [IsScalarTower A K F] in
+@[simp]
+lemma IntermediateField.coe_galois_smul_integralClosure
+    (g : Gal(L/K)) (x : integralClosure A F) :
+    letI := IntermediateField.galoisMulSemiringAction K L F
+    letI := IntermediateField.galoisMulSemiringAction_integralClosure A K L F
+    ((g • x : integralClosure A F) : F) = g • (x : F) := by
+  letI := IntermediateField.galoisMulSemiringAction K L F
+  letI := IntermediateField.galoisSmulCommClass_A A K L F
+  letI := IntermediateField.galoisMulSemiringAction_integralClosure A K L F
+  rfl
+
+end galois_action_intermediate_field
+
 section B_E_to_B_bridge
 
 /-!
