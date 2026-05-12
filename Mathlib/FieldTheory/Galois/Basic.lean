@@ -365,6 +365,12 @@ variable [FiniteDimensional F E] [IsGalois F E]
 lemma ofDual_intermediateFieldEquivSubgroup_apply (K : IntermediateField F E) :
     (intermediateFieldEquivSubgroup K).ofDual = K.fixingSubgroup := rfl
 
+/-- Dual of `IntermediateField.fixingSubgroup_sup`: under the (finite) Galois correspondence,
+the fixing subgroup of an intersection is the join of the fixing subgroups. -/
+theorem _root_.IntermediateField.fixingSubgroup_inf (K₁ K₂ : IntermediateField F E) :
+    (K₁ ⊓ K₂).fixingSubgroup = K₁.fixingSubgroup ⊔ K₂.fixingSubgroup :=
+  (intermediateFieldEquivSubgroup (F := F) (E := E)).map_inf K₁ K₂
+
 @[simp] lemma intermediateFieldEquivSubgroup_symm_apply (H : (Subgroup Gal(E/F))ᵒᵈ) :
     intermediateFieldEquivSubgroup.symm H = fixedField H.ofDual := rfl
 
