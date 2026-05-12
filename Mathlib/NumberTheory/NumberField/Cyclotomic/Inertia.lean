@@ -223,4 +223,62 @@ theorem inertia_eq_fixingSubgroup
     rw [MonoidHom.mem_ker, ← hσu]
     exact hsq.symm
 
+/-- **Tame subfield as fixed field of restricted inertia.**
+
+Let `Kn = ℚ(ζₙ)` be a cyclotomic extension and `Km ⊆ Kn` the intermediate cyclotomic subfield
+of order `m = Nat.divMaxPow n p` (the `p`-free part of `n`, i.e. the maximal subextension
+unramified at primes above `p`). Let `F ⊆ Kn` be any intermediate field, and let
+`P` be a prime of `𝓞 Kn` lying over `p`. Then the intermediate field `F ⊓ Km`,
+viewed inside `F` via `IntermediateField.restrict`, coincides with the fixed field
+of the image of `P.inertia Gal(Kn/ℚ)` under the restriction map `Gal(Kn/ℚ) ↠ Gal(F/ℚ)`.
+
+This is L1 of the Path-(β.3) discharge of DZCP witness 5 (`hF_tame_ramified`):
+combined with the cardinality identity `inertia_map_restrictNormalHom_card_eq`, it expresses
+that `F ⊓ Km` is the maximal subextension of `F` unramified at primes above `p`. -/
+theorem F_tame_eq_fixedField_inertia
+    [IsAbelianGalois ℚ Kn]
+    (Km : IntermediateField ℚ Kn)
+    [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km]
+    (F : IntermediateField ℚ Kn) [IsGalois ℚ F] :
+    IntermediateField.restrict (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F) =
+      IntermediateField.fixedField
+        (Subgroup.map (AlgEquiv.restrictNormalHom F : Gal(Kn/ℚ) →* Gal(F/ℚ))
+          (P.inertia Gal(Kn/ℚ))) := by
+  classical
+  haveI hGalKn : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
+  haveI hNormF : Normal ℚ F := inferInstance
+  haveI hGalF : IsGalois ℚ F := inferInstance
+  -- Step 1: rewrite inertia as Km.fixingSubgroup.
+  have hinertia : P.inertia Gal(Kn/ℚ) = Km.fixingSubgroup :=
+    inertia_eq_fixingSubgroup n Kn p P Km
+  -- Step 2: identify (restrict inf_le_right).fixingSubgroup with the image of Km.fixingSubgroup.
+  set q : Gal(Kn/ℚ) →* Gal(F/ℚ) := AlgEquiv.restrictNormalHom F with hq_def
+  have hq_surj : Function.Surjective q :=
+    AlgEquiv.restrictNormalHom_surjective (E := Kn) (K₁ := F) (F := ℚ)
+  have hker_q : q.ker = F.fixingSubgroup := IntermediateField.restrictNormalHom_ker F
+  have hrestr_fix :
+      (IntermediateField.restrict (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F)).fixingSubgroup =
+        Subgroup.map q Km.fixingSubgroup := by
+    have hcomap :
+        (IntermediateField.restrict (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F)).fixingSubgroup.comap q =
+          (F ⊓ Km).fixingSubgroup :=
+      IntermediateField.fixingSubgroup_restrict_comap_restrictNormalHom
+        (F := F ⊓ Km) (E := F) inf_le_left
+    have hmap_eq :
+        Subgroup.map q
+            ((IntermediateField.restrict (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F)).fixingSubgroup.comap q) =
+          (IntermediateField.restrict (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F)).fixingSubgroup :=
+      Subgroup.map_comap_eq_self_of_surjective hq_surj _
+    have hF_map_bot : Subgroup.map q F.fixingSubgroup = ⊥ := by
+      rw [← hker_q]
+      exact (Subgroup.map_eq_bot_iff (H := q.ker)).mpr le_rfl
+    rw [← hmap_eq, hcomap, IntermediateField.fixingSubgroup_inf, Subgroup.map_sup,
+      hF_map_bot, bot_sup_eq]
+  -- Step 3: combine and use Galois adjunction.
+  have hfix_eq :
+      (IntermediateField.restrict (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F)).fixingSubgroup =
+        Subgroup.map q (P.inertia Gal(Kn/ℚ)) := by
+    rw [hrestr_fix, hinertia]
+  exact (IsGalois.fixedField_eq_iff_fixingSubgroup_eq.mpr hfix_eq).symm
+
 end IsCyclotomicExtension.Rat
