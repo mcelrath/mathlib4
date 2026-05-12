@@ -27,6 +27,8 @@ field `Km ⊆ Kn` is the maximal subextension unramified at primes above `p`, an
   subfield of order `Nat.divMaxPow n p`.
 -/
 
+public section
+
 open NumberField
 
 namespace Nat

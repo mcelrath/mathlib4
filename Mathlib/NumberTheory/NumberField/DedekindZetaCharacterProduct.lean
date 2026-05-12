@@ -15,12 +15,14 @@ public import Mathlib.NumberTheory.NumberField.Cyclotomic.Galois
 public import Mathlib.NumberTheory.NumberField.Cyclotomic.Ramification
 public import Mathlib.NumberTheory.NumberField.DedekindZeta
 public import Mathlib.NumberTheory.NumberField.DedekindZetaEulerProduct
+public import Mathlib.NumberTheory.NumberField.Cyclotomic.Inertia
 public import Mathlib.NumberTheory.RamificationInertia.Galois
+public import Mathlib.NumberTheory.RamificationInertia.HilbertTheory
 public import Mathlib.NumberTheory.RamificationInertia.TotallyRamified
 public import Mathlib.RingTheory.DedekindDomain.IdealsOnPrimes
 public import Mathlib.RingTheory.Ideal.GoingUp
 
-set_option linter.style.longFile 2900
+set_option linter.style.longFile 3100
 
 /-!
 # The Dedekind zeta function of an abelian number field as a product of Dirichlet L-functions
@@ -95,7 +97,7 @@ follows by composition of the per-prime local factor identity (over all primes) 
 -/
 
 -- The file is long due to the extended proof content for the global factorization theorem.
-set_option linter.style.longFile 2900 in
+set_option linter.style.longFile 3100 in
 
 @[expose] public section
 
@@ -2795,9 +2797,170 @@ private lemma prod_chars_eq_prod_inertia_ramified
     ⟨(IntermediateField.restrict_algEquiv (inf_le_right : F ⊓ Km ≤ Km)).symm⟩
   obtain ⟨φ_F_tame⟩ := hφ_F_tame
   -- Witness 5: every prime of 𝓞 F_tame above (p) is totally ramified in 𝓞 F.
+  -- Composition of L1 (`F_tame_eq_fixedField_inertia`) + L2 (`card_image_inertia_eq_finrank`)
+  -- + P3.c (`IntermediateField.inertia_map_restrictNormalHom`) + P4
+  -- (`card_inertia_eq_ramificationIdxIn`, via `card_inertia_in_F_eq_ramificationIdxIn`)
+  -- + L3a (`F_tame_unramified_at_p`) + ramification tower
+  -- + P5 (`isTotallyRamifiedIn_of_ramificationIdx_eq_finrank`).
   have hF_tame_ramified : ∀ 𝔭 : Ideal (𝓞 F_tame), 𝔭.IsPrime →
       𝔭.LiesOver (Ideal.span ({(p : ℤ)} : Set ℤ)) →
-        𝔭.IsTotallyRamifiedIn (𝓞 F) := by sorry
+        𝔭.IsTotallyRamifiedIn (𝓞 F) := by
+    intro 𝔭 h𝔭_prime h𝔭_lies
+    haveI : Fact p.Prime := ⟨hp⟩
+    haveI hFGal : IsGalois ℚ F := (IsAbelianGalois.tower_bot ℚ F Kn).toIsGalois
+    haveI hKnGal : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
+    haveI : IsGalois ℚ Km := IsCyclotomicExtension.isGalois {m} ℚ Km
+    set p_ideal := Ideal.span ({(p : ℤ)} : Set ℤ) with hp_ideal_def
+    have hp_ideal_ne : p_ideal ≠ ⊥ := by simp [hp_ideal_def, hp.ne_zero]
+    have h𝔭_ne : 𝔭 ≠ ⊥ := by
+      intro hbot
+      apply hp_ideal_ne
+      have hover := h𝔭_lies.over
+      rw [hbot, Ideal.under_def,
+        Ideal.comap_bot_of_injective _ (FaithfulSMul.algebraMap_injective ℤ (𝓞 F_tame))]
+        at hover
+      exact hover
+    haveI h𝔭_max : 𝔭.IsMaximal := h𝔭_prime.isMaximal h𝔭_ne
+    -- Pick a prime P of 𝓞 Kn lying over 𝔭, and let Q := P.under (𝓞 F).
+    obtain ⟨P, hP_max, hP_lies_𝔭⟩ :=
+      Ideal.exists_maximal_ideal_liesOver_of_isIntegral 𝔭 (S := 𝓞 Kn)
+    haveI hP_prime : P.IsPrime := hP_max.isPrime
+    haveI hP_lies_𝔭_inst : P.LiesOver 𝔭 := hP_lies_𝔭
+    -- Scalar tower ℤ → 𝓞 F_tame → 𝓞 Kn, giving P.LiesOver p_ideal via transitivity.
+    haveI hST_ZFtKn : IsScalarTower ℤ (𝓞 F_tame) (𝓞 Kn) :=
+      IsScalarTower.of_algebraMap_eq fun z =>
+        RingHom.congr_fun
+          (RingHom.ext_int (algebraMap ℤ (𝓞 Kn))
+            ((algebraMap (𝓞 F_tame) (𝓞 Kn)).comp (algebraMap ℤ (𝓞 F_tame)))) z
+    haveI hP_lies_p : P.LiesOver p_ideal := Ideal.LiesOver.trans P 𝔭 p_ideal
+    -- Q := P.under (𝓞 F) and its properties.
+    set Q : Ideal (𝓞 F) := P.under (𝓞 F) with hQ_def
+    haveI hQ_prime : Q.IsPrime := Ideal.IsPrime.under (𝓞 F) P
+    -- Scalar tower F_tame → F → Kn, lifted to ring-of-integers level.
+    haveI hST_FtFKn_field : IsScalarTower F_tame F Kn :=
+      IsScalarTower.of_algebraMap_eq fun _ => rfl
+    haveI hST_FtFKn : IsScalarTower (𝓞 F_tame) (𝓞 F) (𝓞 Kn) :=
+      RingOfIntegers.inst_isScalarTower F_tame F Kn
+    haveI hQ_lies_𝔭 : Q.LiesOver 𝔭 := Ideal.LiesOver.tower_bot (𝔓 := P) (P := Q) (p := 𝔭)
+    haveI hQ_lies_p : Q.LiesOver p_ideal := Ideal.LiesOver.trans Q 𝔭 p_ideal
+    have hQ_ne : Q ≠ ⊥ := by
+      intro hbot
+      apply hp_ideal_ne
+      have hover := hQ_lies_p.over
+      rw [hbot, Ideal.under_def,
+        Ideal.comap_bot_of_injective _ (FaithfulSMul.algebraMap_injective ℤ (𝓞 F))] at hover
+      exact hover
+    haveI hQ_max : Q.IsMaximal := hQ_prime.isMaximal hQ_ne
+    -- L1+L2: image of P.inertia in Gal(F/ℚ) is the fixingSubgroup of F_tame_in_F, with
+    -- cardinality equal to finrank F_tame_in_F F.
+    let F_tame_in_F : IntermediateField ℚ F :=
+      IntermediateField.restrict (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F)
+    have hL2 :
+        Nat.card (Subgroup.map (AlgEquiv.restrictNormalHom F : Gal(Kn/ℚ) →* Gal(F/ℚ))
+            (P.inertia Gal(Kn/ℚ))) =
+          Module.finrank F_tame_in_F F :=
+      IsCyclotomicExtension.Rat.card_image_inertia_eq_finrank (n := n) (p := p) (Kn := Kn) P Km F
+    -- P3.c: image of P.inertia under restrict = (P.under (integralClosure ℚ F)).inertia (Gal F/ℚ).
+    -- Use the IsScalarTower / IsGaloisGroup instances available for (𝓞 Kn) ↠ Gal(Kn/ℚ) at ℤ-level.
+    haveI hGalKnQ : IsGaloisGroup Gal(Kn/ℚ) ℚ Kn := IsGaloisGroup.of_isGalois ℚ Kn
+    haveI hGalKnZ : IsGaloisGroup Gal(Kn/ℚ) ℤ (𝓞 Kn) := inferInstance
+    letI algFKn_via_ic : Algebra (↥(integralClosure ℤ F)) (𝓞 Kn) :=
+      integralClosure.algebra_intermediateField (A := ℤ) (E := F) Kn (𝓞 Kn)
+    have hP3c :
+        Subgroup.map (AlgEquiv.restrictNormalHom F : Gal(Kn/ℚ) →* Gal(F/ℚ))
+            (P.inertia Gal(Kn/ℚ)) =
+          (P.under (𝓞 F)).inertia Gal(F/ℚ) := by
+      have h := IntermediateField.inertia_map_restrictNormalHom (A := ℤ) (B := 𝓞 Kn) (P := P)
+        (F := F) (hp := hp_ideal_ne)
+      -- Both `Algebra (𝓞 F) (𝓞 Kn)` instances send a 𝓞 F element to its inclusion in 𝓞 Kn,
+      -- so the resulting `under` ideals coincide.
+      have hunder_eq :
+          @Ideal.under (↥(integralClosure ℤ F)) _ (𝓞 Kn) _ algFKn_via_ic P = P.under (𝓞 F) := by
+        change Ideal.comap _ P = Ideal.comap _ P
+        congr 1
+        ext x
+        show ((algebraMap (↥(integralClosure ℤ ↥F)) (𝓞 Kn)) x : Kn) =
+          ((algebraMap (𝓞 ↥F) (𝓞 Kn)) x : Kn)
+        rw [show (((algebraMap (𝓞 ↥F) (𝓞 Kn)) x : 𝓞 Kn) : Kn) =
+              (algebraMap (𝓞 ↥F) Kn) x from
+            (IsScalarTower.algebraMap_apply (𝓞 ↥F) (𝓞 Kn) Kn x).symm,
+          IsScalarTower.algebraMap_apply (𝓞 ↥F) F Kn x,
+          show ((algebraMap (↥(integralClosure ℤ ↥F)) (𝓞 Kn)) x : Kn) =
+              algebraMap F Kn ((algebraMap (𝓞 ↥F) F) x) from
+            integralClosure.algebraMap_intermediateFieldToAlgHom_apply
+              (A := ℤ) Kn F (𝓞 Kn) x]
+      rw [← hunder_eq]; exact h
+    -- P4 (via DZCP helper): Nat.card (Q.inertia) = ramificationIdxIn p (𝓞 F).
+    have hP4 :
+        Nat.card (Q.inertia Gal(F/ℚ)) = Ideal.ramificationIdxIn p_ideal (𝓞 F) :=
+      card_inertia_in_F_eq_ramificationIdxIn (n := n) (Kn := Kn) F (p := p) Q
+    -- ramificationIdxIn p (𝓞 F) = ramificationIdx p Q (Galois).
+    haveI hGalFQ : IsGaloisGroup Gal(F/ℚ) ℚ F := IsGaloisGroup.of_isGalois ℚ F
+    haveI hGalFZ : IsGaloisGroup Gal(F/ℚ) ℤ (𝓞 F) := inferInstance
+    have hRIdxIn :
+        Ideal.ramificationIdxIn p_ideal (𝓞 F) = Ideal.ramificationIdx p_ideal Q :=
+      Ideal.ramificationIdxIn_eq_ramificationIdx (G := Gal(F/ℚ)) p_ideal Q
+    -- Combine: ramificationIdx p_ideal Q = finrank F_tame_in_F F.
+    have h_eQ : Ideal.ramificationIdx p_ideal Q = Module.finrank F_tame_in_F F := by
+      have hcard : Nat.card (Q.inertia Gal(F/ℚ)) = Module.finrank F_tame_in_F F := by
+        rw [← hL2, hP3c]
+      rw [← hRIdxIn, ← hP4, hcard]
+    -- L3a: ramificationIdx p_ideal 𝔭 = 1 (F_tame ⊆ Km).
+    -- Need Algebra F_tame Km and IsScalarTower ℚ F_tame Km.
+    haveI algFtKm : Algebra F_tame Km :=
+      (IntermediateField.inclusion (inf_le_right : F_tame ≤ Km)).toAlgebra
+    haveI : IsScalarTower ℚ F_tame Km := by
+      refine IsScalarTower.of_algebraMap_eq fun x => ?_
+      apply Subtype.ext
+      show (algebraMap ℚ Kn) x = _
+      simp [IsScalarTower.algebraMap_apply ℚ F_tame Kn]
+    have hp_m_ndvd : ¬ p ∣ m := (hp.coprime_iff_not_dvd).mp hp_m
+    have h𝔭_e : Ideal.ramificationIdx p_ideal 𝔭 = 1 :=
+      IsCyclotomicExtension.Rat.F_tame_unramified_at_p (m := m) (q := p) Km hp_m_ndvd
+        (F_tame := F_tame) 𝔭
+    -- Tower: ramificationIdx p_ideal Q = ramificationIdx p_ideal 𝔭 * ramificationIdx 𝔭 Q.
+    have h_tower :
+        Ideal.ramificationIdx p_ideal Q =
+          Ideal.ramificationIdx p_ideal 𝔭 * Ideal.ramificationIdx 𝔭 Q :=
+      Ideal.ramificationIdx_algebra_tower' (R := ℤ) (S := 𝓞 F_tame) (T := 𝓞 F)
+        p_ideal 𝔭 Q
+    -- Substitute to get ramificationIdx 𝔭 Q = finrank F_tame_in_F F.
+    rw [h𝔭_e, one_mul] at h_tower
+    have h_eQ' : Ideal.ramificationIdx 𝔭 Q = Module.finrank F_tame_in_F F := by
+      rw [← h_tower, h_eQ]
+    -- finrank F_tame_in_F F = finrank F_tame F via IsScalarTower multiplicativity, using
+    -- restrict_algEquiv to identify finrank ℚ F_tame = finrank ℚ F_tame_in_F.
+    have hfr_ℚ_eq :
+        Module.finrank ℚ F_tame_in_F = Module.finrank ℚ (F_tame : Type _) :=
+      ((IntermediateField.restrict_algEquiv
+        (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F)).toLinearEquiv.finrank_eq).symm
+    have hfr_bridge : Module.finrank F_tame_in_F F = Module.finrank F_tame F := by
+      have hmul_in : Module.finrank ℚ F_tame_in_F * Module.finrank F_tame_in_F F =
+          Module.finrank ℚ F :=
+        Module.finrank_mul_finrank ℚ F_tame_in_F F
+      have hmul_tame : Module.finrank ℚ F_tame * Module.finrank F_tame F = Module.finrank ℚ F :=
+        Module.finrank_mul_finrank ℚ F_tame F
+      have hF_pos : 0 < Module.finrank ℚ F_tame :=
+        Module.finrank_pos
+      have := hmul_in.trans hmul_tame.symm
+      rw [hfr_ℚ_eq] at this
+      exact Nat.eq_of_mul_eq_mul_left hF_pos this
+    -- finrank F_tame F = finrank (𝓞 F_tame) (𝓞 F) via isFractionRing bridge.
+    have hfr_OF : Module.finrank F_tame F = Module.finrank (𝓞 F_tame) (𝓞 F) :=
+      Algebra.IsAlgebraic.finrank_of_isFractionRing (𝓞 F_tame) F_tame (𝓞 F) F
+    have h_eQ_OF : Ideal.ramificationIdx 𝔭 Q = Module.finrank (𝓞 F_tame) (𝓞 F) := by
+      rw [h_eQ', hfr_bridge, hfr_OF]
+    -- Apply P5.
+    haveI : Module.Finite (𝓞 F_tame) (𝓞 F) := Module.IsNoetherian.finite _ _
+    haveI : NoZeroSMulDivisors (𝓞 F_tame) (𝓞 F) := by
+      refine ⟨fun {c x} h => ?_⟩
+      rw [Algebra.smul_def] at h
+      rcases mul_eq_zero.mp h with h1 | h2
+      · exact Or.inl
+          ((FaithfulSMul.algebraMap_injective (𝓞 F_tame) (𝓞 F)) (by simp [h1]))
+      · exact Or.inr h2
+    exact Ideal.isTotallyRamifiedIn_of_ramificationIdx_eq_finrank
+      (R := 𝓞 F_tame) (S := 𝓞 F) F_tame F h𝔭_ne Q h_eQ_OF
   haveI : NumberField (F_tame_in_Km : Type _) := hF_tame_in_Km_nf
   -- Compose the four sub-lemmas.
   calc ∏ χ : Y, (1 - χ.val.primitiveCharacter (p : ℕ) * (p : ℂ) ^ (-s))⁻¹
