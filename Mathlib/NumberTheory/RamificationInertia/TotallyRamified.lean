@@ -5,6 +5,7 @@ Authors: Bob McElrath
 -/
 module
 
+public import Mathlib.NumberTheory.NumberField.Basic
 public import Mathlib.NumberTheory.RamificationInertia.Basic
 public import Mathlib.RingTheory.Algebraic.Integral
 public import Mathlib.RingTheory.DedekindDomain.Ideal.Lemmas
@@ -156,6 +157,29 @@ theorem IsTotallyRamifiedIn.of_ringEquiv
     refine huniq Q ⟨hQp, hQo', ?_, ?_⟩
     · rw [← hRam_iff Q, hQe, ← hfr]
     · rw [← hInert_iff Q hQo']; exact hQf
+
+open scoped NumberField in
+/-- Transport `IsTotallyRamifiedIn` along an `AlgEquiv` of number fields, at the level of rings
+of integers.
+
+Given `φ : K ≃ₐ[k] K'` between number fields over a field `k`, and a common upper ring `S`
+carrying both `[Algebra (𝓞 K) S]` and `[Algebra (𝓞 K') S]` such that the algebra maps to `S`
+agree under `NumberField.RingOfIntegers.mapAlgEquiv φ`, total ramification of `p : Ideal (𝓞 K)` in `S`
+transfers to total ramification of `p.map (NumberField.RingOfIntegers.mapAlgEquiv φ)` in `S`.
+
+Thin wrapper around `Ideal.IsTotallyRamifiedIn.of_ringEquiv` packaging the
+`NumberField.RingOfIntegers.mapAlgEquiv` boilerplate. -/
+theorem IsTotallyRamifiedIn.of_algEquiv
+    {k K K' : Type*} [Field k] [Field K] [Field K']
+    [Algebra k K] [Algebra k K'] [NumberField K] [NumberField K']
+    [Algebra (𝓞 K) S] [Algebra (𝓞 K') S]
+    (φ : K ≃ₐ[k] K')
+    (he : (algebraMap (𝓞 K') S).comp (NumberField.RingOfIntegers.mapAlgEquiv φ).toRingEquiv.toRingHom =
+      algebraMap (𝓞 K) S)
+    {p : Ideal (𝓞 K)} (hp : p.IsTotallyRamifiedIn S) :
+    (p.map ((NumberField.RingOfIntegers.mapAlgEquiv φ).toRingEquiv :
+        (𝓞 K) →+* (𝓞 K'))).IsTotallyRamifiedIn S :=
+  hp.of_ringEquiv (NumberField.RingOfIntegers.mapAlgEquiv φ).toRingEquiv he
 
 section Dedekind
 
