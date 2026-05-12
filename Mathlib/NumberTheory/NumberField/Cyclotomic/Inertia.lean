@@ -281,4 +281,29 @@ theorem F_tame_eq_fixedField_inertia
     rw [hrestr_fix, hinertia]
   exact (IsGalois.fixedField_eq_iff_fixingSubgroup_eq.mpr hfix_eq).symm
 
+/-- **Cardinality of restricted inertia equals finrank of `F` over `F ⊓ Km`.**
+
+Combining `F_tame_eq_fixedField_inertia` (L1) with the Galois correspondence
+`IntermediateField.finrank_fixedField_eq_card`, the order of the image of the inertia
+group under `Gal(Kn/ℚ) ↠ Gal(F/ℚ)` equals the degree of `F` over the tame subfield
+`F ⊓ Km` (viewed inside `F` via `IntermediateField.restrict`).
+
+This is L2 of the Path-(β.3) discharge of DZCP witness 5 (`hF_tame_ramified`). -/
+theorem card_image_inertia_eq_finrank
+    [IsAbelianGalois ℚ Kn]
+    (Km : IntermediateField ℚ Kn)
+    [IsCyclotomicExtension {Nat.divMaxPow n p} ℚ Km]
+    (F : IntermediateField ℚ Kn) [IsGalois ℚ F] :
+    Nat.card (Subgroup.map (AlgEquiv.restrictNormalHom F : Gal(Kn/ℚ) →* Gal(F/ℚ))
+        (P.inertia Gal(Kn/ℚ))) =
+      Module.finrank
+        (IntermediateField.restrict (inf_le_left : (F ⊓ Km : IntermediateField ℚ Kn) ≤ F)) F := by
+  haveI hGalKn : IsGalois ℚ Kn := IsCyclotomicExtension.isGalois {n} ℚ Kn
+  haveI : FiniteDimensional ℚ F := FiniteDimensional.left ℚ F Kn
+  rw [← IntermediateField.finrank_fixedField_eq_card
+        (Subgroup.map (AlgEquiv.restrictNormalHom F : Gal(Kn/ℚ) →* Gal(F/ℚ))
+          (P.inertia Gal(Kn/ℚ))),
+      ← F_tame_eq_fixedField_inertia n Kn p P Km F]
+  rfl
+
 end IsCyclotomicExtension.Rat
