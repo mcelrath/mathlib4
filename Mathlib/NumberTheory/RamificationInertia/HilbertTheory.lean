@@ -671,3 +671,174 @@ theorem IsInertiaField.isGaloisGroup_inertia_integralClosure :
   exact IsGaloisGroup.of_isFractionRing (inertia Gal(L/K) P) (integralClosure A E) B E L
 
 end B_E_to_B_bridge
+
+section ramificationIdx_under
+
+/-!
+### Ramification of `P_E := P ∩ B_E` over `p` is trivial
+
+Let `E` be an inertia field of `P` in `L/K` and let `B_E := integralClosure A E` and
+`P_E := P.under B_E`. The classical Hilbert-theory statement is that the ramification of `p`
+in `B_E` is trivial:
+
+  `e(P_E / p) = 1`.
+
+The proof is tower-arithmetic: with `R = ramificationIdxIn p B`,
+`IsInertiaField.rank_left` gives `[L : E] = R`. On the upper tower, the bridge instances of
+`B_E ↪ B` make `inertia Gal(L/K) P` a Galois group for `B/B_E`, and the inertia subgroup of
+`P` *within* that inertia group is the whole group (a direct algebraic identity, see
+`AddSubgroup.subgroupOf_inertia` and `Subgroup.subgroupOf_self`). So
+`card_inertia_eq_ramificationIdxIn` applied at the upper level gives
+`Nat.card (inertia Gal(L/K) P) = ramificationIdxIn P_E B`, which by the lower-level instance
+of the same lemma also equals `ramificationIdxIn p B`. The tower formula
+`e(P / p) = e(P_E / p) · e(P / P_E)` together with `e(P / P_E) = R = e(P / p)` (after
+unfolding `ramificationIdxIn` via `ramificationIdxIn_eq_ramificationIdx`) forces
+`e(P_E / p) = 1`, using that `e(P / P_E) ≠ 0` for a non-zero prime of a Dedekind domain.
+-/
+
+variable [Algebra A K] [IsFractionRing A K] [Algebra A L] [IsScalarTower A K L]
+  [FiniteDimensional K L] [IsDedekindDomain A] [Algebra.IsSeparable K L]
+  [IsDedekindDomain B] [Module.Finite A B] [Module.IsTorsionFree A B]
+  [Algebra B L] [IsScalarTower A B L] [IsIntegralClosure B A L]
+variable (E : Type*) [Field E] [Algebra K E] [Algebra E L] [IsScalarTower K E L]
+  [Algebra A E] [IsScalarTower A K E] [IsScalarTower A E L]
+variable [MulSemiringAction Gal(L/K) B] [SMulDistribClass Gal(L/K) B L]
+  [IsGaloisGroup Gal(L/K) A B] [IsInertiaField K L P E]
+  [P.IsMaximal] [Ring.HasFiniteQuotients A]
+
+set_option linter.unusedSectionVars false in
+include K L in
+/-- The ramification index of `p` in `B_E := integralClosure A E` is one, when `E` is the
+inertia field of `P` in `L/K` (and `p` is non-zero).
+
+This is the classical statement that the inertia field absorbs all the ramification: in the
+tower `A → B_E → B`, all the ramification of `p` in `B` comes from the upper step
+`B_E → B`, and the lower step `A → B_E` is unramified at `P_E := P.under B_E`. -/
+theorem IsInertiaField.ramificationIdx_under_eq_one (hp : p ≠ ⊥) :
+    letI := integralClosure.algebra_intermediateField A L E B
+    Ideal.ramificationIdx p
+      (P.under (integralClosure A E)) = 1 := by
+  classical
+  letI : Field (B ⧸ P) := Ideal.Quotient.field P
+  letI : Algebra (integralClosure A E) B :=
+    integralClosure.algebra_intermediateField A L E B
+  haveI : IsScalarTower (integralClosure A E) B L :=
+    integralClosure.isScalarTower_intermediateField_right A L E B
+  haveI : IsScalarTower A (integralClosure A E) B :=
+    integralClosure.isScalarTower_intermediateField A L E B
+  haveI : IsIntegralClosure B (integralClosure A E) L :=
+    IsIntegralClosure.tower_top (R := A) (A := integralClosure A E) (B := L) (C := B)
+  haveI : Algebra.IsSeparable K E := Algebra.isSeparable_tower_bot_of_isSeparable K E L
+  haveI : Algebra.IsSeparable E L := Algebra.isSeparable_tower_top_of_isSeparable K E L
+  haveI : IsDedekindDomain (integralClosure A E) :=
+    integralClosure.isDedekindDomain_intermediateField A K L E
+  haveI : IsFractionRing (integralClosure A E) E :=
+    integralClosure.isFractionRing_intermediateField A K L E
+  haveI : FiniteDimensional K E := FiniteDimensional.left K E L
+  haveI : Module.Finite A (integralClosure A E) :=
+    IsIntegralClosure.finite A K E (integralClosure A E)
+  haveI : Module.IsTorsionFree A (integralClosure A E) := by
+    refine Module.isTorsionFree_iff_algebraMap_injective.mpr ?_
+    -- `A → K ↪ E` is injective; this factors through `integralClosure A E`.
+    intro x y hxy
+    have hAE : Function.Injective (algebraMap A E) := by
+      intro x y hxy
+      have := (FaithfulSMul.algebraMap_injective K E).comp (IsFractionRing.injective A K)
+      apply this
+      simp only [Function.comp_apply]
+      rw [← IsScalarTower.algebraMap_apply A K E, ← IsScalarTower.algebraMap_apply A K E, hxy]
+    apply hAE
+    rw [IsScalarTower.algebraMap_apply A (integralClosure A E) E,
+        IsScalarTower.algebraMap_apply A (integralClosure A E) E, hxy]
+  haveI : Module.Finite (integralClosure A E) B :=
+    integralClosure.module_finite_intermediateField A K L E
+  haveI : Module.IsTorsionFree (integralClosure A E) B :=
+    integralClosure.isTorsionFree_intermediateField A K L E
+  haveI : Algebra.IsIntegral (integralClosure A E) B := by
+    haveI : IsFractionRing (integralClosure A E) E :=
+      integralClosure.isFractionRing_intermediateField A K L E
+    exact IsIntegralClosure.isIntegral_algebra (integralClosure A E) L
+  haveI : IsDomain B :=
+    (IsIntegralClosure.algebraMap_injective B A L).isDomain (algebraMap B L)
+  haveI : IsFractionRing B L := IsIntegralClosure.isFractionRing_of_finite_extension A K L B
+  -- Galois-group structure of the upper tower.
+  letI : MulSemiringAction (inertia Gal(L/K) P) L := (inertia Gal(L/K) P).mulSemiringAction
+  haveI : IsGaloisGroup (inertia Gal(L/K) P) (integralClosure A E) B :=
+    IsInertiaField.isGaloisGroup_inertia_integralClosure A K L P E
+  -- The lifted primes are in the right configuration.
+  haveI : P.LiesOver (P.under (integralClosure A E)) :=
+    Ideal.over_under (A := integralClosure A E) P
+  haveI : (P.under (integralClosure A E)).LiesOver p :=
+    Ideal.under_liesOver_of_liesOver (A := A) (B := integralClosure A E) (𝔓 := P) p
+  have hP_ne_bot : P ≠ ⊥ := ne_bot_of_liesOver_of_ne_bot hp P
+  have hPE_ne_bot : P.under (integralClosure A E) ≠ ⊥ :=
+    Ideal.under_ne_bot (A := integralClosure A E) hP_ne_bot
+  haveI : p.IsMaximal := over_def P p ▸ Ideal.IsMaximal.under A P
+  letI : Field (A ⧸ p) := Ideal.Quotient.field p
+  haveI : Finite (A ⧸ p) := Ring.HasFiniteQuotients.finiteQuotient hp
+  haveI : PerfectField (A ⧸ p) := PerfectField.ofFinite
+  haveI : Algebra.IsSeparable (A ⧸ p) (B ⧸ P) :=
+    Algebra.IsAlgebraic.isSeparable_of_perfectField
+  -- For the upper layer we need separability of the residue extension `BE/PE → B/P`,
+  -- which follows from finiteness of `BE/PE` (a perfect field).
+  haveI : Ring.HasFiniteQuotients (integralClosure A E) :=
+    Ring.HasFiniteQuotients.of_module_finite (R := A) (integralClosure A E)
+  haveI : (P.under (integralClosure A E)).IsMaximal :=
+    over_def P (P.under (integralClosure A E)) ▸
+      Ideal.IsMaximal.under (integralClosure A E) P
+  letI : Field (integralClosure A E ⧸ P.under (integralClosure A E)) :=
+    Ideal.Quotient.field _
+  haveI : Finite (integralClosure A E ⧸ P.under (integralClosure A E)) :=
+    Ring.HasFiniteQuotients.finiteQuotient hPE_ne_bot
+  haveI : PerfectField (integralClosure A E ⧸ P.under (integralClosure A E)) :=
+    PerfectField.ofFinite
+  haveI : Algebra.IsSeparable
+      (integralClosure A E ⧸ P.under (integralClosure A E)) (B ⧸ P) :=
+    Algebra.IsAlgebraic.isSeparable_of_perfectField
+  -- Inertia of `P` inside the inertia group of `P` is the whole inertia group.
+  have hinertia_top : P.inertia (inertia Gal(L/K) P) = ⊤ := by
+    show AddSubgroup.inertia P.toAddSubgroup (inertia Gal(L/K) P) = ⊤
+    rw [← AddSubgroup.subgroupOf_inertia]
+    exact Subgroup.subgroupOf_self _
+  -- Card identity on the upper tower.
+  have hcard_upper :
+      Nat.card (P.inertia (inertia Gal(L/K) P)) =
+        Ideal.ramificationIdxIn (P.under (integralClosure A E)) B :=
+    card_inertia_eq_ramificationIdxIn (G := inertia Gal(L/K) P)
+      (R := integralClosure A E) (S := B) (P.under (integralClosure A E)) hPE_ne_bot P
+  -- Card identity on the lower tower.
+  have hcard_lower :
+      Nat.card (inertia Gal(L/K) P) = Ideal.ramificationIdxIn p B :=
+    card_inertia_eq_ramificationIdxIn (G := Gal(L/K)) (R := A) (S := B) p hp P
+  -- Combine: `ramificationIdxIn PE B = ramificationIdxIn p B`.
+  have hRE_eq_R : Ideal.ramificationIdxIn (P.under (integralClosure A E)) B =
+      Ideal.ramificationIdxIn p B := by
+    have h1 : Nat.card (P.inertia (inertia Gal(L/K) P)) = Nat.card (inertia Gal(L/K) P) := by
+      rw [hinertia_top, Nat.card_congr (Subgroup.topEquiv.toEquiv)]
+    rw [← hcard_upper, h1, hcard_lower]
+  -- Unfold `ramificationIdxIn` via `P` as the canonical representative.
+  have hR_eq : Ideal.ramificationIdxIn p B = Ideal.ramificationIdx p P :=
+    ramificationIdxIn_eq_ramificationIdx (G := Gal(L/K)) p P
+  have hRE_eq : Ideal.ramificationIdxIn (P.under (integralClosure A E)) B =
+      Ideal.ramificationIdx (P.under (integralClosure A E)) P :=
+    ramificationIdxIn_eq_ramificationIdx (G := inertia Gal(L/K) P)
+      (P.under (integralClosure A E)) P
+  -- Tower formula: `e(P/p) = e(PE/p) · e(P/PE)`.
+  have htower : Ideal.ramificationIdx p P =
+      Ideal.ramificationIdx p (P.under (integralClosure A E)) *
+        Ideal.ramificationIdx (P.under (integralClosure A E)) P :=
+    Ideal.ramificationIdx_algebra_tower' (R := A) (S := integralClosure A E) (T := B)
+      p (P.under (integralClosure A E)) P
+  -- `e(PE/P) = e(p/P)` via `ramificationIdxIn` equality.
+  have key : Ideal.ramificationIdx (P.under (integralClosure A E)) P =
+      Ideal.ramificationIdx p P := by
+    rw [← hRE_eq, ← hR_eq, hRE_eq_R]
+  rw [key] at htower
+  have hR_pos : Ideal.ramificationIdx p P ≠ 0 :=
+    IsDedekindDomain.ramificationIdx_ne_zero_of_liesOver P hp
+  have hcancel : Ideal.ramificationIdx p (P.under (integralClosure A E)) *
+      Ideal.ramificationIdx p P = 1 * Ideal.ramificationIdx p P := by
+    rw [one_mul]; exact htower.symm
+  exact Nat.eq_of_mul_eq_mul_right (Nat.pos_of_ne_zero hR_pos) hcancel
+
+end ramificationIdx_under
