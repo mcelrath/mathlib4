@@ -2773,19 +2773,26 @@ private lemma prod_chars_eq_prod_inertia_ramified
   -- F_tame ⊆ F extension at primes above p. Each of the five witnesses is now a separate `have`
   -- with its own sorry, so they can be discharged independently (P2/P3/etc).
   -- Witness 1: tame intermediate field viewed inside Km.
-  have F_tame_in_Km : IntermediateField ℚ Km := by sorry
-  -- Witness 2: F_tame_in_Km is a number field.
-  haveI hF_tame_in_Km_nf : NumberField (F_tame_in_Km : Type _) := by sorry
+  let F_tame_in_Km : IntermediateField ℚ Km :=
+    IntermediateField.restrict (inf_le_right : F ⊓ Km ≤ Km)
+  -- Witness 2: F_tame_in_Km is a number field (auto-derived from Km being a NumberField).
+  haveI hF_tame_in_Km_nf : NumberField (F_tame_in_Km : Type _) := inferInstance
   -- Witness 3: level-m tame character subgroup plus the changeLevel bridge to level-n.
   have h_Y_tame_m : ∃ Y_tame_m : Subgroup (DirichletCharacter ℂ m),
       Y_tame_m =
         IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar m Km ℂ F_tame_in_Km ∧
       (∀ χ : DirichletCharacter ℂ n, χ ∈ Y_tame ↔
         ∃ ψ : DirichletCharacter ℂ m, ψ ∈ Y_tame_m ∧
-          DirichletCharacter.changeLevel (divMaxPow_dvd' n p) ψ = χ) := by sorry
+          DirichletCharacter.changeLevel (divMaxPow_dvd' n p) ψ = χ) := by
+    refine ⟨IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar m Km ℂ F_tame_in_Km,
+      rfl, fun χ => ?_⟩
+    exact IsCyclotomicExtension.Rat.mem_intermediateFieldEquivSubgroupChar_iff_changeLevel
+      (n := n) (K := Kn) (R := ℂ) (m := m) (hmn := divMaxPow_dvd' n p) Km
+      (F_tame := F ⊓ Km) (hF_le := inf_le_right) χ
   obtain ⟨Y_tame_m, hY_tame_m, hYlink⟩ := h_Y_tame_m
   -- Witness 4: canonical AlgEquiv F_tame_in_Km ≃ₐ[ℚ] F_tame.
-  have hφ_F_tame : Nonempty (F_tame_in_Km ≃ₐ[ℚ] F_tame) := by sorry
+  have hφ_F_tame : Nonempty (F_tame_in_Km ≃ₐ[ℚ] F_tame) :=
+    ⟨(IntermediateField.restrict_algEquiv (inf_le_right : F ⊓ Km ≤ Km)).symm⟩
   obtain ⟨φ_F_tame⟩ := hφ_F_tame
   -- Witness 5: every prime of 𝓞 F_tame above (p) is totally ramified in 𝓞 F.
   have hF_tame_ramified : ∀ 𝔭 : Ideal (𝓞 F_tame), 𝔭.IsPrime →
