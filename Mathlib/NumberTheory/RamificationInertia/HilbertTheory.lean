@@ -1361,3 +1361,192 @@ theorem IntermediateField.inertia_map_restrictNormalHom
       (A := A) (B := B) (P := P) (F := F) (hp := hp)).ge)
 
 end inertia_map_restrictNormalHom
+
+section inf_intermediateField
+
+/-!
+### Inertia field for the restriction to a Galois intermediate field
+
+Let `E` be an inertia field of `P` in `L/K` and let `F` be a Galois intermediate field of
+`L/K`. Then `restrict (inf_le_right : E ⊓ F ≤ F) : IntermediateField K F` — i.e. `E ⊓ F`
+viewed as an intermediate field of `F/K` — is the inertia field of `P_F := P.under B_F`
+in `F/K`.
+
+The proof composes the Galois correspondence with the just-established set equality
+`inertia_map_restrictNormalHom` (P3.c) and the dual lemma `fixingSubgroup_inf`:
+`(E ⊓ F).fixingSubgroup = E.fixingSubgroup ⊔ F.fixingSubgroup` in `Gal(L/K)`. Under the
+restriction map `q : Gal(L/K) →* Gal(F/K)`, the kernel `F.fixingSubgroup` maps to `⊥`,
+and `E.fixingSubgroup = inertia Gal(L/K) P` (by hypothesis) maps to `inertia Gal(F/K) P_F`,
+identifying the image with `(restrict inf_le_right).fixingSubgroup` via
+`fixingSubgroup_restrict_comap_restrictNormalHom` and surjectivity of `q`.
+-/
+
+variable [Algebra A K] [Algebra A L] [IsScalarTower A K L]
+  [Algebra B L] [IsScalarTower A B L] [IsIntegralClosure B A L]
+  [MulSemiringAction Gal(L/K) B] [SMulDistribClass Gal(L/K) B L]
+variable (F : IntermediateField K L) [Normal K F]
+  [Algebra A F] [IsScalarTower A K F] [IsScalarTower A F L]
+
+set_option linter.unusedSectionVars false in
+include K L in
+/-- **Inertia field passes to a Galois intermediate field.** Let `L/K` be a finite separable
+Galois extension with Dedekind integer rings `A ⊆ K` and `B ⊆ L`, and let `E` be the inertia
+field of a maximal non-zero prime `P` of `B` in `L/K`. For any intermediate field `F` of
+`L/K` that is itself Galois over `K`, the image of `E` under restriction to `F` (i.e.
+`E ⊓ F`, viewed as an intermediate field of `F/K` via `IntermediateField.restrict`) is the
+inertia field of `P_F := P.under (integralClosure A F)` in `F/K`. -/
+theorem IsInertiaField.inf_intermediateField
+    [IsFractionRing A K] [FiniteDimensional K L] [IsDedekindDomain A]
+    [Algebra.IsSeparable K L] [IsDedekindDomain B] [Module.Finite A B]
+    [Module.IsTorsionFree A B] [IsGaloisGroup Gal(L/K) A B] [P.IsMaximal]
+    [Ring.HasFiniteQuotients A] (hp : p ≠ ⊥)
+    (E : IntermediateField K L) [IsInertiaField K L P E] :
+    letI := integralClosure.algebra_intermediateField A L F B
+    letI := IntermediateField.galoisMulSemiringAction K L F
+    letI := IntermediateField.galoisMulSemiringAction_integralClosure A K L F
+    IsInertiaField K F (P.under (integralClosure A F))
+      (IntermediateField.restrict (inf_le_right : E ⊓ F ≤ F)) := by
+  classical
+  -- Bridge instances for B_F → B, mirroring `inertia_map_restrictNormalHom_card_eq`.
+  letI : Algebra (integralClosure A F) B :=
+    integralClosure.algebra_intermediateField A L F B
+  haveI : IsScalarTower A (integralClosure A F) B :=
+    integralClosure.isScalarTower_intermediateField A L F B
+  haveI : IsScalarTower (integralClosure A F) B L :=
+    integralClosure.isScalarTower_intermediateField_right A L F B
+  haveI : IsIntegralClosure B (integralClosure A F) L :=
+    IsIntegralClosure.tower_top (R := A) (A := integralClosure A F) (B := L) (C := B)
+  haveI : Algebra.IsSeparable K F := Algebra.isSeparable_tower_bot_of_isSeparable K F L
+  haveI : Algebra.IsSeparable F L := Algebra.isSeparable_tower_top_of_isSeparable K F L
+  haveI : IsDedekindDomain (integralClosure A F) :=
+    integralClosure.isDedekindDomain_intermediateField A K L F
+  haveI : IsFractionRing (integralClosure A F) F :=
+    integralClosure.isFractionRing_intermediateField A K L F
+  haveI : FiniteDimensional K F := FiniteDimensional.left K F L
+  haveI : FiniteDimensional F L := FiniteDimensional.right K F L
+  haveI : Module.Finite A (integralClosure A F) :=
+    IsIntegralClosure.finite A K F (integralClosure A F)
+  haveI : Module.Finite (integralClosure A F) B :=
+    integralClosure.module_finite_intermediateField A K L F
+  haveI : Module.IsTorsionFree (integralClosure A F) B :=
+    integralClosure.isTorsionFree_intermediateField A K L F
+  haveI : IsDomain B :=
+    (IsIntegralClosure.algebraMap_injective B A L).isDomain (algebraMap B L)
+  haveI : IsFractionRing B L := IsIntegralClosure.isFractionRing_of_finite_extension A K L B
+  haveI : P.LiesOver (P.under (integralClosure A F)) :=
+    Ideal.over_under (A := integralClosure A F) P
+  haveI : (P.under (integralClosure A F)).LiesOver p :=
+    Ideal.under_liesOver_of_liesOver (A := A) (B := integralClosure A F) (𝔓 := P) p
+  haveI : p.IsMaximal := over_def P p ▸ Ideal.IsMaximal.under A P
+  haveI : Ring.HasFiniteQuotients (integralClosure A F) :=
+    Ring.HasFiniteQuotients.of_module_finite (R := A) (integralClosure A F)
+  haveI hPF_max : (P.under (integralClosure A F)).IsMaximal :=
+    over_def P (P.under (integralClosure A F)) ▸
+      Ideal.IsMaximal.under (integralClosure A F) P
+  haveI : Module.IsTorsionFree A (integralClosure A F) := by
+    refine Module.isTorsionFree_iff_algebraMap_injective.mpr ?_
+    intro x y hxy
+    have hAF : Function.Injective (algebraMap A F) := by
+      intro a b hab
+      have := (FaithfulSMul.algebraMap_injective K F).comp (IsFractionRing.injective A K)
+      apply this
+      simp only [Function.comp_apply]
+      rw [← IsScalarTower.algebraMap_apply A K F, ← IsScalarTower.algebraMap_apply A K F, hab]
+    apply hAF
+    rw [IsScalarTower.algebraMap_apply A (integralClosure A F) F,
+        IsScalarTower.algebraMap_apply A (integralClosure A F) F, hxy]
+  -- Galois group actions and Galois facts for L/K and F/K.
+  haveI hGalLK_KL : IsGaloisGroup Gal(L/K) K L :=
+    IsGaloisGroup.to_isFractionRing Gal(L/K) A B K L
+  haveI hGalKL : IsGalois K L := IsGaloisGroup.isGalois Gal(L/K) K L
+  haveI hGalKF : IsGalois K F :=
+    { to_isSeparable := Algebra.isSeparable_tower_bot_of_isSeparable K F L
+      to_normal := ‹Normal K F› }
+  letI hmsa_F : MulSemiringAction Gal(F/K) F := AlgEquiv.applyMulSemiringAction
+  haveI hGalGFK_F : IsGaloisGroup Gal(F/K) K F := IsGaloisGroup.of_isGalois K F
+  letI := IntermediateField.galoisMulSemiringAction K L F
+  letI := IntermediateField.galoisMulSemiringAction_integralClosure A K L F
+  haveI hGalGFK_BF : IsGaloisGroup Gal(F/K) A (integralClosure A F) :=
+    IsGaloisGroup.of_isFractionRing Gal(F/K) A (integralClosure A F) K F
+  haveI : Finite Gal(F/K) := AlgEquiv.fintype K F |>.finite
+  -- Step 1: from `[IsInertiaField K L P E]`, `inertia Gal(L/K) P = E.fixingSubgroup`.
+  -- The `IsGaloisGroup (inertia Gal(L/K) P) E L` instance and `[IsGalois K L]` together give
+  -- both `inertia ≤ E.fixingSubgroup` (via `smul_eq_self`) and a cardinality match
+  -- `Nat.card (inertia) = finrank E L = Nat.card (E.fixingSubgroup)`.
+  -- Force the natural restricted action on `L` (rather than the trivial inertia-field action,
+  -- which Lean would otherwise pick up from `IsInertiaField.inertiaMulSemiringAction` if it
+  -- speculatively unifies `E := L`). See `isGaloisGroup_inertia_integralClosure` (line 758) for
+  -- the same trick.
+  letI hmsa_iL : MulSemiringAction (P.inertia Gal(L/K)) L :=
+    (P.inertia Gal(L/K)).mulSemiringAction
+  haveI hGI_EL : IsGaloisGroup (P.inertia Gal(L/K)) E L :=
+    ‹IsInertiaField K L P E›.toIsGaloisGroup
+  have hE_fix : E.fixingSubgroup = P.inertia Gal(L/K) := by
+    have h_le : P.inertia Gal(L/K) ≤ E.fixingSubgroup := fun g hg => by
+      rw [IntermediateField.mem_fixingSubgroup_iff]
+      intro x hx
+      exact IsGaloisGroup.smul_eq_self Gal(L/K) K L (P.inertia Gal(L/K)) E g hg ⟨x, hx⟩
+    have h_card_inertia : Nat.card (P.inertia Gal(L/K)) = Module.finrank E L :=
+      IsGaloisGroup.card_eq_finrank (P.inertia Gal(L/K)) E L
+    have h_card_fix : Nat.card E.fixingSubgroup = Module.finrank E L :=
+      IsGalois.card_fixingSubgroup_eq_finrank (K := E)
+    refine (Subgroup.eq_of_le_of_card_ge h_le ?_).symm
+    rw [h_card_inertia, h_card_fix]
+  -- Step 2: the surjective restriction homomorphism.
+  set q : Gal(L/K) →* Gal(F/K) := AlgEquiv.restrictNormalHom F with hq_def
+  have hq_surj : Function.Surjective q := AlgEquiv.restrictNormalHom_surjective L
+  have hker_q : q.ker = F.fixingSubgroup := IntermediateField.restrictNormalHom_ker F
+  -- Step 3: P3.c — `Subgroup.map q (inertia Gal(L/K) P) = inertia Gal(F/K) P_F`.
+  have hmap_inertia :
+      Subgroup.map q (P.inertia Gal(L/K)) =
+        (P.under (integralClosure A F)).inertia Gal(F/K) :=
+    IntermediateField.inertia_map_restrictNormalHom (A := A) (B := B) (P := P) (F := F) (hp := hp)
+  -- Step 4: identify `(restrict inf_le_right).fixingSubgroup` with `Subgroup.map q E.fixingSubgroup`.
+  --   (a) `(restrict h).fixingSubgroup.comap q = (E ⊓ F).fixingSubgroup`
+  --       by `fixingSubgroup_restrict_comap_restrictNormalHom`.
+  --   (b) `q` surjective ⇒ `Subgroup.map q (... .comap q) = (restrict h).fixingSubgroup`.
+  --   (c) `(E ⊓ F).fixingSubgroup = E.fixingSubgroup ⊔ F.fixingSubgroup` (`fixingSubgroup_inf`).
+  --   (d) `Subgroup.map q (X ⊔ q.ker) = Subgroup.map q X`.
+  have hrestr_fix :
+      (IntermediateField.restrict (inf_le_right : E ⊓ F ≤ F)).fixingSubgroup =
+        Subgroup.map q E.fixingSubgroup := by
+    have hcomap :
+        (IntermediateField.restrict (inf_le_right : E ⊓ F ≤ F)).fixingSubgroup.comap q =
+          (E ⊓ F).fixingSubgroup :=
+      IntermediateField.fixingSubgroup_restrict_comap_restrictNormalHom
+        (F := E ⊓ F) (E := F) (inf_le_right)
+    have hmap_eq :
+        Subgroup.map q
+            ((IntermediateField.restrict (inf_le_right : E ⊓ F ≤ F)).fixingSubgroup.comap q) =
+          (IntermediateField.restrict (inf_le_right : E ⊓ F ≤ F)).fixingSubgroup :=
+      Subgroup.map_comap_eq_self_of_surjective hq_surj _
+    -- combine
+    have hF_map_bot : Subgroup.map q F.fixingSubgroup = ⊥ := by
+      rw [← hker_q]
+      exact (Subgroup.map_eq_bot_iff (H := q.ker)).mpr le_rfl
+    rw [← hmap_eq, hcomap, IntermediateField.fixingSubgroup_inf, Subgroup.map_sup,
+      hF_map_bot, sup_bot_eq]
+  -- Step 5: combine — (restrict inf_le_right).fixingSubgroup = inertia Gal(F/K) P_F.
+  have hgoal_fix :
+      (IntermediateField.restrict (inf_le_right : E ⊓ F ≤ F)).fixingSubgroup =
+        (P.under (integralClosure A F)).inertia Gal(F/K) := by
+    rw [hrestr_fix, hE_fix, hmap_inertia]
+  -- Step 6: combine `IntermediateField.fixingSubgroup_fixedField` (in `[IsGalois K F]`)
+  -- with `hgoal_fix` to land `fixedField (inertia ...) = restrict inf_le_right`.
+  have hgoal_fixedField :
+      IntermediateField.fixedField
+          ((P.under (integralClosure A F)).inertia Gal(F/K)) =
+        IntermediateField.restrict (inf_le_right : E ⊓ F ≤ F) :=
+    IsGalois.fixedField_eq_iff_fixingSubgroup_eq.mpr hgoal_fix
+  -- Step 7: produce the `IsGaloisGroup` instance via `of_fixedPoints_eq`. Again force the
+  -- natural restricted action (subgroup action on `F`) to override the trivial
+  -- `inertiaMulSemiringAction` that would otherwise fire when speculatively unifying.
+  letI hmsa_iF : MulSemiringAction ((P.under (integralClosure A F)).inertia Gal(F/K)) F :=
+    ((P.under (integralClosure A F)).inertia Gal(F/K)).mulSemiringAction
+  haveI hGalSub : IsGaloisGroup ((P.under (integralClosure A F)).inertia Gal(F/K))
+      (IntermediateField.restrict (inf_le_right : E ⊓ F ≤ F)) F :=
+    IsGaloisGroup.of_fixedPoints_eq Gal(F/K) K F _ _ hgoal_fixedField
+  -- The `instance` from line 61-62 promotes this to `IsInertiaField`.
+  exact { toIsGaloisGroup := hGalSub }
+
+end inf_intermediateField
