@@ -61,6 +61,102 @@ theorem IsTotallyRamifiedIn.unique {p : Ideal R} (h : p.IsTotallyRamifiedIn S)
   obtain ⟨w, _, huniq⟩ := h
   rw [huniq P ⟨‹_›, ‹_›, hP, hPf⟩, ← huniq Q ⟨‹_›, ‹_›, hQ, hQf⟩]
 
+/-- Transport `IsTotallyRamifiedIn` along a ring isomorphism of base rings.
+
+Let `R, R'` be commutative rings with a ring isomorphism `e : R ≃+* R'`, and let `S` be a
+common upper ring carrying both `[Algebra R S]` and `[Algebra R' S]` such that the algebra
+maps agree under `e` (`(algebraMap R' S).comp e = algebraMap R S`). Then total ramification of
+`p : Ideal R` in `S` transfers to total ramification of `p.map e : Ideal R'` in `S`. -/
+theorem IsTotallyRamifiedIn.of_ringEquiv
+    {R' : Type*} [CommRing R'] [Algebra R' S] (e : R ≃+* R')
+    (he : (algebraMap R' S).comp e.toRingHom = algebraMap R S)
+    {p : Ideal R} (hp : p.IsTotallyRamifiedIn S) :
+    (p.map (e : R →+* R')).IsTotallyRamifiedIn S := by
+  classical
+  have hfact : algebraMap R S = (algebraMap R' S).comp e.toRingHom := he.symm
+  -- finrank R S = finrank R' S via the equiv on the base.
+  have hfr : Module.finrank R S = Module.finrank R' S := by
+    refine Algebra.finrank_eq_of_equiv_equiv e (RingEquiv.refl S) ?_
+    ext x
+    show (algebraMap R' S) (e x) = (algebraMap R S) x
+    rw [hfact]; rfl
+  -- Key fact: map (algebraMap R' S) (p.map e) = map (algebraMap R S) p.
+  have hmaps :
+      Ideal.map (algebraMap R' S) (p.map (e : R →+* R')) = Ideal.map (algebraMap R S) p := by
+    rw [Ideal.map_map]; rw [show ((algebraMap R' S).comp (e : R →+* R')) = algebraMap R S from he]
+  -- comap (algebraMap R S) J = comap e (comap (algebraMap R' S) J).
+  have hcomap_comp : ∀ J : Ideal S, J.comap (algebraMap R S) =
+      (J.comap (algebraMap R' S)).comap (e : R →+* R') := by
+    intro J
+    rw [show (algebraMap R S) = ((algebraMap R' S).comp (e : R →+* R')) from hfact,
+      ← Ideal.comap_comap]
+  -- LiesOver translation: J.LiesOver p ↔ J.LiesOver (p.map e).
+  have hLO_iff : ∀ J : Ideal S, J.LiesOver p ↔ J.LiesOver (p.map (e : R →+* R')) := by
+    intro J
+    rw [Ideal.liesOver_iff, Ideal.liesOver_iff, Ideal.under_def, Ideal.under_def, hcomap_comp J]
+    constructor
+    · intro hp_eq
+      -- p = comap e Q where Q = comap (algebraMap R' S) J. Apply map e.
+      have h1 := congrArg (Ideal.map (e : R →+* R')) hp_eq
+      rwa [Ideal.map_comap_of_surjective (e : R →+* R') e.surjective] at h1
+    · intro hp_eq
+      -- map e p = Q ⇒ p = comap e Q via injectivity of e.
+      have h1 := congrArg (Ideal.comap (e : R →+* R')) hp_eq
+      rw [Ideal.comap_map_of_surjective (e : R →+* R') e.surjective,
+        show Ideal.comap (e : R →+* R') ⊥ = (⊥ : Ideal R) from by
+          ext x; simp [Ideal.mem_comap, e.map_eq_zero_iff],
+        sup_bot_eq] at h1
+      exact h1
+  -- ramificationIdx translation.
+  have hRam_iff : ∀ J : Ideal S,
+      ramificationIdx (p.map (e : R →+* R')) J = ramificationIdx p J := by
+    intro J
+    show sSup {n | Ideal.map (algebraMap R' S) (p.map (e : R →+* R')) ≤ J ^ n} =
+         sSup {n | Ideal.map (algebraMap R S) p ≤ J ^ n}
+    rw [hmaps]
+  -- inertiaDeg translation.
+  have hInert_iff : ∀ J : Ideal S, J.LiesOver p →
+      inertiaDeg (p.map (e : R →+* R')) J = inertiaDeg p J := by
+    intro J hJo
+    have hcomap_orig : J.comap (algebraMap R S) = p := hJo.over.symm
+    have hJo' : J.LiesOver (p.map (e : R →+* R')) := (hLO_iff J).mp hJo
+    have hcomap_new : J.comap (algebraMap R' S) = p.map (e : R →+* R') := hJo'.over.symm
+    unfold inertiaDeg
+    rw [dif_pos hcomap_new, dif_pos hcomap_orig]
+    -- Now we have specific algebra structures; build the equiv-equiv compatibility.
+    letI alg1 : Algebra (R' ⧸ p.map (e : R →+* R')) (S ⧸ J) :=
+      Quotient.algebraQuotientOfLEComap hcomap_new.ge
+    letI alg2 : Algebra (R ⧸ p) (S ⧸ J) :=
+      Quotient.algebraQuotientOfLEComap hcomap_orig.ge
+    let hquot : R ⧸ p ≃+* R' ⧸ (p.map (e : R →+* R')) :=
+      Ideal.quotientEquiv p (p.map (e : R →+* R')) e rfl
+    have hcomm :
+        (algebraMap (R' ⧸ (p.map (e : R →+* R'))) (S ⧸ J)).comp hquot.toRingHom =
+          (RingEquiv.refl (S ⧸ J)).toRingHom.comp (algebraMap (R ⧸ p) (S ⧸ J)) := by
+      apply Ideal.Quotient.ringHom_ext
+      refine RingHom.ext fun r => ?_
+      rw [RingHom.comp_apply, RingHom.comp_apply, RingEquiv.toRingHom_eq_coe,
+        show (hquot : R ⧸ p →+* R' ⧸ p.map (e : R →+* R'))
+          ((Ideal.Quotient.mk p) r) = (Ideal.Quotient.mk _) (e r) from
+          Ideal.quotientEquiv_mk p (p.map (e : R →+* R')) e rfl r]
+      change (Ideal.quotientMap J (algebraMap R' S) hcomap_new.ge)
+          ((Ideal.Quotient.mk _) (e r)) =
+        ((RingEquiv.refl (S ⧸ J)).toRingHom)
+          ((Ideal.quotientMap J (algebraMap R S) hcomap_orig.ge) ((Ideal.Quotient.mk p) r))
+      rw [Ideal.quotientMap_mk, Ideal.quotientMap_mk, hfact]; rfl
+    exact
+      (Algebra.finrank_eq_of_equiv_equiv hquot (RingEquiv.refl (S ⧸ J)) hcomm).symm
+  obtain ⟨P, ⟨hPp, hPo, hPe, hPf⟩, huniq⟩ := hp
+  refine ⟨P, ⟨hPp, (hLO_iff P).mp hPo, ?_, ?_⟩, ?_⟩
+  · rw [hRam_iff P, hPe, hfr]
+  · rw [hInert_iff P hPo, hPf]
+  · rintro Q ⟨hQp, hQo, hQe, hQf⟩
+    -- Reverse-translate Q to p-data, then apply huniq.
+    have hQo' : Q.LiesOver p := (hLO_iff Q).mpr hQo
+    refine huniq Q ⟨hQp, hQo', ?_, ?_⟩
+    · rw [← hRam_iff Q, hQe, ← hfr]
+    · rw [← hInert_iff Q hQo']; exact hQf
+
 section Dedekind
 
 variable (R) in
