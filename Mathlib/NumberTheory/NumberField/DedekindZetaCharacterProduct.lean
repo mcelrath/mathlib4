@@ -3044,4 +3044,49 @@ theorem dedekindZeta_eq_prod_dirichletL_abelian
   -- Now apply the prime-character product swap: ∏' p, ∏ χ, g(p,χ) = ∏ χ, ∏' p, g(p,χ).
   exact prod_dirichletLocal_eq_prod_LFunction Y hs
 
+/-- Analytic continuation of `dedekindZeta` for an abelian intermediate field `F` of a cyclotomic
+extension `ℚ(ζₙ)/ℚ`. Defined as the product of primitive Dirichlet L-functions over the
+Galois-dual character subgroup `Y`. Equals `dedekindZeta F s` on the Euler-product half-plane
+`1 < s.re` (by `dedekindZeta_eq_prod_dirichletL_abelian`), and is meromorphic on `ℂ \ {1}` since
+each `DirichletCharacter.LFunction` is meromorphic with a possible pole only at `s = 1` for the
+trivial character. -/
+noncomputable def dedekindZetaContinuation
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (_F : IntermediateField ℚ Kn)
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (s : ℂ) : ℂ :=
+  ∏ χ : Y, DirichletCharacter.LFunction χ.val.primitiveCharacter s
+
+/-- On the Euler-product half-plane `1 < s.re`, `dedekindZetaContinuation` agrees with the raw
+`dedekindZeta` definition. -/
+theorem dedekindZetaContinuation_eq_dedekindZeta_on_Re_gt_one
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn) [NumberField F]
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    (hY : Y = IsCyclotomicExtension.Rat.intermediateFieldEquivSubgroupChar n Kn ℂ F)
+    {s : ℂ} (hs : 1 < s.re) :
+    dedekindZetaContinuation F Y s = dedekindZeta (F : Type _) s :=
+  (dedekindZeta_eq_prod_dirichletL_abelian F Y hY hs).symm
+
+/-- `dedekindZetaContinuation` is differentiable at any `s` away from `s = 1`, and is in fact
+differentiable everywhere if every character in `Y` is non-trivial (after taking the primitive
+character). This expresses meromorphicity on `ℂ \ {1}`: the only possible pole is at `s = 1`,
+contributed by the trivial character factor (if present). -/
+theorem dedekindZetaContinuation_differentiableAt
+    {n : ℕ} [NeZero n] {Kn : Type*} [Field Kn] [NumberField Kn]
+    [IsCyclotomicExtension {n} ℚ Kn] [IsAbelianGalois ℚ Kn]
+    (F : IntermediateField ℚ Kn)
+    (Y : Subgroup (DirichletCharacter ℂ n))
+    {s : ℂ}
+    (hs : s ≠ 1 ∨ ∀ χ : Y, χ.val.primitiveCharacter ≠ 1) :
+    DifferentiableAt ℂ (dedekindZetaContinuation F Y) s := by
+  change DifferentiableAt ℂ
+    (fun z => ∏ χ : Y, DirichletCharacter.LFunction χ.val.primitiveCharacter z) s
+  refine DifferentiableAt.fun_finsetProd (u := (Finset.univ : Finset Y))
+    (f := fun χ z => DirichletCharacter.LFunction χ.val.primitiveCharacter z)
+    (fun χ _ => ?_)
+  exact DirichletCharacter.differentiableAt_LFunction _ s (hs.imp_right (· χ))
+
 end NumberField
