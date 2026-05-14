@@ -37,7 +37,7 @@ No single Mathlib lemma composes all five steps end-to-end.
 * scripts/19gb_15_saddle_to_lambda_asymptotic.py (commit b331bf0, iter 46)
 -/
 
-open NormedSpace Real Filter
+open NormedSpace Real Filter Matrix Unitary
 
 namespace Matrix.IsHermitian
 
@@ -61,19 +61,29 @@ Proof outline (sorry pending Mathlib `trace_exp_conj`):
 -/
 theorem trace_exp_neg_smul_eq_sum_exp (t : ℝ) :
     (NormedSpace.exp (-t • A)).trace = ∑ i : n, Real.exp (-t * hA.eigenvalues i) := by
-  sorry
-  /-
-  rw [hA.spectral_theorem, show (-t • conjStarAlgAut ℝ _ hA.eigenvectorUnitary
-        (Matrix.diagonal (RCLike.ofReal ∘ hA.eigenvalues))) =
-      conjStarAlgAut ℝ _ hA.eigenvectorUnitary
-        (-t • Matrix.diagonal (RCLike.ofReal ∘ hA.eigenvalues)) from by simp [map_smul]]
-  rw [Matrix.exp_units_conj]
-  -- Tr(U · M · U⁻¹) = Tr(M):
-  rw [Matrix.trace_mul_cycle, Matrix.trace_mul_cycle, Matrix.mul_inv_of_invertible]
-  rw [Matrix.one_mul]
-  rw [Matrix.smul_diagonal, Matrix.exp_diagonal, Matrix.trace_diagonal]
-  simp [Function.comp, Real.exp_mul]
-  -/
+  -- Step 1: A = U · diag(λᵢ) · U⋆ via spectral theorem
+  conv_lhs => rw [hA.spectral_theorem, conjStarAlgAut_apply]
+  -- Step 2: lift eigenvectorUnitary to a units element
+  set U := Unitary.toUnits hA.eigenvectorUnitary with hU_def
+  have hUcoe : (U : Matrix n n ℝ) = (hA.eigenvectorUnitary : Matrix n n ℝ) :=
+    rfl
+  have hUinv : (↑U⁻¹ : Matrix n n ℝ) = (star hA.eigenvectorUnitary : Matrix n n ℝ) := by
+    simp [hU_def, Unitary.toUnits, ← Unitary.star_eq_inv]
+  -- Step 3: rewrite the conjugation as U · (−t • diag) · U⁻¹
+  rw [← hUinv, ← hUcoe]
+  rw [← smul_mul_assoc, ← mul_smul_comm]
+  -- Step 4: exp(U · D · U⁻¹) = U · exp(D) · U⁻¹
+  rw [Matrix.exp_units_conj U]
+  -- Step 5: Tr(U⁻¹ · (U · M)) = Tr(M) via inv_mul cancellation
+  rw [Matrix.trace_mul_cycle]
+  simp only [Units.inv_mul, one_mul]
+  -- Step 6: expand exp of scaled diagonal
+  rw [show -t • Matrix.diagonal (RCLike.ofReal ∘ hA.eigenvalues) =
+      Matrix.diagonal (fun i => -t * hA.eigenvalues i) from by
+    ext i j; simp [Matrix.diagonal, smul_apply, mul_ite]]
+  rw [Matrix.exp_diagonal, Matrix.trace_diagonal]
+  -- Step 7: NormedSpace.exp on ℝ equals Real.exp
+  congr 1; ext i; simp [← Real.exp_eq_exp_ℝ]
 
 /-- For PSD A, Tr exp(-t·A) ≤ card n when t ≥ 0. -/
 theorem traceExp_le_card (hA' : A.IsHermitian) (hPSD : A.PosSemidef) (t : ℝ) (ht : 0 ≤ t) :
