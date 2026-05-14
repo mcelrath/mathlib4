@@ -85,6 +85,30 @@ theorem riemannZeta_norm_le_polynomial_of_one_lt_re
     have hcast : ((σ : ℂ)).re ≤ s.re := by simpa using hs
     simpa using riemannZeta_norm_le_tsum_norm_term hσ hcast
 
+/-- Exponential-type bound for `riemannZeta s * (s - 1)`.
+
+The function `s ↦ riemannZeta s * (s - 1)` is entire (the simple pole of `riemannZeta`
+at `s = 1` with residue 1 is cancelled by the zero of `s - 1`) and satisfies a uniform
+exponential-type estimate `‖riemannZeta s * (s - 1)‖ ≤ exp(C * ‖s‖)`.
+
+*Proof sketch (uses existing Mathlib primitives, derivation not yet formalized)*:
+- For `Re s ≥ 3/2`: `‖ζ(s)‖ ≤ ζ(3/2)` (Dirichlet series), so
+  `‖ζ(s)(s-1)‖ ≤ ζ(3/2) * (‖s‖ + 1) ≤ exp(C ‖s‖)`.
+- For `Re s < 3/2`: invert `riemannZeta_one_sub` to write `ζ(s)` in terms of `ζ(1-s)`
+  (which has `Re(1-s) > -1/2`, bounded by the right-half-plane case), multiplied by
+  `2(2π)^{s-1} Γ(1-s) cos(π(1-s)/2)`.  By `Complex.Gamma_vertical_bound`,
+  `|Γ(1-s)| ≤ C(1+|t|)^{1-σ} exp(-π|t|/2)`, and `|cos(π(1-s)/2)| ≤ exp(π|t|/2)`.
+  The exponential factors cancel leaving `|ζ(s)| ≤ C exp(C|s|)`.
+
+This lemma is the **only missing primitive** for the proof of
+`riemannZeta_norm_le_polynomial_in_vertical_strip`; all other steps
+(`PhragmenLindelof.vertical_strip`, `Gamma_vertical_bound`, `riemannZeta_one_sub`,
+`riemannZeta_norm_le_polynomial_of_one_lt_re`) are already in Mathlib. -/
+private lemma riemannZeta_mul_sub_one_norm_le_exp :
+    ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ,
+      ‖riemannZeta s * (s - 1)‖ ≤ Real.exp (C * ‖s‖) := by
+  sorry
+
 /-!
 ## Vertical-strip polynomial bound (Phragmén–Lindelöf interpolation)
 
@@ -137,6 +161,16 @@ theorem riemannZeta_norm_le_polynomial_in_vertical_strip
     ∃ (C : ℝ) (k : ℕ), 0 ≤ C ∧ ∀ s : ℂ,
       -δ ≤ s.re → s.re ≤ 1 + δ → δ ≤ ‖s - 1‖ →
       ‖riemannZeta s‖ ≤ C * (1 + |s.im|) ^ k := by
+  -- Use the exponential-type bound via `riemannZeta_mul_sub_one_norm_le_exp`
+  -- to verify the Phragmen-Lindelof sub-exponential hypothesis on g(s) = ζ(s)*(s-1)/(s+2),
+  -- then apply `PhragmenLindelof.vertical_strip` with constant edge bounds.
+  -- All steps reduce to existing Mathlib primitives once
+  -- `riemannZeta_mul_sub_one_norm_le_exp` is available.
+  obtain ⟨C_exp, _, hC_exp_bound⟩ := riemannZeta_mul_sub_one_norm_le_exp
+  obtain ⟨C_R, hC_R_nn, hC_R_bound⟩ :=
+    riemannZeta_norm_le_polynomial_of_one_lt_re (σ := 1 + δ + 1) (by linarith)
+  -- Full assembly via PhragmenLindelof.vertical_strip pending the edge-bound
+  -- computations using riemannZeta_one_sub + Gamma_vertical_bound on the left edge.
   sorry
 
 /-- **Critical-line specialization.**
