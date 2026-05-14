@@ -304,27 +304,53 @@ theorem Gamma_vertical_decay (n : ℕ) (d : ℕ) :
 ### Extension to real σ: vertical strip bound
 
 The following theorem extends `Gamma_vertical_bound` from integer `n` to real `σ ∈ [σ_min, σ_max]`.
-The proof reduces to `Gamma_vertical_bound` at the two nearest integers bounding the strip, using
-the iterated functional equation to walk between integer and non-integer real parts, plus a
-bound on the resulting denominator.
+The proof uses `norm_Gamma_pos_re_le` (the sub-lemma below, currently sorry'd), which gives
+the exp decay for non-integer real parts of the argument.
 
-The key sub-lemma that is sorry'd below is:
-> For `0 < σ` and `1 ≤ |t|`, `‖Γ(σ + it)‖ ≤ Γ(⌊σ⌋+1) * (1 + |t|)^(⌊σ⌋+1) * exp(-π|t|/2)`.
+The key sub-lemma `norm_Gamma_pos_re_le` is:
+> For `0 < σ` and `1 ≤ |t|`, `‖Γ(σ + it)‖ ≤ Γ(σ) * (1 + |t|)^⌈σ⌉ * exp(-π|t|/2)`.
 
-This requires extending Stirling's estimate to non-integer real parts — specifically, bounding
-`‖Γ(σ+it)/Γ(n+it)‖` by a polynomial in `|t|` for σ ∈ [n, n+1]. The correct approach uses
-the Hadamard three-lines theorem applied to `f(s) = Γ(s) * exp(πs/2) / (s+A)^M` on [n, n+1],
-verified to be bounded on both vertical edges by `Gamma_vertical_bound` and bounded on the closed
-strip by `norm_Gamma_le_realGamma`. This requires ~40 lines of additional PL/Hadamard assembly
-beyond what is done here. Filed as a known gap (iter182).
+### Proof blocker analysis (iter185)
+
+The exp(-π|t|/2) decay in `‖Γ(σ+it)‖` for **non-integer** σ cannot be obtained from
+`norm_Gamma_le_realGamma` + functional equation alone:
+- `norm_Gamma_le_realGamma` gives `‖Γ(σ+it)‖ ≤ Γ(σ)` (no t-decay).
+- Functional equation `Γ(z+n) = ∏(z+k)·Γ(z)` shifts only by **integers**, so cannot
+  bridge non-integer σ to integer n for which `Gamma_vertical_bound` applies.
+- The Mathlib `HadamardThreeLines` API requires **constant** edge bounds (the sup over all
+  Im z on each vertical edge). Applied to `f(z) = Γ(z+it₀)` on strip `[n, n+1]`, the
+  constant edge bounds are `Γ(n)` and `Γ(n+1)` (from `norm_Gamma_le_realGamma`), giving
+  only `‖Γ(σ+it₀)‖ ≤ Γ(n)^{1-θ}·Γ(n+1)^θ` — a **constant** in t₀, no exp(-π|t₀|/2).
+- The exp(-π|t|/2) factor is **not holomorphic** in z (it involves |Im z|, not Im z), so it
+  cannot appear as the absolute value of a holomorphic function on the strip. Any PL/Hadamard
+  approach giving the exp decay must use **pointwise** (not uniform) edge bounds — a variant
+  not available in the current Mathlib API.
+
+Required new infrastructure (one of):
+1. **Stirling's formula for complex Γ**: `|Γ(σ+it)| ~ √(2π/|s|) * |s/e|^σ * exp(-π|t|/2)`
+   for |s| → ∞ in a sector. Not in Mathlib.
+2. **Log-convexity / Phragmén-Lindelöf with t-dependent bounds**: a variant of Hadamard
+   three-lines that uses pointwise edge bounds (not uniform sups) to prove
+   `log ‖Γ(σ+it)‖` is convex in σ with the t-dependent coefficient.
+   The classical argument: apply Hadamard to `f(z) = Γ(z)·exp(πz/2)` on `[0, n]`,
+   noting the function IS bounded on the whole strip by `Γ(n+1)·exp(πn/2)` (from
+   `norm_Gamma_le_realGamma`), edge bounds `M_l(τ) ≤ 2√π·exp(-π|τ|/2)` (imaginary axis,
+   from `norm_Gamma_pure_imag_le`) and `M_r(τ) ≤ Γ(n)·exp(πn/2)` (integer axis). The
+   Hadamard API cannot use τ-dependent bounds, so this approach is also blocked.
+3. **Reflection formula + bootstrap**: For α ∈ (0,1), the reflection formula gives
+   `‖Γ(α+it)‖·‖Γ(1-α+it)‖ ≤ 4π·exp(-π|t|)`. Combined with a lower bound on
+   `‖Γ(1-α+it)‖` — which requires the same type of bound being proved — the argument
+   is circular. Breaking the circularity requires an independent bound for σ = 1/2:
+   `‖Γ(1/2+it)‖ ≤ √(2π·exp(-π|t|))` (provable from `norm_sq_Gamma_mul_I` + arithmetic),
+   then extending by log-convexity, which circles back to point 2.
 -/
 
 /-- **Key sub-lemma (Stirling extension to real σ)**: For `0 < σ` and `|t| ≥ 1`,
-`‖Γ(σ + it)‖ ≤ C * (1 + |t|)^k * exp(-π|t|/2)` for explicit C, k depending only on σ.
+`‖Γ(σ + it)‖ ≤ Γ(σ) * (1 + |t|)^⌈σ⌉ * exp(-π|t|/2)`.
 
 This is the core gap: `Gamma_vertical_bound` handles integer σ = n, and the extension to
-real σ requires bounding `‖Γ(σ+it) / Γ(n+it)‖` polynomially in `|t|` via the three-lines
-theorem. Full proof requires Stirling/Hadamard analysis not yet formalized. -/
+real σ requires infrastructure not yet in Mathlib (Stirling for complex Γ, or log-convexity
+with t-dependent bounds). See the blocker analysis in the module comment above. -/
 private lemma norm_Gamma_pos_re_le (σ : ℝ) (hσ : 0 < σ) (t : ℝ) (ht : 1 ≤ |t|) :
     ‖Gamma (↑σ + ↑t * I)‖ ≤
       (Real.Gamma σ) * (1 + |t|) ^ (Nat.ceil σ) * Real.exp (-(Real.pi / 2) * |t|) := by
