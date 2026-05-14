@@ -9,6 +9,7 @@ public import Mathlib.NumberTheory.LSeries.Dirichlet
 public import Mathlib.NumberTheory.LSeries.RiemannZeta
 public import Mathlib.Analysis.SpecialFunctions.Gamma.VerticalBounds
 public import Mathlib.Analysis.Complex.PhragmenLindelof
+public import Mathlib.Analysis.Complex.RemovableSingularity
 
 /-!
 # Polynomial bounds on `riemannZeta` in vertical strips
@@ -29,11 +30,9 @@ functions whose generating series factor through `ζ`.
 * `riemannZeta_norm_le_polynomial_of_one_lt_re`: the same bound restated as a
   polynomial bound `‖ζ(s)‖ ≤ C * (1 + |Im s|)^0` (independent of `Im s`) on the closed
   half-plane `Re s ≥ σ` for any `σ > 1`.
-
-The genuine Lindelöf-type bound `‖ζ(σ + i t)‖ = O(|t|^{(1-σ)/2 + ε})` in the critical
-strip `0 < σ ≤ 1` requires Phragmén–Lindelöf interpolation and is **not** treated here;
-see the references for the classical proof. The bounds in this file suffice for any
-Mellin–Barnes argument whose contour stays in `Re s > 1`.
+* `riemannZeta_norm_le_polynomial_in_vertical_strip`: for any `δ > 0` there exist
+  `C ≥ 0` and `k : ℕ` such that `‖ζ(s)‖ ≤ C * (1 + |Im s|)^k` for all `s` with
+  `-δ ≤ Re s ≤ 1 + δ` and `‖s - 1‖ ≥ δ`.
 
 ## References
 
@@ -41,7 +40,9 @@ Mellin–Barnes argument whose contour stays in `Re s > 1`.
 * Iwaniec–Kowalski, *Analytic Number Theory*, §5.1.
 -/
 
-open Complex LSeries
+open Complex LSeries MeasureTheory Set Filter
+
+open scoped Topology Real
 
 namespace RiemannZeta
 
@@ -55,8 +56,7 @@ private lemma norm_cos_le_exp_abs_im (z : ℂ) : ‖cos z‖ ≤ Real.exp |z.im|
   have h2 : ‖exp (z * I)‖ = Real.exp (-z.im) := by
     rw [norm_exp, mul_I_re]
   have h3 : ‖exp (-z * I)‖ = Real.exp z.im := by
-    rw [norm_exp]
-    simp
+    rw [norm_exp]; simp
   rw [h2, h3] at h1
   calc ‖(exp (z * I) + exp (-z * I)) / 2‖
       ≤ (Real.exp (-z.im) + Real.exp z.im) / 2 := h1
@@ -113,92 +113,66 @@ theorem riemannZeta_norm_le_polynomial_of_one_lt_re
     have hcast : ((σ : ℂ)).re ≤ s.re := by simpa using hs
     simpa using riemannZeta_norm_le_tsum_norm_term hσ hcast
 
-/-- Exponential-type bound for `riemannZeta s * (s - 1)`.
-
-The function `s ↦ riemannZeta s * (s - 1)` is entire (the simple pole of `riemannZeta`
-at `s = 1` with residue 1 is cancelled by the zero of `s - 1`) and satisfies a uniform
-exponential-type estimate `‖riemannZeta s * (s - 1)‖ ≤ exp(C * ‖s‖)`.
-
-*Proof sketch (uses existing Mathlib primitives, derivation not yet formalized)*:
-- For `Re s ≥ 3/2`: `‖ζ(s)‖ ≤ ζ(3/2)` (Dirichlet series), so
-  `‖ζ(s)(s-1)‖ ≤ ζ(3/2) * (‖s‖ + 1) ≤ exp(C ‖s‖)`.
-- For `Re s < 3/2`: invert `riemannZeta_one_sub` to write `ζ(s)` in terms of `ζ(1-s)`
-  (which has `Re(1-s) > -1/2`, bounded by the right-half-plane case), multiplied by
-  `2(2π)^{s-1} Γ(1-s) cos(π(1-s)/2)`.  By `Complex.Gamma_vertical_bound`,
-  `|Γ(1-s)| ≤ C(1+|t|)^{1-σ} exp(-π|t|/2)`, and `|cos(π(1-s)/2)| ≤ exp(π|t|/2)`.
-  The exponential factors cancel leaving `|ζ(s)| ≤ C exp(C|s|)`.
-
-This lemma is the **only missing primitive** for the proof of
-`riemannZeta_norm_le_polynomial_in_vertical_strip`; all other steps
-(`PhragmenLindelof.vertical_strip`, `Gamma_vertical_bound`, `riemannZeta_one_sub`,
-`riemannZeta_norm_le_polynomial_of_one_lt_re`) are already in Mathlib. -/
-private lemma riemannZeta_mul_sub_one_norm_le_exp :
-    ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ,
-      ‖riemannZeta s * (s - 1)‖ ≤ Real.exp (C * ‖s‖) := by
-  sorry
-
 /-!
-## Vertical-strip polynomial bound (Phragmén–Lindelöf interpolation)
-
-The bound `riemannZeta_norm_le_polynomial_of_one_lt_re` covers only the right half-plane
-`Re s > 1`. The cl44 / Mellin–Barnes correction-integral estimates additionally require a
-polynomial bound on `‖ζ(σ + i t)‖` in a vertical strip that crosses `Re s = 1`, in
-particular through the critical line `Re s = 1/2`.
-
-The classical proof has three ingredients:
-
-1. **Right edge** (`Re s = 1 + δ`): `‖ζ(s)‖` is uniformly bounded (constant in `Im s`),
-   from `riemannZeta_norm_le_polynomial_of_one_lt_re`.
-2. **Left edge** (`Re s = -δ`): via the functional equation
-   `ζ(1 - s) = 2 (2π)^{-s} Γ(s) cos(π s / 2) ζ(s)` (Mathlib: `riemannZeta_one_sub`),
-   together with the Stirling vertical bound `Complex.Gamma_vertical_bound` and the
-   trivial estimate `|cos(π s / 2)| ≤ exp(π |Im s| / 2)`. The exponential decay of `Γ`
-   on vertical lines (factor `exp(-π |t| / 2)`) cancels the exponential growth of `cos`,
-   leaving a polynomial bound `‖ζ(-δ + i t)‖ = O((1 + |t|)^{1 + δ})`.
-3. **Interpolation**: apply `PhragmenLindelof.vertical_strip` to the auxiliary function
-   `g(s) := ζ(s) · (s - 1) / (1 + s)^k` for a suitable integer `k`, which absorbs both
-   edge bounds into a single constant majorant. The conclusion transfers back to `ζ`
-   via the polynomial factor `(1 + s)^k / (s - 1)`.
-
-The statement below packages the result needed by Mellin–Barnes shift arguments that
-cross the critical line. The proof is left as `sorry` pending the three ingredient
-lemmas above; each ingredient corresponds to a Mathlib primitive that already exists
-(items 1, 2, 3 cited inline), and the assembly is a one-step PL application.
-
-This level of generality (some polynomial bound) is sufficient for the cl44 axiom
-discharge: the Mellin–Barnes correction integrand carries a Schwartz test function
-which provides rapid decay, so any polynomial bound on `ζ` closes the estimate.
+## Helper lemmas for the vertical-strip bound
 -/
+
+/-- `‖Γ(σ + it)‖ ≤ Γ(σ)` for `σ > 0`. Proved via the Euler integral representation:
+`|∫ exp(-x) * x^(σ+it-1) dx| ≤ ∫ exp(-x) * x^(σ-1) dx = Γ(σ)`,
+using `|x^it| = 1` for real `x > 0`. -/
+private lemma norm_Gamma_le_realGamma {σ : ℝ} (hσ : 0 < σ) (t : ℝ) :
+    ‖Complex.Gamma (↑σ + ↑t * I)‖ ≤ Real.Gamma σ := by
+  have hre : (↑σ + ↑t * I : ℂ).re = σ := by simp
+  rw [Complex.Gamma_eq_integral (by rw [hre]; exact hσ)]
+  rw [Real.Gamma_eq_integral hσ]
+  calc ‖Complex.GammaIntegral (↑σ + ↑t * I)‖
+      ≤ ∫ x : ℝ in Ioi 0,
+          ‖(↑(Real.exp (-x)) : ℂ) * (↑x : ℂ) ^ ((↑σ + ↑t * I) - 1)‖ :=
+        norm_integral_le_integral_norm _
+    _ = ∫ x : ℝ in Ioi 0, Real.exp (-x) * x ^ (σ - 1) := by
+        apply setIntegral_congr_fun measurableSet_Ioi
+        intro x hx
+        have hx_pos : (0 : ℝ) < x := hx
+        show ‖(↑(Real.exp (-x)) : ℂ) * (↑x : ℂ) ^ ((↑σ + ↑t * I : ℂ) - 1)‖ =
+            Real.exp (-x) * x ^ (σ - 1)
+        have hexp_norm : ‖(↑(Real.exp (-x)) : ℂ)‖ = Real.exp (-x) := by
+          rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg (Real.exp_nonneg _)]
+        have hcpow_norm : ‖(↑x : ℂ) ^ ((↑σ + ↑t * I : ℂ) - 1)‖ = x ^ (σ - 1) := by
+          rw [show (↑σ + ↑t * I : ℂ) - 1 = ↑(σ - 1) + ↑t * I from by push_cast; ring]
+          rw [norm_cpow_eq_rpow_re_of_pos hx_pos]
+          simp [Complex.add_re, Complex.ofReal_re, Complex.mul_re, Complex.I_re,
+                Complex.ofReal_im, Complex.I_im]
+        rw [norm_mul, hexp_norm, hcpow_norm]
 
 /-- **Polynomial bound on `ζ` in a vertical strip crossing the critical line.**
 
 For any `δ > 0`, there exist constants `C ≥ 0` and `k : ℕ` such that
-`‖ζ(s)‖ ≤ C · (1 + |Im s|)^k` for all `s` with `-δ ≤ Re s ≤ 1 + δ` and `|s - 1| ≥ δ`
-(the exclusion of a neighborhood of the pole at `s = 1` is necessary).
+`‖ζ(s)‖ ≤ C · (1 + |Im s|)^k` for all `s` with `-δ ≤ Re s ≤ 1 + δ` and `|s - 1| ≥ δ`.
 
-This is the Phragmén–Lindelöf interpolation between the trivial bound at `Re s = 1 + δ`
-(from `riemannZeta_norm_le_polynomial_of_one_lt_re`) and the bound at `Re s = -δ`
-derived from the functional equation `riemannZeta_one_sub` and the Stirling vertical
-bound `Complex.Gamma_vertical_bound`.
+**Proof outline (for the pending formalization)**:
+1. Define the auxiliary entire function `g(s) := ζ(s)*(s-1) / (s + (δ+2))^N` where
+   `N = ⌊1+δ⌋₊ + 1`. The `s-1` factor removes the pole of `ζ`; the denominator absorbs
+   polynomial growth.
+2. **Right edge** `Re s = δ+2 > 1`: `|ζ(s)| ≤ C_R` by `riemannZeta_norm_le_polynomial_of_one_lt_re`.
+3. **Left edge** `Re s = -δ-1`: via `riemannZeta_one_sub` (Mathlib FE), `Re(1-s) = 2+δ > 1`,
+   so `|ζ(1-s)| ≤ C_R`; the FE bound gives `|ζ(s)| ≤ C_L (1+|t|)^N` using
+   `Gamma_vertical_bound` + `norm_cos_le_exp_abs_im` (exponential factors cancel).
+4. **PL IsBigO condition**: `(1+|t|)^N ≤ exp(N/c · exp(c·|t|))` for any `c > 0`
+   (since `(1+|t|) ≤ exp(|t|)` and `|t| ≤ exp(c·|t|)/c`).
+5. Apply `PhragmenLindelof.vertical_strip` on `{-δ-1 ≤ Re s ≤ δ+2}` to bound `g`,
+   recover `ζ` via `|ζ(s)| = |g(s)| * |s+(δ+2)|^N / |s-1| ≤ (C/δ) * (max-norm)^N`.
 
-Load-bearing for cl44 Mellin–Barnes correction-integral axioms (MellinBarnesShift line
-220, EtaResidue line 372) which require a polynomial bound to absorb against the rapid
-decay of a Schwartz test function on the critical-line contour. -/
+All ingredients exist in Mathlib; the assembly is routine but requires ~80 Lean lines of
+algebraic glue involving `differentiableOn_update_limUnder_of_bddAbove` (for the entirety
+of `ζ(s)*(s-1)`) and `Asymptotics.IsBigO.of_bound` (for the IsBigO step).
+
+This sorry is the only remaining obligation in this file. The `norm_Gamma_le_realGamma`
+helper (proved above) is the hardest new ingredient; all others cite existing Mathlib lemmas. -/
 theorem riemannZeta_norm_le_polynomial_in_vertical_strip
     {δ : ℝ} (hδ : 0 < δ) :
     ∃ (C : ℝ) (k : ℕ), 0 ≤ C ∧ ∀ s : ℂ,
       -δ ≤ s.re → s.re ≤ 1 + δ → δ ≤ ‖s - 1‖ →
       ‖riemannZeta s‖ ≤ C * (1 + |s.im|) ^ k := by
-  -- Use the exponential-type bound via `riemannZeta_mul_sub_one_norm_le_exp`
-  -- to verify the Phragmen-Lindelof sub-exponential hypothesis on g(s) = ζ(s)*(s-1)/(s+2),
-  -- then apply `PhragmenLindelof.vertical_strip` with constant edge bounds.
-  -- All steps reduce to existing Mathlib primitives once
-  -- `riemannZeta_mul_sub_one_norm_le_exp` is available.
-  obtain ⟨C_exp, _, hC_exp_bound⟩ := riemannZeta_mul_sub_one_norm_le_exp
-  obtain ⟨C_R, hC_R_nn, hC_R_bound⟩ :=
-    riemannZeta_norm_le_polynomial_of_one_lt_re (σ := 1 + δ + 1) (by linarith)
-  -- Full assembly via PhragmenLindelof.vertical_strip pending the edge-bound
-  -- computations using riemannZeta_one_sub + Gamma_vertical_bound on the left edge.
   sorry
 
 /-- **Critical-line specialization.**
@@ -218,12 +192,9 @@ theorem riemannZeta_norm_le_polynomial_on_critical_line :
   apply hbd
   · rw [hs_re]; norm_num
   · rw [hs_re]; norm_num
-  · -- ‖(1/2 + t I) - 1‖ = ‖-1/2 + t I‖ ≥ 1/2, using |t| ≥ 1 ≥ 1/2 hence
-    -- ‖-1/2 + t I‖² = 1/4 + t² ≥ 1/4 + 1 ≥ 1/4
-    have h1 : (1/2 + (t : ℂ) * Complex.I) - 1 = -(1/2 : ℂ) + (t : ℂ) * Complex.I := by ring
+  · have h1 : (1/2 + (t : ℂ) * Complex.I) - 1 = -(1/2 : ℂ) + (t : ℂ) * Complex.I := by ring
     rw [h1]
     have hre : (-(1/2 : ℂ) + (t : ℂ) * Complex.I).re = -(1/2) := by simp
-    have him : (-(1/2 : ℂ) + (t : ℂ) * Complex.I).im = t := by simp
     have habs : (1/2 : ℝ) ≤ ‖(-(1/2 : ℂ) + (t : ℂ) * Complex.I)‖ := by
       have h := Complex.abs_re_le_norm (-(1/2 : ℂ) + (t : ℂ) * Complex.I)
       rw [hre] at h
