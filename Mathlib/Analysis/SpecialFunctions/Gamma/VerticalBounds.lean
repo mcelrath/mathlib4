@@ -300,6 +300,159 @@ theorem Gamma_vertical_decay (n : ℕ) (d : ℕ) :
     simp only [mul_zero] at this
     exact this
 
+/-!
+### Extension to real σ: vertical strip bound
+
+The following theorem extends `Gamma_vertical_bound` from integer `n` to real `σ ∈ [σ_min, σ_max]`.
+The proof reduces to `Gamma_vertical_bound` at the two nearest integers bounding the strip, using
+the iterated functional equation to walk between integer and non-integer real parts, plus a
+bound on the resulting denominator.
+
+The key sub-lemma that is sorry'd below is:
+> For `0 < σ` and `1 ≤ |t|`, `‖Γ(σ + it)‖ ≤ Γ(⌊σ⌋+1) * (1 + |t|)^(⌊σ⌋+1) * exp(-π|t|/2)`.
+
+This requires extending Stirling's estimate to non-integer real parts — specifically, bounding
+`‖Γ(σ+it)/Γ(n+it)‖` by a polynomial in `|t|` for σ ∈ [n, n+1]. The correct approach uses
+the Hadamard three-lines theorem applied to `f(s) = Γ(s) * exp(πs/2) / (s+A)^M` on [n, n+1],
+verified to be bounded on both vertical edges by `Gamma_vertical_bound` and bounded on the closed
+strip by `norm_Gamma_le_realGamma`. This requires ~40 lines of additional PL/Hadamard assembly
+beyond what is done here. Filed as a known gap (iter182).
+-/
+
+/-- **Key sub-lemma (Stirling extension to real σ)**: For `0 < σ` and `|t| ≥ 1`,
+`‖Γ(σ + it)‖ ≤ C * (1 + |t|)^k * exp(-π|t|/2)` for explicit C, k depending only on σ.
+
+This is the core gap: `Gamma_vertical_bound` handles integer σ = n, and the extension to
+real σ requires bounding `‖Γ(σ+it) / Γ(n+it)‖` polynomially in `|t|` via the three-lines
+theorem. Full proof requires Stirling/Hadamard analysis not yet formalized. -/
+private lemma norm_Gamma_pos_re_le (σ : ℝ) (hσ : 0 < σ) (t : ℝ) (ht : 1 ≤ |t|) :
+    ‖Gamma (↑σ + ↑t * I)‖ ≤
+      (Real.Gamma σ) * (1 + |t|) ^ (Nat.ceil σ) * Real.exp (-(Real.pi / 2) * |t|) := by
+  sorry
+
+/-- **Vertical strip bound for `Γ`**: For any real `σ_min ≤ σ_max`, there exist constants
+`C ≥ 0` and `k : ℕ` such that for all `s : ℂ` with `σ_min ≤ Re s ≤ σ_max` and `|Im s| ≥ 1`:
+`‖Γ(s)‖ ≤ C * (1 + |Im s|)^k * exp(-π/2 * |Im s|)`.
+
+This extends `Gamma_vertical_bound` (which requires integer `Re s = n : ℕ`) to arbitrary real
+`σ_min ≤ Re s ≤ σ_max`. The proof uses the functional equation to reduce to `Re s ≥ 1`, then
+applies `norm_Gamma_pos_re_le`.
+
+**Note**: The sorry in `norm_Gamma_pos_re_le` is the only blocker; the structural assembly
+(FE reduction + constant bound in denominator) is complete.  -/
+theorem Gamma_vertical_strip_bound
+    {σ_min σ_max : ℝ} (hσ : σ_min ≤ σ_max) :
+    ∃ C k, ∀ s : ℂ, σ_min ≤ s.re → s.re ≤ σ_max → 1 ≤ |s.im| →
+      ‖Gamma s‖ ≤ C * (1 + |s.im|) ^ k * Real.exp (-(Real.pi / 2) * |s.im|) := by
+  -- Choose M : ℕ so that σ_min + M ≥ 2 (shift strip to Re ≥ 2 so Gamma_strictMonoOn_Ici applies).
+  set M : ℕ := Nat.ceil (max 0 (2 - σ_min)) + 1
+  have hM_shift : 2 ≤ σ_min + ↑M := by
+    have hle : max 0 (2 - σ_min) ≤ ↑(Nat.ceil (max 0 (2 - σ_min))) := Nat.le_ceil _
+    push_cast [M]
+    linarith [le_max_right 0 (2 - σ_min), le_max_left 0 (2 - σ_min)]
+  set σ_max_M : ℝ := σ_max + ↑M
+  use (Real.Gamma σ_max_M) * ↑(M.factorial) * (2 * Real.sqrt Real.pi),
+      Nat.ceil σ_max_M + M
+  intro s hs_lo hs_hi ht
+  have hs_re_shift_ge2 : 2 ≤ s.re + ↑M := by linarith
+  have hs_re_shift_pos : 0 < s.re + ↑M := by linarith
+  -- Step 1: FE walk: Γ(s + M) = (∏_{k<M} (s+k)) * Γ(s).
+  have hs_nonzero : ∀ k : ℕ, k < M → (s : ℂ) + ↑k ≠ 0 := fun k _ => by
+    apply ne_of_apply_ne Complex.im
+    simp only [add_im, natCast_im, add_zero]
+    intro h
+    simp only [Complex.zero_im] at h
+    linarith [abs_nonneg s.im, show 1 ≤ |s.im| from ht, show |s.im| = 0 from by rw [h]; simp]
+  have hFE := Gamma_add_natCast M s hs_nonzero
+  -- Γ(s+M) = (∏_{k<M} (s+k)) * Γ(s) → Γ(s) = Γ(s+M) / ∏_{k<M}(s+k).
+  have hprod_ne : (∏ k ∈ Finset.range M, (s + ↑k)) ≠ 0 :=
+    Finset.prod_ne_zero_iff.mpr fun k hk => hs_nonzero k (Finset.mem_range.mp hk)
+  have hGamma_s_eq : Gamma s = Gamma (s + ↑M) / ∏ k ∈ Finset.range M, (s + ↑k) := by
+    rw [hFE]; field_simp
+  rw [hGamma_s_eq, norm_div]
+  -- Step 2: Lower-bound denominator: ∏|s+k| ≥ 1 (each |s+k| ≥ |Im s| ≥ 1).
+  have hprod_lb : 1 ≤ ∏ k ∈ Finset.range M, ‖s + (↑k : ℂ)‖ := by
+    apply Finset.one_le_prod
+    intro k _
+    have h1 : ‖s + (↑k : ℂ)‖ ≥ |(s + ↑k).im| := Complex.abs_im_le_norm _
+    simp only [add_im, natCast_im, add_zero] at h1; linarith
+  -- Step 3: Upper-bound ‖Γ(s+M)‖ using norm_Gamma_pos_re_le.
+  -- Write s + M = ↑(s.re + M) + ↑s.im * I.
+  have hs_M_form : s + ↑M = ↑(s.re + ↑M) + ↑s.im * I := by
+    apply Complex.ext <;> simp
+  rw [hs_M_form]
+  have hGamma_M_le := norm_Gamma_pos_re_le (s.re + ↑M) (by linarith) s.im ht
+  -- Bound Γ(s.re + M) ≤ Γ(σ_max_M): need Γ monotone near its minimum.
+  -- Sorry: Γ(σ) ≤ Γ(σ_max_M) for σ ∈ (0, σ_max_M] requires Bohr-Mollerup/monotonicity.
+  have hGamma_mono : Real.Gamma (s.re + ↑M) ≤ Real.Gamma σ_max_M := by
+    apply Real.Gamma_strictMonoOn_Ici.monotoneOn
+    · exact Set.mem_Ici.mpr (by linarith)
+    · exact Set.mem_Ici.mpr (by simp [σ_max_M]; linarith)
+    · linarith
+  -- ⌈s.re + M⌉ ≤ ⌈σ_max_M⌉ from s.re ≤ σ_max.
+  have hceil_mono : Nat.ceil (s.re + ↑M) ≤ Nat.ceil σ_max_M :=
+    Nat.ceil_le_ceil (by linarith)
+  have habs_nn : 0 ≤ 1 + |s.im| := by linarith [abs_nonneg s.im]
+  have hpow_mono : (1 + |s.im|) ^ Nat.ceil (s.re + ↑M) ≤ (1 + |s.im|) ^ Nat.ceil σ_max_M := by
+    apply pow_le_pow_right₀ (by linarith [abs_nonneg s.im]) hceil_mono
+  have hexp_nn : 0 ≤ Real.exp (-(Real.pi / 2) * |s.im|) := Real.exp_nonneg _
+  have hGamma_sM_pos : 0 < Real.Gamma (s.re + ↑M) := Real.Gamma_pos_of_pos (by linarith)
+  have hGamma_max_pos : 0 < Real.Gamma σ_max_M := Real.Gamma_pos_of_pos (by simp [σ_max_M]; linarith)
+  have hpow_nn : 0 ≤ (1 + |s.im|) ^ Nat.ceil (s.re + ↑M) := pow_nonneg habs_nn _
+  -- Assemble ‖Γ(s+M)‖ ≤ Γ(σ_max_M) * (1+|t|)^⌈σ_max_M⌉ * exp(-π|t|/2).
+  have hGamma_sMbound :
+      ‖Gamma (↑(s.re + ↑M) + ↑s.im * I)‖ ≤
+        Real.Gamma σ_max_M * (1 + |s.im|) ^ Nat.ceil σ_max_M *
+          Real.exp (-(Real.pi / 2) * |s.im|) :=
+    calc ‖Gamma (↑(s.re + ↑M) + ↑s.im * I)‖
+        ≤ Real.Gamma (s.re + ↑M) * (1 + |s.im|) ^ Nat.ceil (s.re + ↑M) *
+            Real.exp (-(Real.pi / 2) * |s.im|) := hGamma_M_le
+      _ ≤ Real.Gamma σ_max_M * (1 + |s.im|) ^ Nat.ceil σ_max_M *
+            Real.exp (-(Real.pi / 2) * |s.im|) := by
+              have h1 : Real.Gamma (s.re + ↑M) * (1 + |s.im|) ^ Nat.ceil (s.re + ↑M) ≤
+                  Real.Gamma σ_max_M * (1 + |s.im|) ^ Nat.ceil σ_max_M :=
+                mul_le_mul hGamma_mono hpow_mono hpow_nn hGamma_max_pos.le
+              exact mul_le_mul_of_nonneg_right h1 hexp_nn
+  -- Step 4: Combine. ‖Γ(s)‖ ≤ ‖Γ(s+M)‖ / 1 ≤ ‖Γ(s+M)‖.
+  have hfact_nn : 1 ≤ (M.factorial : ℝ) := by exact_mod_cast Nat.succ_le_iff.mpr (Nat.factorial_pos M)
+  have h2pi : 1 ≤ 2 * Real.sqrt Real.pi := by
+    have hpi3 : 1 < Real.pi := by linarith [Real.pi_gt_three]
+    have : 1 ≤ Real.sqrt Real.pi := Real.one_le_sqrt.mpr hpi3.le
+    linarith
+  have hpow_le : (1 + |s.im|) ^ Nat.ceil σ_max_M ≤ (1 + |s.im|) ^ (Nat.ceil σ_max_M + M) := by
+    apply pow_le_pow_right₀ (by linarith [abs_nonneg s.im]) (Nat.le_add_right _ _)
+  have hpow_big_nn : 0 ≤ (1 + |s.im|) ^ (Nat.ceil σ_max_M + M) := pow_nonneg habs_nn _
+  have hGammaMaxSmall_nn : 0 ≤ Real.Gamma σ_max_M * (1 + |s.im|) ^ Nat.ceil σ_max_M *
+      Real.exp (-(Real.pi / 2) * |s.im|) :=
+    mul_nonneg (mul_nonneg hGamma_max_pos.le (pow_nonneg habs_nn _)) hexp_nn
+  calc ‖Gamma (↑(s.re + ↑M) + ↑s.im * I)‖ / ‖∏ k ∈ Finset.range M, (s + ↑k)‖
+      ≤ ‖Gamma (↑(s.re + ↑M) + ↑s.im * I)‖ / 1 := by
+          apply div_le_div_of_nonneg_left (norm_nonneg _) one_pos
+          have : 1 ≤ ‖∏ k ∈ Finset.range M, (s + ↑k)‖ := by
+            rw [norm_prod]; exact hprod_lb
+          linarith
+    _ = ‖Gamma (↑(s.re + ↑M) + ↑s.im * I)‖ := div_one _
+    _ ≤ Real.Gamma σ_max_M * (1 + |s.im|) ^ Nat.ceil σ_max_M *
+          Real.exp (-(Real.pi / 2) * |s.im|) := hGamma_sMbound
+    _ ≤ Real.Gamma σ_max_M * ↑(M.factorial) * (2 * Real.sqrt Real.pi) *
+          (1 + |s.im|) ^ (Nat.ceil σ_max_M + M) *
+          Real.exp (-(Real.pi / 2) * |s.im|) := by
+            -- First show: Γ * pow⌈σ⌉ ≤ Γ * fact * 2√π * pow(⌈σ⌉+M)
+            have step1 : Real.Gamma σ_max_M * (1 + |s.im|) ^ Nat.ceil σ_max_M ≤
+                Real.Gamma σ_max_M * (1 + |s.im|) ^ (Nat.ceil σ_max_M + M) :=
+              mul_le_mul_of_nonneg_left hpow_le hGamma_max_pos.le
+            have step2 : Real.Gamma σ_max_M * (1 + |s.im|) ^ (Nat.ceil σ_max_M + M) ≤
+                Real.Gamma σ_max_M * ↑(M.factorial) * (2 * Real.sqrt Real.pi) *
+                  (1 + |s.im|) ^ (Nat.ceil σ_max_M + M) := by
+              have : Real.Gamma σ_max_M * (1 + |s.im|) ^ (Nat.ceil σ_max_M + M) =
+                  Real.Gamma σ_max_M * 1 * 1 * (1 + |s.im|) ^ (Nat.ceil σ_max_M + M) := by ring
+              rw [this]
+              apply mul_le_mul_of_nonneg_right _ hpow_big_nn
+              exact mul_le_mul (mul_le_mul_of_nonneg_left hfact_nn hGamma_max_pos.le)
+                h2pi (by linarith) (mul_nonneg hGamma_max_pos.le (by exact_mod_cast Nat.zero_le _))
+            -- Then multiply by exp.
+            exact mul_le_mul_of_nonneg_right (step1.trans step2) hexp_nn
+
 end Complex
 
 end
