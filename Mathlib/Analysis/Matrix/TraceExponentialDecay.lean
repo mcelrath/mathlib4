@@ -7,6 +7,7 @@ import Mathlib.Analysis.Matrix.PosDef
 import Mathlib.Analysis.Matrix.Spectrum
 import Mathlib.Analysis.Normed.Algebra.MatrixExponential
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
+import Mathlib.Topology.Algebra.Order.Field
 import Mathlib.Tactic
 
 /-!
@@ -98,16 +99,124 @@ theorem traceExp_le_card (hA' : A.IsHermitian) (hPSD : A.PosSemidef) (t : ℝ) (
 
 /-- The normalized log decay rate converges to the min positive eigenvalue as t → ∞.
 
-  Tr exp(-t·A) = exp(-t·λ_min) · S(t),  where S(t) → #{i : λᵢ = λ_min} ≥ 1.
-  So (-log Tr) / t → λ_min.
+  Proof: All eigenvalues Eᵢ > 0 (PosDef). Let E = min eigenvalue (attained in finite set).
+  For t ≥ 0: exp(-tEᵢ) ≤ exp(-tE), so Σ exp(-tEᵢ) ≤ |n| exp(-tE).
+  Also Σ exp(-tEᵢ) ≥ exp(-tE) (the min-achieving term).
+  Hence E - log|n|/t ≤ -log(Σ)/t ≤ E. Both bounds → E, so squeeze applies.
 -/
 theorem log_traceExp_div_tendsto
-    (hPSD : A.PosSemidef)
+    (hPD : A.PosDef)
     (hPos : ∃ i : n, 0 < hA.eigenvalues i) :
     Filter.Tendsto (fun t : ℝ ↦ -(Real.log (NormedSpace.exp (-t • A)).trace) / t)
       Filter.atTop
-      (nhds (hA.minPosEigenvalue hPSD hPos)) := by
-  sorry
-  -- Proof: use trace_exp_neg_smul_eq_sum_exp, factor exp(-t·λ_min), squeeze log(S(t))/t → 0.
+      (nhds (hA.minPosEigenvalue hPD.posSemidef hPos)) := by
+  -- All eigenvalues are positive
+  have hEi_pos : ∀ i, 0 < hA.eigenvalues i := fun i => hPD.eigenvalues_pos i
+  -- Nonempty n from hPos
+  have hNon : Nonempty n := ⟨hPos.choose⟩
+  haveI : Nonempty n := hNon
+  set E := hA.minPosEigenvalue hPD.posSemidef hPos with hE_def
+  -- The inf' function; PosDef means the conditional always picks eigenvalues i
+  have hf_eq : ∀ i : n, (fun j : n => if 0 < hA.eigenvalues j then hA.eigenvalues j
+      else hA.eigenvalues hPos.choose) i = hA.eigenvalues i :=
+    fun i => by simp [hEi_pos i]
+  -- E is attained: exists i_min with eigenvalues i_min = E
+  -- Use exists_min_image to find the minimum-achieving index
+  obtain ⟨i_min, _, himin_le⟩ := Finset.exists_min_image Finset.univ hA.eigenvalues
+    Finset.univ_nonempty
+  have hi_min : hA.eigenvalues i_min = E := by
+    apply le_antisymm
+    · -- eigenvalues i_min ≤ E = inf' (cond f):
+      -- i_min achieves the minimum of eigenvalues, so eigenvalues i_min ≤ eigenvalues j ∀j.
+      -- E = inf' (cond f) where cond f = eigenvalues (PosDef). So eigenvalues i_min is a lb.
+      -- Finset.le_inf' gives: eigenvalues i_min ≤ inf' f if ∀ j, eigenvalues i_min ≤ f j.
+      simp only [E, minPosEigenvalue]
+      apply Finset.le_inf'
+      intro j _
+      simp only [hEi_pos j, ↓reduceIte]
+      exact himin_le j (Finset.mem_univ j)
+    · -- E = inf' f ≤ f i_min = eigenvalues i_min
+      simp only [E, minPosEigenvalue]
+      rw [← hf_eq i_min]
+      exact Finset.inf'_le _ (Finset.mem_univ i_min)
+  -- E is positive (equals positive eigenvalue)
+  have hE_pos : 0 < E := hi_min ▸ hEi_pos i_min
+  -- E is a lower bound for all eigenvalues
+  have hE_min : ∀ i, E ≤ hA.eigenvalues i := by
+    intro i
+    simp only [E, minPosEigenvalue]
+    calc Finset.univ.inf' ⟨hPos.choose, Finset.mem_univ _⟩
+          (fun j => if 0 < hA.eigenvalues j then hA.eigenvalues j else hA.eigenvalues hPos.choose)
+        ≤ (fun j => if 0 < hA.eigenvalues j then hA.eigenvalues j else hA.eigenvalues hPos.choose) i :=
+          Finset.inf'_le _ (Finset.mem_univ i)
+      _ = hA.eigenvalues i := hf_eq i
+  -- Rewrite goal using trace = sum of exp(-t λᵢ)
+  simp_rw [hA.trace_exp_neg_smul_eq_sum_exp]
+  -- Sum is always positive
+  have hsum_pos : ∀ t : ℝ, 0 < ∑ i : n, Real.exp (-t * hA.eigenvalues i) :=
+    fun t => Finset.sum_pos (fun i _ => Real.exp_pos _) Finset.univ_nonempty
+  -- Upper bound: Σ exp(-t Eᵢ) ≤ card n * exp(-t E) for t ≥ 0
+  have hub : ∀ t : ℝ, 0 ≤ t →
+      ∑ i : n, Real.exp (-t * hA.eigenvalues i) ≤ Fintype.card n * Real.exp (-t * E) :=
+    fun t ht => calc ∑ i : n, Real.exp (-t * hA.eigenvalues i)
+        ≤ ∑ _i : n, Real.exp (-t * E) := Finset.sum_le_sum fun i _ =>
+            Real.exp_le_exp_of_le (by nlinarith [hE_min i])
+      _ = Fintype.card n * Real.exp (-t * E) := by simp [Finset.card_univ]
+  -- Lower bound: Σ exp(-t Eᵢ) ≥ exp(-t E) (the i_min term)
+  have hlb : ∀ t : ℝ, Real.exp (-t * E) ≤ ∑ i : n, Real.exp (-t * hA.eigenvalues i) :=
+    fun t => hi_min ▸ Finset.single_le_sum
+        (fun i _ => (Real.exp_pos (-t * hA.eigenvalues i)).le) (Finset.mem_univ i_min)
+  -- Card is positive as real
+  have hcard_pos : (0 : ℝ) < Fintype.card n := Nat.cast_pos.mpr Fintype.card_pos
+  -- Squeeze: E - log(card)/t ≤ -log(Σ)/t ≤ E (both bounds hold eventually, both → E)
+  -- Lower bound: E - log(card)/t
+  have hg_tendsto : Filter.Tendsto (fun t : ℝ => E - Real.log (Fintype.card n) / t)
+      Filter.atTop (nhds E) := by
+    have h0 : Filter.Tendsto (fun t : ℝ => Real.log (Fintype.card n) / t) Filter.atTop (nhds 0) :=
+      tendsto_const_nhds.div_atTop tendsto_id
+    have h1 : Filter.Tendsto (fun t : ℝ => E - Real.log (Fintype.card n) / t)
+        Filter.atTop (nhds (E - 0)) :=
+      (tendsto_const_nhds (x := E)).sub h0
+    simpa using h1
+  -- Upper bound: constant E
+  have hh_tendsto : Filter.Tendsto (fun _ : ℝ => E) Filter.atTop (nhds E) :=
+    tendsto_const_nhds
+  -- Eventually: lower ≤ target ≤ upper
+  have hgf : ∀ᶠ t : ℝ in Filter.atTop,
+      E - Real.log (Fintype.card n) / t ≤
+      -(Real.log (∑ i : n, Real.exp (-t * hA.eigenvalues i))) / t := by
+    filter_upwards [Ioi_mem_atTop (0 : ℝ)] with t ht
+    have ht' : (0 : ℝ) < t := Set.mem_Ioi.mp ht
+    have hS_pos := hsum_pos t
+    have hub_t := hub t (le_of_lt ht')
+    have hlog_le : Real.log (∑ i : n, Real.exp (-t * hA.eigenvalues i)) ≤
+        Real.log (Fintype.card n) + (-t * E) := by
+      have h1 := Real.log_le_log hS_pos hub_t
+      have h2 := Real.log_mul hcard_pos.ne' (Real.exp_pos (-t * E)).ne'
+      have h3 := Real.log_exp (-t * E)
+      linarith
+    -- E - log(card)/t ≤ -(log Σ)/t
+    -- Equivalent (multiply both sides by t): E*t - log(card) ≤ -log Σ
+    have key : E * t - Real.log (Fintype.card n) ≤
+        -Real.log (∑ i : n, Real.exp (-t * hA.eigenvalues i)) := by linarith
+    -- E - log(card)/t ≤ -(log Σ)/t follows from key and t > 0
+    have eq1 : (E * t - Real.log (Fintype.card n)) / t = E - Real.log (Fintype.card n) / t := by
+      field_simp
+    have ineq : (E * t - Real.log (Fintype.card n)) / t ≤
+        (-Real.log (∑ i : n, Real.exp (-t * hA.eigenvalues i))) / t := by
+      apply div_le_div_of_nonneg_right key (le_of_lt ht')
+    linarith
+  have hfh : ∀ᶠ t : ℝ in Filter.atTop,
+      -(Real.log (∑ i : n, Real.exp (-t * hA.eigenvalues i))) / t ≤ E := by
+    filter_upwards [Ioi_mem_atTop (0 : ℝ)] with t ht
+    have ht' : (0 : ℝ) < t := Set.mem_Ioi.mp ht
+    have hlb_t := hlb t
+    have hlog_ge : (-t * E) ≤ Real.log (∑ i : n, Real.exp (-t * hA.eigenvalues i)) := by
+      have h1 := Real.log_le_log (Real.exp_pos (-t * E)) hlb_t
+      rw [Real.log_exp] at h1; linarith
+    -- -(log Σ)/t ≤ E  iff  -log Σ ≤ E*t  (multiply by t > 0)
+    rw [div_le_iff₀ ht']
+    linarith
+  exact tendsto_of_tendsto_of_tendsto_of_le_of_le' hg_tendsto hh_tendsto hgf hfh
 
 end Matrix.IsHermitian
