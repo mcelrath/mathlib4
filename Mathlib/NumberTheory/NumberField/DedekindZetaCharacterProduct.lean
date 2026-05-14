@@ -2154,7 +2154,7 @@ The key equivalence: for `c ∣ m`, `FactorsThrough (changeLevel h χ) c ↔ Fac
 This follows from `changeLevel_injective h` and `changeLevel_trans`.
 Since both `conductor(χ)` and `conductor(changeLevel h χ)` are the minimum of their respective
 conductor sets restricted to divisors of `m`, and these sets agree, the conductors are equal. -/
-private lemma conductor_changeLevel {n m : ℕ} [NeZero n] [NeZero m] (h : m ∣ n)
+lemma conductor_changeLevel {n m : ℕ} [NeZero n] [NeZero m] (h : m ∣ n)
     (χ : DirichletCharacter ℂ m) :
     (DirichletCharacter.changeLevel h χ).conductor = χ.conductor := by
   -- Key equivalence: for c ∣ m, FactorsThrough (changeLevel h χ) c ↔ FactorsThrough χ c.
