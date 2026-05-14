@@ -168,12 +168,268 @@ of `ζ(s)*(s-1)`) and `Asymptotics.IsBigO.of_bound` (for the IsBigO step).
 
 This sorry is the only remaining obligation in this file. The `norm_Gamma_le_realGamma`
 helper (proved above) is the hardest new ingredient; all others cite existing Mathlib lemmas. -/
+-- Helper: `ζ(s)·(s-1)` with removable singularity at `s = 1` filled in.
+private noncomputable def zetaMulShift : ℂ → ℂ :=
+  Function.update (fun s => riemannZeta s * (s - 1)) 1 1
+
+private lemma zetaMulShift_ne_one {s : ℂ} (hs : s ≠ 1) :
+    zetaMulShift s = riemannZeta s * (s - 1) :=
+  Function.update_of_ne hs _ _
+
+private lemma zetaMulShift_one : zetaMulShift 1 = 1 := Function.update_self _ _ _
+
+/-- `zetaMulShift` is entire: differentiable on all of `ℂ`. -/
+private lemma differentiable_zetaMulShift : Differentiable ℂ zetaMulShift := by
+  intro s
+  rcases eq_or_ne s 1 with rfl | hne
+  · -- At s = 1: apply removable singularity theorem.
+    -- Step A: limit exists.
+    have hlim : Tendsto zetaMulShift (𝓝[≠] 1) (𝓝 1) := by
+      have hres : Tendsto (fun s => riemannZeta s * (s - 1)) (𝓝[≠] 1) (𝓝 1) := by
+        simpa [mul_comm] using riemannZeta_residue_one
+      exact hres.congr' (eventually_nhdsWithin_of_forall fun z hz => (zetaMulShift_ne_one hz).symm)
+    -- Extract a ball radius r such that zetaMulShift is bounded on ball(1,r) \ {1}.
+    -- Since zetaMulShift → 1 at 1, the norm converges to 1, so it is bounded by 2 eventually.
+    have hbound_filter : ∀ᶠ w in 𝓝[≠] (1 : ℂ), ‖zetaMulShift w‖ < 2 := by
+      have hlt := hlim.norm
+      rw [norm_one] at hlt
+      exact hlt (Iio_mem_nhds (by norm_num))
+    -- Extract a ball of radius r where the bound holds.
+    rw [eventually_nhdsWithin_iff] at hbound_filter
+    obtain ⟨r, hr_pos, hr_bound⟩ : ∃ r > 0,
+        ∀ w ∈ Metric.ball (1 : ℂ) r, w ≠ 1 → ‖zetaMulShift w‖ < 2 := by
+      obtain ⟨r, hr_pos, hr⟩ := Metric.mem_nhds_iff.mp hbound_filter
+      exact ⟨r, hr_pos, fun w hw hwne => hr hw hwne⟩
+    -- Step B: differentiable on punctured ball.
+    have hnhd : Metric.ball (1 : ℂ) r ∈ 𝓝 (1 : ℂ) := Metric.ball_mem_nhds 1 hr_pos
+    have hd_ball : DifferentiableOn ℂ zetaMulShift (Metric.ball 1 r \ {1}) := fun z hz => by
+      have hzne : z ≠ 1 := hz.2
+      have heq : zetaMulShift =ᶠ[𝓝[Metric.ball 1 r \ {1}] z]
+          (fun w => riemannZeta w * (w - 1)) :=
+        eventually_nhdsWithin_of_forall fun w hw => zetaMulShift_ne_one hw.2
+      exact (heq.differentiableWithinAt_iff (zetaMulShift_ne_one hzne)).mpr
+        ((differentiableAt_riemannZeta hzne).mul
+          (differentiableAt_id.sub_const 1)).differentiableWithinAt
+    -- Step C: bounded on punctured ball.
+    have hbdd : BddAbove (norm ∘ zetaMulShift '' (Metric.ball 1 r \ {1})) :=
+      ⟨2, fun _ ⟨z, ⟨hz_ball, hz_ne⟩, heq⟩ => heq ▸ le_of_lt (hr_bound z hz_ball hz_ne)⟩
+    -- Step D: apply differentiableOn_update_limUnder_of_bddAbove.
+    have hd_on : DifferentiableOn ℂ (Function.update zetaMulShift 1
+        (limUnder (𝓝[≠] 1) zetaMulShift)) (Metric.ball 1 r) :=
+      Complex.differentiableOn_update_limUnder_of_bddAbove hnhd hd_ball hbdd
+    -- Step E: show the update agrees with zetaMulShift.
+    have hlim_eq : limUnder (𝓝[≠] (1 : ℂ)) zetaMulShift = 1 := hlim.limUnder_eq
+    have hfunc_eq : Function.update zetaMulShift 1 (limUnder (𝓝[≠] 1) zetaMulShift) =
+        zetaMulShift := by
+      ext z; rcases eq_or_ne z 1 with rfl | hz
+      · simp [hlim_eq, zetaMulShift_one]
+      · simp [Function.update_of_ne hz]
+    rw [hfunc_eq] at hd_on
+    exact hd_on.differentiableAt hnhd
+  · -- Away from 1: zetaMulShift = ζ(s)·(s-1), both differentiable.
+    have heq : zetaMulShift =ᶠ[𝓝 s] (fun z => riemannZeta z * (z - 1)) :=
+      eventually_nhds_iff.mpr ⟨{1}ᶜ,
+        fun z hz => zetaMulShift_ne_one (Set.mem_compl_singleton_iff.mp hz),
+        isOpen_compl_singleton, hne⟩
+    exact heq.differentiableAt_iff.mpr
+      ((differentiableAt_riemannZeta hne).mul (differentiableAt_id.sub_const 1))
+
 theorem riemannZeta_norm_le_polynomial_in_vertical_strip
     {δ : ℝ} (hδ : 0 < δ) :
     ∃ (C : ℝ) (k : ℕ), 0 ≤ C ∧ ∀ s : ℂ,
       -δ ≤ s.re → s.re ≤ 1 + δ → δ ≤ ‖s - 1‖ →
       ‖riemannZeta s‖ ≤ C * (1 + |s.im|) ^ k := by
-  sorry
+  -- Parameters: a = -δ-1 (left edge, Re s = a); b = δ+2 (right edge, Re s = b > 1).
+  -- g(s) = zetaMulShift(s) / (s + b)^N, where N absorbs polynomial growth.
+  -- PL on (a, b) + two edge bounds + IsBigO → |g| ≤ C → |ζ(s)| ≤ C/δ * (δ+2+|Im s|)^N.
+  set a : ℝ := -δ - 1
+  set b : ℝ := δ + 2
+  -- N just needs to exist; we take N = 1 and prove |g| ≤ C on both edges directly.
+  -- But edges still grow with t. Use N large enough: N = ⌊b-a⌋ + 2.
+  set N : ℕ := Nat.floor (b - a) + 2
+  have hab : a < b := by simp only [a, b]; linarith
+  have hb_gt_one : 1 < b := by simp only [b]; linarith
+  have ha_plus_b_pos : 0 < a + b := by simp only [a, b]; linarith
+  have hN_pos : 0 < N := Nat.succ_pos _
+  -- Right-edge bound: |ζ(s)| ≤ C_R (constant in Im s) for Re s = b > 1.
+  obtain ⟨C_R, hC_R_nn, hC_R⟩ := riemannZeta_norm_le_polynomial_of_one_lt_re (σ := b) hb_gt_one
+  -- Denominator (s + b)^N is nonzero on the closed strip {a ≤ Re s ≤ b}.
+  have hdenom_ne_strip : ∀ s : ℂ, a ≤ s.re → (s + ↑b) ^ N ≠ 0 := fun s hs => by
+    apply pow_ne_zero; intro heq
+    have : (s + ↑b).re = 0 := by rw [heq]; simp
+    simp only [Complex.add_re, Complex.ofReal_re] at this
+    linarith
+  -- g is DiffContOnCl on the open strip (a, b): differentiable on closure, continuous there.
+  have hg_diffContOnCl : DiffContOnCl ℂ (fun s => zetaMulShift s / (s + ↑b) ^ N)
+      (re ⁻¹' Ioo a b) := by
+    apply DifferentiableOn.diffContOnCl
+    -- Show differentiable on closure re ⁻¹' Icc a b.
+    rw [Complex.closure_preimage_re, closure_Ioo hab.ne]
+    intro s hs
+    simp only [mem_preimage, mem_Icc] at hs
+    apply DifferentiableAt.differentiableWithinAt
+    exact differentiable_zetaMulShift.differentiableAt.div
+      ((differentiableAt_id.add_const (↑b : ℂ)).pow N)
+      (hdenom_ne_strip s hs.1)
+  -- PL IsBigO condition: |g(s)| ≤ exp(1 * exp(c * |Im s|)) for c < π/(b-a).
+  -- We use: zetaMulShift(s) is entire of finite order, so it is O(exp(exp(c|t|))).
+  -- Concretely: |zetaMulShift(s)| ≤ 1 + |ζ(s)*(s-1)| ≤ ... (use right-half bound + FE).
+  -- For the IsBigO we just need *any* exp(B*exp(c*|t|)) bound.
+  -- Crude bound: |zetaMulShift(s)| ≤ exp(exp(|Im s|)) eventually (entire of order 1).
+  -- We provide this as a sorry pending a full Stirling/FE analysis.
+  -- Placeholder for PL_isBigO; merged below with hPL_isBigO'.
+  -- Left-edge bound: |g(s)| ≤ C_g when Re s = a.
+  -- Uses FE: ζ(1-s) = 2*(2π)^{-s}*Γ(s)*cos(πs/2)*ζ(s) (riemannZeta_one_sub, subst s → 1-s).
+  -- At Re s = a: zetaMulShift(s) = ζ(s)*(s-1) = (1-s+...) related via FE.
+  -- Key: |Γ(a+it)*cos(π(a+it)/2)| = O(|t|^a) (Stirling: Γ ~ exp(-π|t|/2)*|t|^a, cos ~ exp(π|t|/2)).
+  -- Formal proof: use `Gamma_vertical_bound` (Gamma/VerticalBounds.lean) which gives the
+  -- exp(-π|t|/2) factor that cancels the exp(π|t|/2) from the cos factor.
+  -- Steps: (i) riemannZeta_one_sub applied to 1-s; (ii) bound |ζ(1-s)| ≤ C_R via right-edge;
+  --        (iii) write Γ(s) = Γ(n+w)/Γ(n+w)/Γ(s) using recurrence to reach integer real part;
+  --        (iv) apply Gamma_vertical_bound; (v) bound |cos| ≤ exp(π|t|/2);
+  --        (vi) cancel exp factors; (vii) bound |(s+b)^N| ≥ 1 (Re(s+b)=1>0); (viii) |s-1| bounded.
+  -- Placed as a sorry; full proof is ~30 lines of Lean assembling (i)-(viii).
+  have hC_left_exists : ∃ C_g : ℝ, 0 ≤ C_g ∧ ∀ s : ℂ, s.re = a →
+      ‖zetaMulShift s / (s + ↑b) ^ N‖ ≤ C_g := by
+    -- Blocker: Gamma_vertical_bound application + FE inversion + exp cancellation assembly.
+    -- Available in Mathlib: Gamma_vertical_bound, riemannZeta_one_sub, norm_cos_le_exp_abs_im (above).
+    -- The key identity: Γ(a+it)*cos(π(a+it)/2) = O(|t|^a) via Stirling.
+    sorry
+  obtain ⟨C_g, hC_g_nn, hC_g⟩ := hC_left_exists
+  -- Right-edge bound: |g(s)| ≤ C_R / (2b)^{N-1} when Re s = b.
+  -- |zetaMulShift(s)| ≤ C_R * |s-1| ≤ C_R * |s+b| (since |s-1| ≤ |s+b| for Re s = b > 0).
+  -- So |g| = |zetaMulShift| / |s+b|^N ≤ C_R / |s+b|^{N-1} ≤ C_R / (2b)^{N-1}.
+  have hC_right : ∀ s : ℂ, s.re = b → ‖zetaMulShift s / (s + ↑b) ^ N‖ ≤ C_R / (2 * b) ^ (N - 1) := by
+    intro s hs
+    -- s ≠ 1 since Re s = b > 1.
+    have hs_ne_one : s ≠ 1 := by
+      intro heq; rw [heq] at hs; simp at hs; linarith
+    -- |s+b| ≥ 2b (since Re(s+b) = 2b, and ‖z‖ ≥ |Re z|).
+    have hspb_lb : (2 * b : ℝ) ≤ ‖s + ↑b‖ := by
+      have hre : (s + (↑b : ℂ)).re = 2 * b := by simp [hs]; ring
+      calc 2 * b = |(s + ↑b).re| := by rw [hre, abs_of_pos (by linarith)]
+        _ ≤ ‖s + ↑b‖ := Complex.abs_re_le_norm _
+    -- |s - 1| ≤ |s + b|: normSq(s-1) = (b-1)²+t² ≤ (2b)²+t² = normSq(s+b) for b≥1.
+    have hsub_le_spb : ‖s - 1‖ ≤ ‖s + ↑b‖ := by
+      rw [Complex.norm_def, Complex.norm_def]
+      apply Real.sqrt_le_sqrt
+      simp only [Complex.normSq_apply, Complex.sub_re, Complex.sub_im,
+                 Complex.add_re, Complex.add_im, Complex.ofReal_re, Complex.ofReal_im,
+                 Complex.one_re, Complex.one_im]
+      simp [hs]
+      nlinarith [sq_nonneg s.im]
+    -- |ζ(s)| ≤ C_R.
+    have hzeta : ‖riemannZeta s‖ ≤ C_R := by
+      have := hC_R s (by rw [hs]); simpa using this
+    have hspb_pos : 0 < ‖s + (↑b : ℂ)‖ := by
+      apply lt_of_lt_of_le (by linarith [hb_gt_one]) hspb_lb
+    -- |zetaMulShift(s) / (s+b)^N| = |ζ(s)| * |s-1| / |s+b|^N ≤ C_R * |s+b| / |s+b|^N
+    --   = C_R / |s+b|^{N-1} ≤ C_R / (2b)^{N-1}.
+    rw [zetaMulShift_ne_one hs_ne_one, norm_div, norm_mul, norm_pow]
+    obtain ⟨k, hk⟩ : ∃ k, N = k + 1 := Nat.exists_eq_succ_of_ne_zero (Nat.pos_iff_ne_zero.mp hN_pos)
+    rw [hk, Nat.succ_sub_one]
+    -- Goal: ‖ζ(s)‖ * ‖s-1‖ / ‖s+b‖^(k+1) ≤ C_R / (2b)^k.
+    -- Use: ‖ζ(s)‖ ≤ C_R, ‖s-1‖ ≤ ‖s+b‖, ‖s+b‖^k ≥ (2b)^k.
+    have h1 : ‖riemannZeta s‖ * ‖s - 1‖ ≤ C_R * ‖s + ↑b‖ :=
+      mul_le_mul hzeta hsub_le_spb (norm_nonneg _) hC_R_nn
+    have h2 : (2 * b) ^ k ≤ ‖s + (↑b : ℂ)‖ ^ k :=
+      pow_le_pow_left₀ (by linarith [hb_gt_one]) hspb_lb k
+    rw [pow_succ]
+    calc ‖riemannZeta s‖ * ‖s - 1‖ / (‖s + ↑b‖ ^ k * ‖s + ↑b‖)
+        ≤ C_R * ‖s + ↑b‖ / (‖s + ↑b‖ ^ k * ‖s + ↑b‖) :=
+          div_le_div_of_nonneg_right h1 (by positivity)
+      _ = C_R / ‖s + ↑b‖ ^ k := by field_simp
+      _ ≤ C_R / (2 * b) ^ k :=
+          div_le_div_of_nonneg_left hC_R_nn (by positivity) h2
+  -- The PL constant: C_PL = max(C_g, C_R / (2b)^{N-1}).
+  set C_PL := max C_g (C_R / (2 * b) ^ (N - 1))
+  have hC_PL_nn : 0 ≤ C_PL := le_max_of_le_left hC_g_nn
+  -- Apply PL to get |g(s)| ≤ C_PL on the closed strip.
+  -- Name the auxiliary function g for PL application.
+  set g : ℂ → ℂ := fun s => zetaMulShift s / (s + ↑b) ^ N
+  have hg_eq : ∀ s : ℂ, g s = zetaMulShift s / (s + ↑b) ^ N := fun _ => rfl
+  have hg_diffContOnCl' : DiffContOnCl ℂ g (re ⁻¹' Ioo a b) := hg_diffContOnCl
+  have hC_g' : ∀ s : ℂ, s.re = a → ‖g s‖ ≤ C_g := hC_g
+  have hC_right' : ∀ s : ℂ, s.re = b → ‖g s‖ ≤ C_R / (2 * b) ^ (N - 1) := hC_right
+  have hPL_isBigO' : ∃ c < Real.pi / (b - a), ∃ Bval : ℝ,
+      g =O[Filter.comap (_root_.abs ∘ Complex.im) Filter.atTop ⊓ 𝓟 (re ⁻¹' Ioo a b)]
+      fun z => Real.exp (Bval * Real.exp (c * |z.im|)) := by
+    -- Blocker: formal IsBigO bound for g = zetaMulShift / (·+b)^N in vertical strip.
+    -- Proof sketch: |g(s)| ≤ |zetaMulShift(s)| since |s+b| ≥ 1 in strip (Re(s+b) ≥ a+b = 1).
+    -- zetaMulShift is entire of order ≤ 1 (product of meromorphic of order 1 and (s-1)).
+    -- Any entire function of finite order is O(exp(B * exp(c * |t|))) for c > 0.
+    -- Formal Mathlib blocker: no Hadamard/Phragmen-Borel for order-1 entire functions yet.
+    sorry
+  have hPL : ∀ s : ℂ, a ≤ s.re → s.re ≤ b → ‖g s‖ ≤ C_PL := fun s hsa hsb => by
+    obtain ⟨c, hc, Bval, hO⟩ := hPL_isBigO'
+    exact PhragmenLindelof.vertical_strip hg_diffContOnCl' ⟨c, hc, Bval, hO⟩
+      (fun z hz => le_max_of_le_left (hC_g' z hz))
+      (fun z hz => le_max_of_le_right (hC_right' z hz))
+      hsa hsb
+  -- Recovery: for s in the original strip with ‖s-1‖ ≥ δ,
+  -- ‖ζ(s)‖ = ‖zetaMulShift(s)‖ / ‖s-1‖ ≤ ‖g(s)‖ * ‖s+b‖^N / ‖s-1‖
+  --        ≤ C_PL * (b + |a| + |Im s| + 1)^N / δ.
+  -- This gives the desired polynomial bound.
+  refine ⟨C_PL / δ * (b + |a| + 1) ^ N, N, ?_, ?_⟩
+  · positivity
+  · intro s hs_lo hs_hi hs_away
+    -- s is in the strip [-δ, 1+δ] ⊆ [a, b].
+    have hsa : a ≤ s.re := by simp only [a]; linarith
+    have hsb : s.re ≤ b := by simp only [b]; linarith
+    -- zetaMulShift(s) relates to ζ(s).
+    have hs_ne_one : s ≠ 1 := by
+      intro heq; rw [heq] at hs_away; simp at hs_away; linarith
+    -- PL bound: |g(s)| ≤ C_PL.
+    have hg_bound : ‖g s‖ ≤ C_PL := hPL s hsa hsb
+    -- g(s) = zetaMulShift(s) / (s+b)^N, so zetaMulShift(s) = g(s) * (s+b)^N.
+    have hg_s : g s = zetaMulShift s / (s + ↑b) ^ N := hg_eq s
+    -- zetaMulShift(s) = ζ(s) * (s-1) for s ≠ 1.
+    have hzms : zetaMulShift s = riemannZeta s * (s - 1) := zetaMulShift_ne_one hs_ne_one
+    -- ‖ζ(s)‖ = ‖zetaMulShift(s)‖ / ‖s-1‖.
+    have hs1_pos : 0 < ‖s - 1‖ := by
+      simp only [norm_pos_iff]; exact sub_ne_zero.mpr hs_ne_one
+    rw [show ‖riemannZeta s‖ = ‖zetaMulShift s‖ / ‖s - 1‖ by
+      rw [hzms, norm_mul]; field_simp]
+    -- From hg_s: ‖zetaMulShift s‖ = ‖g s‖ * ‖(s+b)^N‖.
+    have hdenom_ne : (s + ↑b) ^ N ≠ 0 := hdenom_ne_strip s hsa
+    have hdenom_pos : 0 < ‖(s + ↑b) ^ N‖ :=
+      norm_pos_iff.mpr hdenom_ne
+    have hzms_eq : ‖zetaMulShift s‖ = ‖g s‖ * ‖(s + ↑b) ^ N‖ := by
+      rw [hg_s, norm_div, div_mul_cancel₀ _ (ne_of_gt hdenom_pos)]
+    rw [hzms_eq]
+    -- ‖g s‖ * ‖(s+b)^N‖ / ‖s-1‖ ≤ C_PL * ‖(s+b)^N‖ / δ
+    --   ≤ C_PL / δ * (b + |a| + 1)^N * (1 + |Im s|)^N.
+    calc ‖g s‖ * ‖(s + ↑b) ^ N‖ / ‖s - 1‖
+        ≤ C_PL * ‖(s + ↑b) ^ N‖ / ‖s - 1‖ := by
+          apply div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_right hg_bound (le_of_lt hdenom_pos))
+          exact le_of_lt hs1_pos
+      _ ≤ C_PL * ‖(s + ↑b) ^ N‖ / δ := by
+          apply div_le_div_of_nonneg_left (mul_nonneg hC_PL_nn (le_of_lt hdenom_pos)) hδ hs_away
+      _ ≤ C_PL / δ * (b + |a| + 1) ^ N * (1 + |s.im|) ^ N := by
+          -- Need: C_PL * ‖s + ↑b‖^N / δ ≤ C_PL * (b + |a| + 1)^N / δ * (1 + |s.im|)^N.
+          -- Suffices: ‖s + ↑b‖ ≤ (b + |a| + 1) * (1 + |s.im|).
+          have hsnorm : ‖s + (↑b : ℂ)‖ ≤ (b + |a| + 1) * (1 + |s.im|) := by
+            have hba_eq : b + |a| + 1 = 2 * b := by
+              simp only [a, b]; rw [abs_of_neg (by linarith)]; ring
+            rw [hba_eq]
+            have h := Complex.norm_le_abs_re_add_abs_im (s + (↑b : ℂ))
+            have hre : (s + (↑b : ℂ)).re = s.re + b := by simp
+            have him : (s + (↑b : ℂ)).im = s.im := by simp
+            rw [hre, him] at h
+            have hre_bound : |s.re + b| ≤ 2 * b := by
+              rw [abs_le]; constructor <;> linarith [hsa, hsb]
+            calc ‖s + (↑b : ℂ)‖ ≤ |s.re + b| + |s.im| := h
+              _ ≤ 2 * b + |s.im| := by linarith
+              _ ≤ 2 * b * (1 + |s.im|) := by nlinarith [abs_nonneg s.im, le_of_lt hb_gt_one]
+          -- The goal has ‖(s + ↑b)^N‖, which equals ‖s + ↑b‖^N.
+          rw [norm_pow]
+          calc C_PL * ‖s + ↑b‖ ^ N / δ
+              ≤ C_PL * ((b + |a| + 1) * (1 + |s.im|)) ^ N / δ := by
+                apply div_le_div_of_nonneg_right _ hδ.le
+                exact mul_le_mul_of_nonneg_left
+                  (pow_le_pow_left₀ (norm_nonneg _) hsnorm N) hC_PL_nn
+            _ = C_PL / δ * (b + |a| + 1) ^ N * (1 + |s.im|) ^ N := by
+                rw [mul_pow]; ring
 
 /-- **Critical-line specialization.**
 
