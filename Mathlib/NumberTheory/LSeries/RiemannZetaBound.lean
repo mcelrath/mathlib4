@@ -45,6 +45,34 @@ open Complex LSeries
 
 namespace RiemannZeta
 
+private lemma norm_cos_le_exp_abs_im (z : ℂ) : ‖cos z‖ ≤ Real.exp |z.im| := by
+  rw [cos]
+  have h1 : ‖(exp (z * I) + exp (-z * I)) / 2‖ ≤
+      (‖exp (z * I)‖ + ‖exp (-z * I)‖) / 2 := by
+    rw [norm_div]
+    simp only [norm_ofNat]
+    exact div_le_div_of_nonneg_right (norm_add_le _ _) two_pos.le
+  have h2 : ‖exp (z * I)‖ = Real.exp (-z.im) := by
+    rw [norm_exp, mul_I_re]
+  have h3 : ‖exp (-z * I)‖ = Real.exp z.im := by
+    rw [norm_exp]
+    simp
+  rw [h2, h3] at h1
+  calc ‖(exp (z * I) + exp (-z * I)) / 2‖
+      ≤ (Real.exp (-z.im) + Real.exp z.im) / 2 := h1
+    _ = Real.cosh z.im := by rw [Real.cosh_eq]; ring
+    _ ≤ Real.exp |z.im| := by
+        rw [Real.cosh_eq]
+        rcases lt_or_ge z.im 0 with h | h
+        · rw [abs_of_neg h]
+          have : Real.exp z.im ≤ Real.exp (-z.im) :=
+            Real.exp_le_exp.mpr (by linarith)
+          linarith [Real.exp_pos (-z.im)]
+        · rw [abs_of_nonneg h]
+          have : Real.exp (-z.im) ≤ Real.exp z.im :=
+            Real.exp_le_exp.mpr (by linarith)
+          linarith [Real.exp_pos z.im]
+
 /-- **Trivial bound on `ζ` in the half-plane of absolute convergence.**
 
 For `1 < σ` and `σ ≤ Re s`,
