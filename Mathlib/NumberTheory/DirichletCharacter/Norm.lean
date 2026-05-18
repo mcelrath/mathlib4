@@ -26,7 +26,6 @@ Together these give `‖rootNumber χ‖² = 1`.
 
 ## Main results
 
-* `DirichletCharacter.conductor_inv` : `conductor χ⁻¹ = conductor χ`
 * `DirichletCharacter.IsPrimitive.inv` : primitivity of the inverse character
 * `DirichletCharacter.IsPrimitive.rootNumber_mul_rootNumber_inv` : `ε(χ) · ε(χ⁻¹) = 1`
 * `DirichletCharacter.IsPrimitive.norm_rootNumber` : `‖rootNumber χ‖ = 1`
@@ -56,14 +55,6 @@ lemma factorsThrough_inv_iff {χ : DirichletCharacter R N} {d : ℕ} :
   · rintro ⟨hd, χ₀, hχ₀⟩
     refine ⟨hd, χ₀⁻¹, ?_⟩
     rw [hχ₀, ← map_inv (changeLevel hd)]
-
-omit [NeZero N] in
-/-- The conductor of a Dirichlet character is invariant under inversion. -/
-@[simp]
-lemma conductor_inv (χ : DirichletCharacter R N) :
-    conductor χ⁻¹ = conductor χ := by
-  simp only [conductor, conductorSet]
-  congr 1; ext d; exact factorsThrough_inv_iff
 
 omit [NeZero N] in
 /-- The inverse of a primitive Dirichlet character is primitive. -/
@@ -120,7 +111,7 @@ theorem rootNumber_mul_rootNumber_inv :
   · have h1 := level_one χ; subst h1; simp [rootNumber_modOne]
   -- χ ≠ 1 since primitive with N > 1
   have hχ_ne : χ ≠ 1 := by
-    intro h; rw [h, IsPrimitive, conductor_one (NeZero.ne N)] at hχ; exact hN hχ.symm
+    intro h; rw [h, IsPrimitive, conductor_one] at hχ; exact hN hχ.symm
   have hN_ne : (N : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr (NeZero.ne N)
   -- Λ(χ, 2) ≠ 0
   have hΛ : completedLFunction χ 2 ≠ 0 := by
